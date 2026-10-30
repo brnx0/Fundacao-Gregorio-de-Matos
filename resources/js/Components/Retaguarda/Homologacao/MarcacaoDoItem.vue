@@ -84,6 +84,8 @@ const salvarProblema = (): void => {
     enviar('problema');
 };
 
+// Pressionado: texto verde sobre o verde claro, que se ajusta no modo escuro; no alto contraste (o verde não lê no
+// preto), o amarelo de ação.
 const classeBotao =
     'pressionavel inline-flex min-h-10 items-center gap-1.5 rounded-pill border px-4 text-[0.8125rem] font-bold disabled:cursor-wait disabled:opacity-70';
 </script>
@@ -99,7 +101,7 @@ const classeBotao =
                 :class="[
                     classeBotao,
                     marcacao?.situacao === 'ok'
-                        ? 'border-texto-verde bg-texto-verde text-white'
+                        ? 'border-texto-verde bg-texto-verde/10 text-texto-verde [html.alto-contraste_&]:border-acao [html.alto-contraste_&]:bg-superficie [html.alto-contraste_&]:text-acao'
                         : 'border-tinta-suave/60 bg-superficie text-home-tinta hover:border-texto-verde hover:text-texto-verde',
                 ]"
                 @click="marcarOk"
@@ -153,7 +155,7 @@ const classeBotao =
         <p v-if="form.errors.item" role="alert" class="text-[0.875rem] font-semibold text-invalido-texto">{{ form.errors.item }}</p>
 
         <div v-if="marcacao && (desabilitado || !observacaoAberta)" class="text-[0.9375rem]">
-            <p v-if="desabilitado" class="font-semibold" :class="marcacao.situacao === 'ok' ? 'text-texto-verde' : 'text-erro-texto'">
+            <p v-if="desabilitado" class="font-semibold" :class="marcacao.situacao === 'ok' ? 'text-texto-verde [html.alto-contraste_&]:text-acao' : 'text-erro-texto'">
                 {{ marcacao.situacao === 'ok' ? 'Ok' : 'Com problema' }}
             </p>
             <p v-if="marcacao.situacao === 'problema' && marcacao.observacao" class="break-words whitespace-pre-line">{{ marcacao.observacao }}</p>
