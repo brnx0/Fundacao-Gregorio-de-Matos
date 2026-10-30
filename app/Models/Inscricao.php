@@ -9,8 +9,10 @@ use App\Enums\SituacaoConferencia;
 use App\Enums\SituacaoEdital;
 use App\Enums\SituacaoHomologacao;
 use App\Enums\SituacaoInscricao;
+use App\Models\Concerns\UsaDiaCivil;
 use App\Support\Inscricao\QuestionarioDaInscricao;
 use App\Support\Inscricao\RegrasDaInscricao;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Database\Factories\InscricaoFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,6 +33,8 @@ class Inscricao extends Model
 {
     /** @use HasFactory<InscricaoFactory> */
     use HasFactory;
+
+    use UsaDiaCivil;
 
     /** Disco e pasta dos documentos enviados. */
     public const string DISCO = 'local';
@@ -194,5 +198,60 @@ class Inscricao extends Model
     public function noPeriodo(?CarbonInterface $agora = null): bool
     {
         return $this->edital->estaVisivel() && $this->chamada?->situacao($agora) === SituacaoEdital::Aberto;
+    }
+
+    /** Chamada da inscrição no período de homologação; falso sem chamada (apagada) ou sem as datas. */
+    public function naHomologacao(?CarbonInterface $agora = null): bool
+    {
+        return $this->chamada?->naHomologacao($agora) === true;
+    }
+
+    /**
+     * Último dia para recorrer (meia-noite, fuso da aplicação; vale até 23:59 dele): três dias corridos depois do
+     * fim da homologação ou do dia da decisão, o que vier por último. Nulo sem decisão.
+     */
+    public function prazoDoRecurso(): ?CarbonImmutable
+    {
+        if ($this->homologada_em === null) {
+            return null;
+        }
+
+        $ultimoDia = self::hoje($this->homologada_em);
+        $fimDaHomologacao = $this->chamada?->homologacao_fim;
+
+        if ($fimDaHomologacao !== null) {
+            $ultimoDia = $ultimoDia->max(CarbonImmutable::parse($fimDaHomologacao->toDateString(), config('app.timezone')));
+        }
+
+        return $ultimoDia->addDays(3);
+    }
+
+    /** Não homologada, sem recurso enviado e hoje até o último dia do prazo do recurso (dias inteiros, ver UsaDiaCivil). */
+    public function podeRecorrer(?CarbonInterface $agora = null): bool
+    {
+        $prazo = $this->prazoDoRecurso();
+
+        return $this->homologacao === SituacaoHomologacao::NaoHomologada
+            && $prazo !== null
+            && self::hoje($agora)->toDateString() <= $prazo->toDateString()
+            && ! $this->recurso()->exists();
+    }
+
+    /**
+     * Situação mostrada ao proponente: rascunho, em homologação (finalizada sem decisão) ou a da homologação.
+     *
+     * @return array{chave: string, rotulo: string}
+     */
+    public function situacaoNoPortal(): array
+    {
+        if ($this->situacao === SituacaoInscricao::Rascunho) {
+            return ['chave' => 'rascunho', 'rotulo' => 'Rascunho'];
+        }
+
+        if ($this->homologacao === null) {
+            return ['chave' => 'em_homologacao', 'rotulo' => 'Em homologação'];
+        }
+
+        return ['chave' => $this->homologacao->value, 'rotulo' => $this->homologacao->rotuloNoPortal()];
     }
 }

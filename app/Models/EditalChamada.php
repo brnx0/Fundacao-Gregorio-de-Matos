@@ -83,6 +83,24 @@ class EditalChamada extends Model
         };
     }
 
+    /** As duas datas da homologação preenchidas. */
+    public function temPeriodoDeHomologacao(): bool
+    {
+        return $this->homologacao_inicio !== null && $this->homologacao_fim !== null;
+    }
+
+    /** Hoje entre o início e o fim da homologação, inclusive (dias inteiros, ver UsaDiaCivil); falso sem as duas datas. */
+    public function naHomologacao(?CarbonInterface $agora = null): bool
+    {
+        if (! $this->temPeriodoDeHomologacao()) {
+            return false;
+        }
+
+        $hoje = self::hoje($agora)->toDateString();
+
+        return $hoje >= $this->homologacao_inicio->toDateString() && $hoje <= $this->homologacao_fim->toDateString();
+    }
+
     /** @return BelongsTo<Edital, $this> */
     public function edital(): BelongsTo
     {
