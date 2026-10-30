@@ -32,10 +32,12 @@ final class PassosDaInscricao
     {
         $respostas = $questionario->respostasSalvas();
 
+        // Mesma regra das escolhas (SalvarInscricaoRequest): a categoria só é exigida quando alguma aceita a natureza.
         $passos = [[
             'id' => self::ESCOLHAS,
             'rotulo' => 'Escolhas',
-            'completo' => $inscricao->edital_categoria_id !== null || ! $inscricao->edital->categorias()->exists(),
+            'completo' => $inscricao->edital_categoria_id !== null
+                || RegrasDaInscricao::categorias($inscricao->edital, $inscricao->natureza)->isEmpty(),
         ]];
 
         foreach ($questionario->secoesVisiveis($respostas) as $secao) {

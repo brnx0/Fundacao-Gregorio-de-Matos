@@ -29,9 +29,10 @@ const LIMITE_ATINGIDO = 'Este cadastro já atingiu o limite de inscrições dest
 const categoriasDaNatureza = (natureza: string | undefined): CategoriaDaInscricao[] =>
     natureza === undefined ? [] : props.categorias.filter((item) => item.naturezas.length === 0 || item.naturezas.includes(natureza));
 
-const categoriasDisponiveis = computed<CategoriaDaInscricao[]>(() =>
-    categoriasDaNatureza(props.cadastros.find((item) => item.chave === cadastro.value)?.natureza),
-);
+const cadastroEscolhido = computed<CadastroDaInscricao | undefined>(() => props.cadastros.find((item) => item.chave === cadastro.value));
+
+// Sem nenhuma para a natureza, a inscrição segue sem categoria (como as escolhas aceitam no servidor).
+const categoriasDisponiveis = computed<CategoriaDaInscricao[]>(() => categoriasDaNatureza(cadastroEscolhido.value?.natureza));
 
 // Motivo de o cadastro não poder ser escolhido; nulo = pode.
 const motivoIndisponivel = (item: CadastroDaInscricao): string | null => {
@@ -128,6 +129,9 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                 <option v-for="opcao in categoriasDisponiveis" :key="opcao.id" :value="opcao.id">{{ opcao.nome }}</option>
             </select>
         </CampoCadastro>
+        <p v-else-if="cadastroEscolhido && categorias.length > 0" class="rounded-[12px] border border-hairline bg-nevoa px-4 py-3 text-[0.9375rem] leading-[1.5]">
+            Nenhuma categoria deste edital é para {{ cadastroEscolhido.naturezaRotulo }}. A inscrição segue sem categoria.
+        </p>
 
         <fieldset v-if="cotas.length > 0" class="flex min-w-0 flex-col gap-3" :aria-describedby="erros.cotas ? 'inscricao-cotas-erro' : undefined">
             <legend class="text-[0.9375rem] font-semibold">Concorrer por cota</legend>

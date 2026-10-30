@@ -300,6 +300,30 @@ class QuestionarioDaInscricaoTest extends TestCase
         $this->assertSame('revisao', PassosDaInscricao::atual($passos, 'revisao'));
     }
 
+    public function test_escolhas_ficam_completas_sem_categoria_quando_nenhuma_aceita_a_natureza(): void
+    {
+        // Como as escolhas aceitam: sem categoria para Pessoa Física, a inscrição segue sem categoria.
+        $this->teatro->update(['naturezas' => [NaturezaProponente::SemFins]]);
+        $this->danca->update(['naturezas' => [NaturezaProponente::SemFins]]);
+        $this->inscricao->update(['edital_categoria_id' => null]);
+
+        $passos = PassosDaInscricao::para($this->inscricao->fresh(), $this->questionario());
+
+        $this->assertTrue($passos[0]['completo']);
+        $this->assertNotSame('escolhas', PassosDaInscricao::atual($passos, null));
+    }
+
+    public function test_escolhas_ficam_incompletas_sem_categoria_quando_alguma_aceita_a_natureza(): void
+    {
+        $this->danca->update(['naturezas' => [NaturezaProponente::SemFins]]);
+        $this->inscricao->update(['edital_categoria_id' => null]);
+
+        $passos = PassosDaInscricao::para($this->inscricao->fresh(), $this->questionario());
+
+        $this->assertFalse($passos[0]['completo']);
+        $this->assertSame('escolhas', PassosDaInscricao::atual($passos, null));
+    }
+
     private function secao(string $titulo, int $ordem): EditalQuestionarioSecao
     {
         return EditalQuestionarioSecao::factory()->for($this->edital)->create(['titulo' => $titulo, 'ordem' => $ordem]);
