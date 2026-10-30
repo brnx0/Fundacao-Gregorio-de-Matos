@@ -49,10 +49,12 @@ final class RegrasDoQuestionario
             "{$pergunta}.opcoes.*.texto" => ['required', 'string', 'max:500', new TamanhoEmBytes(500)],
             "{$pergunta}.opcoes.*.outro" => ['nullable', 'boolean'],
             "{$pergunta}.todas_categorias" => ['boolean'],
+            // Sem distinct: com dois * ele compara as listas de todas as perguntas juntas (duas perguntas não poderiam
+            // ter a mesma categoria). Repetida na mesma pergunta, o SincronizadorDoQuestionario grava uma vez só.
             "{$pergunta}.categorias" => ['nullable', 'array'],
-            "{$pergunta}.categorias.*" => ['integer', 'distinct', Rule::in($posicoesDeCategorias)],
+            "{$pergunta}.categorias.*" => ['integer', Rule::in($posicoesDeCategorias)],
             "{$pergunta}.naturezas" => ['nullable', 'array'],
-            "{$pergunta}.naturezas.*" => ['distinct', Rule::enum(NaturezaProponente::class)],
+            "{$pergunta}.naturezas.*" => [Rule::enum(NaturezaProponente::class)],
             "{$pergunta}.condicao_pergunta" => ['nullable', 'integer'],
             "{$pergunta}.condicao_opcoes" => ['nullable', 'array'],
             "{$pergunta}.condicao_opcoes.*" => ['string'],
@@ -86,7 +88,6 @@ final class RegrasDoQuestionario
     {
         return [
             self::RAIZ.'.*.perguntas.*.opcoes.*.chave.regex' => 'Use só letras minúsculas e números, até 20.',
-            self::RAIZ.'.*.perguntas.*.categorias.*.distinct' => 'Esta categoria foi escolhida mais de uma vez.',
         ];
     }
 

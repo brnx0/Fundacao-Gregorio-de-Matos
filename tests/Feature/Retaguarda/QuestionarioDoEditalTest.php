@@ -208,6 +208,32 @@ class QuestionarioDoEditalTest extends TestCase
         $this->assertTrue($semVinculo->semVinculo());
     }
 
+    public function test_perguntas_diferentes_podem_ter_a_mesma_categoria_e_a_mesma_natureza(): void
+    {
+        $this->enviar($this->edital, ['secoes' => [
+            $this->secao([
+                $this->pergunta(['enunciado' => 'Primeira', 'todas_categorias' => false, 'categorias' => [1], 'naturezas' => ['mei']]),
+                $this->pergunta(['enunciado' => 'Segunda', 'todas_categorias' => false, 'categorias' => [1], 'naturezas' => ['mei']]),
+            ]),
+            $this->secao([
+                $this->pergunta(['enunciado' => 'Terceira', 'todas_categorias' => false, 'categorias' => [0, 1], 'naturezas' => ['mei', 'pessoa_fisica']]),
+            ], 'Outra seção'),
+        ]])->assertSessionHasNoErrors();
+
+        $this->assertCount(3, $this->perguntasGravadas());
+    }
+
+    public function test_categoria_e_natureza_repetidas_na_mesma_pergunta_sao_gravadas_uma_vez(): void
+    {
+        $this->enviar($this->edital, ['secoes' => [
+            $this->secao([$this->pergunta(['todas_categorias' => false, 'categorias' => [1, 1], 'naturezas' => ['mei', 'mei']])]),
+        ]])->assertSessionHasNoErrors();
+
+        [$pergunta] = $this->perguntasGravadas();
+        $this->assertSame(1, $pergunta->categorias()->count());
+        $this->assertEquals([NaturezaProponente::Mei], $pergunta->naturezas->all());
+    }
+
     public function test_condicao_guarda_a_origem_e_as_chaves(): void
     {
         $this->enviar($this->edital, ['secoes' => [
