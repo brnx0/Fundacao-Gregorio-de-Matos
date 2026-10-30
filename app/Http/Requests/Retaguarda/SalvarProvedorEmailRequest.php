@@ -30,7 +30,7 @@ class SalvarProvedorEmailRequest extends FormRequest
             'porta' => ['required', 'integer', 'between:1,65535'],
             'criptografia' => ['required', Rule::enum(CriptografiaEmail::class)],
             'usuario' => ['required', 'string', 'max:255'],
-            'senha' => [ConfiguracaoEmail::atual()->senhaGuardada() === null ? 'required' : 'nullable', 'string', 'max:255'],
+            'senha' => [$this->pedeSenha() ? 'required' : 'nullable', 'string', 'max:255'],
             'remetente_email' => ['required', 'string', 'email', 'max:255'],
             'remetente_nome' => ['required', 'string', 'max:120', new TamanhoEmBytes(120)],
         ];
@@ -51,7 +51,9 @@ class SalvarProvedorEmailRequest extends FormRequest
             'host.regex' => 'Digite um endereço de servidor válido, como smtp.gmail.com.',
             'porta.integer' => 'Informe uma porta de 1 a 65535.',
             'porta.between' => 'Informe uma porta de 1 a 65535.',
-            'senha.required' => 'Informe a senha de app.',
+            'senha.required' => ConfiguracaoEmail::atual()->senhaGuardada() === null
+                ? 'Informe a senha de app.'
+                : 'Ao trocar o servidor, a porta, a criptografia ou o usuário, digite a senha de novo.',
             'remetente_email.email' => 'Digite um e-mail válido.',
             Enum::class => 'Selecione uma opção da lista.',
         ];
@@ -65,6 +67,24 @@ class SalvarProvedorEmailRequest extends FormRequest
                 $this->merge([$campo => trim($this->input($campo))]);
             }
         }
+    }
+
+    /**
+     * A senha guardada só continua valendo para o mesmo servidor e a mesma conta: sem isso, trocar o servidor e mandar
+     * o e-mail de teste entregaria a senha (que a tela nunca mostra) a um servidor qualquer.
+     */
+    private function pedeSenha(): bool
+    {
+        $guardada = ConfiguracaoEmail::atual();
+
+        if ($guardada->senhaGuardada() === null) {
+            return true;
+        }
+
+        return mb_strtolower((string) $this->input('host')) !== mb_strtolower($guardada->host)
+            || (string) $this->input('porta') !== (string) $guardada->porta
+            || $this->input('criptografia') !== $guardada->criptografia->value
+            || $this->input('usuario') !== $guardada->usuario;
     }
 
     /**

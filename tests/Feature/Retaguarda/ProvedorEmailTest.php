@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ProvedorEmailTest extends TestCase
@@ -91,15 +92,45 @@ class ProvedorEmailTest extends TestCase
         $this->assertStringNotContainsString(self::SENHA, $resposta->getContent());
     }
 
-    public function test_senha_em_branco_mantem_a_guardada(): void
+    public function test_senha_em_branco_mantem_a_guardada_no_mesmo_servidor(): void
     {
         $this->put(self::URL, $this->dados());
 
-        $this->put(self::URL, $this->dados(['senha' => '', 'porta' => 465, 'criptografia' => 'ssl']))->assertSessionHasNoErrors();
+        $this->put(self::URL, $this->dados(['senha' => '', 'host' => 'SMTP.gmail.com', 'remetente_nome' => 'FGM', 'ativo' => false]))
+            ->assertSessionHasNoErrors();
 
         $configuracao = ConfiguracaoEmail::sole();
         $this->assertSame(self::SENHA, $configuracao->senhaGuardada());
-        $this->assertSame(465, $configuracao->porta);
+        $this->assertSame('FGM', $configuracao->remetente_nome);
+    }
+
+    /** @return iterable<string, array{0: array<string, mixed>}> */
+    public static function trocasDeDestino(): iterable
+    {
+        yield 'servidor' => [['host' => 'smtp.outro.example']];
+        yield 'porta' => [['porta' => 2525]];
+        yield 'criptografia' => [['criptografia' => 'ssl']];
+        yield 'usuario' => [['usuario' => 'outra.conta@gmail.com']];
+    }
+
+    #[DataProvider('trocasDeDestino')]
+    public function test_trocar_o_destino_da_senha_pede_a_senha_de_novo(array $troca): void
+    {
+        $this->put(self::URL, $this->dados());
+
+        $this->put(self::URL, $this->dados(['senha' => '', ...$troca]))
+            ->assertSessionHasErrors(['senha' => 'Ao trocar o servidor, a porta, a criptografia ou o usuário, digite a senha de novo.']);
+
+        $this->assertSame('smtp.gmail.com', ConfiguracaoEmail::sole()->host);
+        $this->assertSame(587, ConfiguracaoEmail::sole()->porta);
+    }
+
+    public function test_senha_digitada_nao_volta_como_old_input_quando_a_validacao_falha(): void
+    {
+        $this->put(self::URL, $this->dados(['remetente_email' => 'sem-arroba']))->assertSessionHasErrors('remetente_email');
+
+        $this->assertNull(session()->getOldInput('senha'));
+        $this->assertSame('fgm.envios@gmail.com', session()->getOldInput('usuario'));
     }
 
     public function test_senha_e_obrigatoria_enquanto_nenhuma_esta_guardada(): void

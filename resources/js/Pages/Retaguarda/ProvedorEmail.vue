@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import AvisoCamposObrigatorios from '../../Components/AvisoCamposObrigatorios.vue';
 import CampoCadastro from '../../Components/CampoCadastro.vue';
@@ -24,6 +24,27 @@ const PORTA_USUAL: Record<CriptografiaEmail, number> = { tls: 587, ssl: 465 };
 // A senha nunca volta do servidor: o campo começa vazio e, em branco, mantém a guardada.
 const form = useForm({ ...props.configuracao, senha: '' });
 const senhaVisivel = ref<boolean>(false);
+
+// A senha guardada só vale para o mesmo servidor e a mesma conta (o servidor confere): trocando algum deles, ela é pedida de novo.
+const pedeSenha = computed<boolean>(() => {
+    const salva = props.configuracao;
+    return (
+        !props.senhaGuardada ||
+        form.host.trim().toLowerCase() !== salva.host.toLowerCase() ||
+        Number(form.porta) !== salva.porta ||
+        form.criptografia !== salva.criptografia ||
+        form.usuario.trim() !== salva.usuario
+    );
+});
+
+const ajudaSenha = computed<string>(() => {
+    if (!props.senhaGuardada) {
+        return 'O Gmail não aceita a senha da conta: gere uma senha de app em myaccount.google.com/apppasswords (exige verificação em duas etapas).';
+    }
+    return pedeSenha.value
+        ? 'Você trocou o servidor, a porta, a criptografia ou o usuário: digite a senha de novo.'
+        : 'Há uma senha guardada. Deixe em branco para manter, ou digite outra para trocar.';
+});
 const testando = ref<boolean>(false);
 
 watch(
@@ -166,12 +187,8 @@ const classeRadio = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                     <CampoCadastro
                         id="senha"
                         rotulo="Senha de app"
-                        :obrigatorio="!props.senhaGuardada"
-                        :ajuda="
-                            props.senhaGuardada
-                                ? 'Há uma senha guardada. Deixe em branco para manter, ou digite outra para trocar.'
-                                : 'O Gmail não aceita a senha da conta: gere uma senha de app em myaccount.google.com/apppasswords (exige verificação em duas etapas).'
-                        "
+                        :obrigatorio="pedeSenha"
+                        :ajuda="ajudaSenha"
                         :erro="form.errors.senha"
                         v-slot="{ descricao, invalido }"
                     >
@@ -186,12 +203,12 @@ const classeRadio = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                                 autocapitalize="off"
                                 spellcheck="false"
                                 maxlength="255"
-                                :required="!props.senhaGuardada"
+                                :required="pedeSenha"
                                 data-1p-ignore
                                 data-lpignore="true"
                                 data-bwignore
                                 data-form-type="other"
-                                :placeholder="props.senhaGuardada ? '•••••••••• (configurada)' : ''"
+                                :placeholder="props.senhaGuardada && !pedeSenha ? '•••••••••• (configurada)' : ''"
                                 :class="[classeCampo, 'pr-12']"
                                 :aria-invalid="invalido || undefined"
                                 :aria-describedby="descricao"

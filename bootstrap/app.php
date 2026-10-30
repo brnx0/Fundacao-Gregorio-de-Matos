@@ -48,8 +48,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // a partir de config('app.trusted_proxies'), para funcionar com config:cache.
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // A chave de API digitada na Integração com IA não volta como "old input": a sessão fica em arquivo, sem cifra.
-        $exceptions->dontFlash(['chave_api']);
+        // Chave de API e senhas digitadas não voltam como "old input": a sessão fica em arquivo, sem cifra.
+        $exceptions->dontFlash(['chave_api', 'senha', 'senha_confirmation', 'senha_atual', 'nova_senha', 'nova_senha_confirmation']);
 
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
