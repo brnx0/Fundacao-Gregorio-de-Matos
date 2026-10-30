@@ -136,9 +136,9 @@ class ImportacaoQuestionarioTest extends TestCase
      */
     private function importar(UploadedFile $arquivo, array $dados = []): ImportacaoQuestionario
     {
-        $this->from('/retaguarda/editais/'.$this->edital->slug.'/edit')
+        $this->from('/retaguarda/editais/'.$this->edital->slug.'/questionario')
             ->post($this->url(), ['arquivo' => $arquivo, ...$dados])
-            ->assertRedirect('/retaguarda/editais/'.$this->edital->slug.'/edit')
+            ->assertRedirect('/retaguarda/editais/'.$this->edital->slug.'/questionario')
             ->assertSessionHasNoErrors()
             ->assertSessionHas('sucesso', 'Análise iniciada. Você pode continuar usando o sistema.');
 
@@ -454,11 +454,11 @@ class ImportacaoQuestionarioTest extends TestCase
         $this->assertNull($comErro->refresh()->conferida_em);
     }
 
-    public function test_tela_do_edital_traz_a_ultima_importacao_e_o_quadro_ate_conferir(): void
+    public function test_tela_do_questionario_traz_a_ultima_importacao_e_o_quadro_ate_conferir(): void
     {
         Http::fake([self::URL_ANALISE => self::respostaDoGemini($this->respostaDoQuestionario())]);
         $this->importar($this->pdf());
-        $editar = '/retaguarda/editais/'.$this->edital->slug.'/edit';
+        $editar = '/retaguarda/editais/'.$this->edital->slug.'/questionario';
 
         $this->get($editar)->assertInertia(fn (Assert $pagina) => $pagina
             ->where('importacaoQuestionario.situacao', 'concluida')

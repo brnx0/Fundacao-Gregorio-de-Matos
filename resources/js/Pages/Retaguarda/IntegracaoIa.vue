@@ -5,6 +5,7 @@ import { focarPrimeiroErro } from '../../Components/focarPrimeiroErro';
 import CamposProvedorIa from '../../Components/Retaguarda/CamposProvedorIa.vue';
 import Interruptor from '../../Components/Interruptor.vue';
 import SecaoCadastro from '../../Components/SecaoCadastro.vue';
+import PaginaRetaguarda from '../../Components/Retaguarda/PaginaRetaguarda.vue';
 import RetaguardaLayout from '../../Layouts/RetaguardaLayout.vue';
 import type { ProvedorIa, ProvedorIaRetaguarda, RetaguardaIntegracaoIaProps } from '../../types';
 
@@ -89,22 +90,19 @@ const classeEtiqueta = 'shrink-0 rounded-pill bg-nevoa px-2.5 py-0.5 text-[0.75r
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-4xl flex-col gap-6 px-4 pt-8 lg:px-6">
+    <PaginaRetaguarda
+        largura="estreita"
+        titulo="Integração com IA"
+        descricao="Provedores de inteligência artificial usados nas validações automáticas do sistema. As chaves ficam cifradas no banco e não voltam para a tela. Com a validação ligada, os documentos analisados são enviados ao provedor escolhido."
+    >
         <Head title="Integração com IA · Retaguarda" />
 
-        <div>
-            <p class="text-[0.75rem] font-bold tracking-[0.12em] text-acao uppercase">Parametrização</p>
-            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-                <h1 class="text-[1.75rem] leading-tight font-bold">Integração com IA</h1>
-                <span :class="[classeSelo, configuracao.ativo ? 'bg-nevoa text-acao' : 'border border-hairline text-tinta-suave']">
-                    {{ configuracao.ativo ? 'Validação por IA ligada' : 'Validação por IA desligada' }}
-                </span>
-            </div>
-            <p class="mt-1 text-[0.9375rem] text-tinta-suave">
-                Provedores de inteligência artificial usados nas validações automáticas do sistema. As chaves ficam cifradas no banco e não voltam
-                para a tela. Com a validação ligada, os documentos analisados são enviados ao provedor escolhido.
-            </p>
-        </div>
+        <template #detalhe>
+            <span class="selo-faixa">
+                <span aria-hidden="true" class="size-2 rounded-full" :class="configuracao.ativo ? 'bg-situacao-aberto' : 'bg-situacao-encerrado'" />
+                {{ configuracao.ativo ? 'Validação por IA ligada' : 'Validação por IA desligada' }}
+            </span>
+        </template>
 
         <form id="formulario-ia-principal" novalidate @submit.prevent="salvarPrincipal">
             <SecaoCadastro id="secao-ia-principal" :numero="1" titulo="Provedor principal">
@@ -235,5 +233,5 @@ const classeEtiqueta = 'shrink-0 rounded-pill bg-nevoa px-2.5 py-0.5 text-[0.75r
                 </div>
             </SecaoCadastro>
         </form>
-    </div>
+    </PaginaRetaguarda>
 </template>

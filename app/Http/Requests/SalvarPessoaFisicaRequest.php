@@ -8,6 +8,7 @@ use App\Enums\IdentidadeGenero;
 use App\Enums\PovoTradicional;
 use App\Enums\RacaCor;
 use App\Enums\TipoDeficiencia;
+use App\Models\AreaAtuacao;
 use App\Models\PessoaFisica;
 use App\Models\PrefeituraBairro;
 use App\Rules\TamanhoEmBytes;
@@ -50,6 +51,7 @@ class SalvarPessoaFisicaRequest extends FormRequest
         return [
             'nome_social' => ['nullable', 'string', 'max:255'],
             'nome_artistico' => ['nullable', 'string', 'max:255'],
+            'data_nascimento' => ['required', 'date_format:Y-m-d', 'after:1900-01-01', 'before:today', 'before_or_equal:'.PessoaFisica::nascimentoMaximo()],
             'foto_perfil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,gif', 'max:2048'],
 
             'pais_origem' => ['required', Rule::in(Paises::TODOS)],
@@ -61,6 +63,8 @@ class SalvarPessoaFisicaRequest extends FormRequest
             'documento_outros' => ['nullable', ...self::DOCUMENTO],
 
             'drt' => ['nullable', 'string', 'max:30'],
+            // Áreas ativas (Parametrização) e as já marcadas, mesmo se desativadas depois; com array, o in vale para cada uma.
+            'areas_atuacao' => ['required', 'array', Rule::in(AreaAtuacao::idsAceitos($salvo?->idsDasAreas() ?? []))],
             'cultura_principal_renda' => ['boolean'],
             'ja_foi_avaliador' => ['boolean'],
             'interesse_avaliador' => ['boolean'],
@@ -112,6 +116,13 @@ class SalvarPessoaFisicaRequest extends FormRequest
             'in' => 'Selecione uma opção da lista.',
             Enum::class => 'Selecione uma opção da lista.',
             'boolean' => 'Valor inválido.',
+            'data_nascimento.date_format' => 'Digite uma data válida.',
+            'data_nascimento.after' => 'Digite uma data válida.',
+            'data_nascimento.before' => 'A data de nascimento precisa ser anterior a hoje.',
+            'data_nascimento.before_or_equal' => 'É preciso ter '.PessoaFisica::IDADE_MINIMA.' anos ou mais para se cadastrar.',
+            'areas_atuacao.required' => 'Marque ao menos uma área de atuação.',
+            'areas_atuacao.array' => 'Marque ao menos uma área de atuação.',
+            'areas_atuacao.in' => 'Uma das áreas marcadas saiu da lista. Confira as áreas e salve de novo.',
             'deficiencia_outra.required' => 'Diga qual é a deficiência.',
             'anos_atuacao.integer' => 'Informe um número inteiro.',
             'anos_atuacao.min' => 'Informe 0 ou mais.',

@@ -1,4 +1,4 @@
-import { nextTick, reactive, ref, watch, type Ref } from 'vue';
+import { nextTick, reactive, ref, watch, type InjectionKey, type Ref } from 'vue';
 import type { ItemEditavel } from '../../types';
 
 /**
@@ -9,9 +9,27 @@ import type { ItemEditavel } from '../../types';
 /** Mesmo limite do SalvarEditalRequest (MAXIMO_ITENS). */
 export const MAXIMO_ITENS = 50;
 
+/**
+ * Formulário do edital aberto só para ler (ícone Visualizar da lista): os campos ficam bloqueados e os componentes de
+ * dentro escondem o que é de editar (adicionar, mover, remover, gerar com IA, enviar arquivo).
+ */
+export const SOMENTE_LEITURA: InjectionKey<boolean> = Symbol('somenteLeitura');
+
 // Chave do cartão: não muda ao reordenar e é única na página (os ids dos campos são montados com ela).
 let proximaChave = 0;
 export const novaChave = (): string => `k${++proximaChave}`;
+
+// Listas salvas viram cartões com chave própria; as referências por posição do servidor viram chaves dos cartões.
+export const chaveNaPosicao = (lista: ItemEditavel[], posicao: number | null): string | null => (posicao === null ? null : (lista[posicao]?.chave ?? null));
+export const chavesNasPosicoes = (lista: ItemEditavel[], posicoes: number[]): string[] => posicoes.flatMap((posicao) => lista[posicao]?.chave ?? []);
+
+// Na volta, as chaves viram posições na lista enviada.
+export const posicoes = (lista: ItemEditavel[]): Map<string, number> => new Map(lista.map((item, posicao) => [item.chave, posicao]));
+export const emPosicoes = (chaves: string[], mapa: Map<string, number>): number[] =>
+    chaves
+        .map((chave) => mapa.get(chave))
+        .filter((posicao): posicao is number => posicao !== undefined)
+        .sort((a, b) => a - b);
 
 /**
  * Só dígitos (sem sinal, ponto, vírgula ou "e"), limitado a `maximo`; devolve o número e reescreve o campo.
@@ -86,8 +104,6 @@ export const classeCampo = `${classeCampoBase} w-full`;
 export const classeTexto = `${classeCampo} h-auto py-3 leading-[1.6]`;
 export const classeMarcacao = 'flex min-h-11 cursor-pointer items-start gap-3 py-2 text-[0.9375rem] leading-[1.5]';
 export const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
-export const classeBotaoCartao =
-    'pressionavel inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 text-[0.8125rem] font-bold text-acao hover:bg-nevoa disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent';
 export const classeDica = 'text-[0.8125rem] leading-[1.5] text-tinta-suave';
 
 export interface OpcoesListaEditavel<T> {
@@ -186,9 +202,13 @@ export function useListaEditavel<T extends ItemEditavel>(opcoes: OpcoesListaEdit
         document.getElementById(id)?.focus();
     };
 
-    /** Novo item entra no fim (os índices dos outros não mudam, então os erros deles continuam valendo), aberto e com foco em `campo`. */
+    /**
+     * Novo item entra no fim (os índices dos outros não mudam, então os erros deles continuam valendo), aberto e com foco
+     * em `campo`. O erro da lista inteira ("Cadastre ao menos uma…", para publicar) deixa de valer e sai da aba.
+     */
     const acrescentar = (item: T, campo: string): void => {
         lista.value = [...lista.value, item];
+        if (erros()[prefixo()]) limparErros([prefixo()]);
         abertos.add(item.chave);
         void focar(idCampo(item, campo));
     };

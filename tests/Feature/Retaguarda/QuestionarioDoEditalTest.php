@@ -3,15 +3,16 @@
 namespace Tests\Feature\Retaguarda;
 
 use App\Enums\TipoPergunta;
+use App\Http\Requests\Retaguarda\SalvarQuestionarioDoEditalRequest;
 use App\Models\Edital;
 use App\Models\EditalCategoria;
+use App\Models\EditalChamada;
 use App\Models\EditalPergunta;
 use App\Models\EditalQuestionarioSecao;
 use App\Models\ImportacaoQuestionario;
 use App\Models\Inscricao;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -37,26 +38,14 @@ class QuestionarioDoEditalTest extends TestCase
     }
 
     /**
-     * Envio do formulário completo: as categorias atuais e o questionário como texto JSON num campo só.
+     * Envio da tela do questionário: o questionário inteiro; as categorias são as gravadas, por posição.
      *
      * @param  array<string, mixed>  $questionario
      * @param  array<string, mixed>  $extras
      */
     private function enviar(Edital $edital, array $questionario, array $extras = []): TestResponse
     {
-        $categorias = $edital->categorias()->get()->map(fn (EditalCategoria $categoria): array => [
-            'id' => $categoria->id,
-            'nome' => $categoria->nome,
-        ])->all();
-
-        return $this->put("/retaguarda/editais/{$edital->slug}", [
-            'com_listas' => '1',
-            'com_questionario' => '1',
-            'titulo' => $edital->titulo,
-            'categorias' => $categorias,
-            'questionario' => json_encode($questionario),
-            ...$extras,
-        ]);
+        return $this->put("/retaguarda/editais/{$edital->slug}/questionario", ['questionario' => $questionario, ...$extras]);
     }
 
     /**
@@ -90,14 +79,6 @@ class QuestionarioDoEditalTest extends TestCase
             ['chave' => 'o1', 'texto' => 'Primeira', 'outro' => false],
             ['chave' => 'o2', 'texto' => 'Segunda', 'outro' => false],
         ];
-    }
-
-    private function arquivoPdf(): UploadedFile
-    {
-        $caminho = tempnam(sys_get_temp_dir(), 'upl');
-        file_put_contents($caminho, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
-
-        return new UploadedFile($caminho, 'edital.pdf', null, null, true);
     }
 
     /** @return list<EditalPergunta> */
@@ -372,13 +353,14 @@ class QuestionarioDoEditalTest extends TestCase
         $this->assertSame(2, EditalQuestionarioSecao::query()->count());
     }
 
-    public function test_sem_o_marcador_o_questionario_nao_muda(): void
+    public function test_salvar_o_edital_nao_toca_no_questionario(): void
     {
         $secao = EditalQuestionarioSecao::factory()->create(['edital_id' => $this->edital->id]);
         EditalPergunta::factory()->create(['edital_id' => $this->edital->id, 'edital_questionario_secao_id' => $secao->id, 'enunciado' => 'Fica']);
 
         $this->put("/retaguarda/editais/{$this->edital->slug}", [
             'com_listas' => '1',
+            'com_questionario' => '1',
             'titulo' => 'Outro título',
             'questionario' => json_encode(['secoes' => []]),
         ])->assertSessionHasNoErrors();
@@ -405,12 +387,11 @@ class QuestionarioDoEditalTest extends TestCase
         $secao = EditalQuestionarioSecao::factory()->create(['edital_id' => $this->edital->id]);
         EditalPergunta::factory()->create(['edital_id' => $this->edital->id, 'edital_questionario_secao_id' => $secao->id, 'enunciado' => 'Antes']);
 
+        // A inscrição é finalizada logo depois da validação do envio: o salvamento confere a trava de novo.
         $ativo = true;
-        Edital::saving(function (Edital $edital) use (&$ativo): void {
-            if ($ativo && $edital->exists) {
-                $ativo = false;
-                Inscricao::factory()->finalizada()->create(['edital_id' => $edital->id]);
-            }
+        $this->app->afterResolving(SalvarQuestionarioDoEditalRequest::class, function () use (&$ativo): void {
+            $ativo = false;
+            Inscricao::factory()->finalizada()->create(['edital_id' => $this->edital->id]);
         });
 
         $this->enviar($this->edital, ['secoes' => [
@@ -456,10 +437,55 @@ class QuestionarioDoEditalTest extends TestCase
                 $this->pergunta(['enunciado' => 'Com vínculo']),
                 $this->pergunta(['enunciado' => 'Sem vínculo', 'todas_categorias' => false, 'categorias' => []]),
             ]),
-        ]], ['publicado' => '1', 'resumo' => 'Resumo.', 'categoria' => 'Fomento'])
-            ->assertSessionHasErrors(['questionario' => 'Vincule às categorias 1 pergunta do questionário.']);
+        ]])->assertSessionHasErrors(['questionario' => 'Vincule às categorias 1 pergunta do questionário.']);
 
         $this->assertSame(0, EditalPergunta::query()->where('edital_id', $publicado->id)->count());
+    }
+
+    public function test_rascunho_que_passa_a_publicar_recebe_o_aviso_do_questionario_gravado_junto_com_as_outras_pendencias(): void
+    {
+        $secao = EditalQuestionarioSecao::factory()->create(['edital_id' => $this->edital->id]);
+        EditalPergunta::factory()->semVinculo()->create(['edital_id' => $this->edital->id, 'edital_questionario_secao_id' => $secao->id]);
+
+        $this->put("/retaguarda/editais/{$this->edital->slug}", [
+            'titulo' => $this->edital->titulo,
+            'resumo' => 'Resumo.',
+            'categoria' => 'Fomento',
+            'publicado' => '1',
+        ])->assertSessionHasErrors([
+            'questionario' => 'Vincule às categorias 1 pergunta do questionário.',
+            'chamadas' => 'Cadastre ao menos uma chamada com início e fim das inscrições.',
+        ]);
+
+        $this->assertFalse($this->edital->refresh()->publicado);
+    }
+
+    public function test_pergunta_gravada_que_fica_sem_vinculo_ao_publicar_recebe_o_aviso_do_questionario(): void
+    {
+        $rascunho = Edital::factory()->create(['publicado' => false]);
+        $teatro = EditalCategoria::factory()->create(['edital_id' => $rascunho->id, 'nome' => 'Teatro', 'ordem' => 1]);
+        $danca = EditalCategoria::factory()->create(['edital_id' => $rascunho->id, 'nome' => 'Dança', 'ordem' => 2]);
+        $chamada = EditalChamada::factory()->for($rascunho)->create();
+        $secao = EditalQuestionarioSecao::factory()->create(['edital_id' => $rascunho->id]);
+        $pergunta = EditalPergunta::factory()->create([
+            'edital_id' => $rascunho->id, 'edital_questionario_secao_id' => $secao->id, 'todas_categorias' => false,
+        ]);
+        $pergunta->categorias()->attach($danca->id);
+
+        // Só as listas, e completas: apagar Dança deixa a pergunta gravada sem vínculo, o que só se vê depois de gravar.
+        $this->put("/retaguarda/editais/{$rascunho->slug}", [
+            'com_listas' => '1',
+            'publicado' => '1',
+            'titulo' => $rascunho->titulo,
+            'resumo' => 'Resumo.',
+            'categoria' => 'Fomento',
+            'naturezas' => ['pessoa_fisica'],
+            'chamadas' => [['id' => $chamada->id, 'nome' => 'Inscrições', 'inicio' => '2026-11-01', 'fim' => '2026-11-30']],
+            'categorias' => [['id' => $teatro->id, 'nome' => 'Teatro']],
+        ])->assertSessionHasErrors(['questionario' => 'Vincule às categorias 1 pergunta do questionário.']);
+
+        $this->assertFalse($rascunho->refresh()->publicado);
+        $this->assertNotNull($danca->fresh());
     }
 
     public function test_travado_salva_mesmo_com_pergunta_que_ficou_sem_vinculo(): void
@@ -481,6 +507,8 @@ class QuestionarioDoEditalTest extends TestCase
             'titulo' => $publicado->titulo,
             'resumo' => 'Resumo.',
             'categoria' => 'Fomento',
+            'naturezas' => ['pessoa_fisica'],
+            'chamadas' => [['nome' => 'Inscrições', 'inicio' => '2026-11-01', 'fim' => '2026-11-30']],
             'categorias' => [['id' => $teatro->id, 'nome' => 'Teatro']],
         ])->assertSessionHasNoErrors();
 
@@ -497,15 +525,24 @@ class QuestionarioDoEditalTest extends TestCase
         $this->assertSame(0, EditalPergunta::query()->count());
     }
 
-    public function test_json_invalido_e_recusado(): void
+    public function test_questionario_que_nao_e_objeto_e_recusado(): void
     {
-        $this->put("/retaguarda/editais/{$this->edital->slug}", [
-            'com_questionario' => '1',
-            'questionario' => '{secoes: ',
-        ])->assertSessionHasErrors(['questionario' => 'Valor inválido.']);
+        $this->put("/retaguarda/editais/{$this->edital->slug}/questionario", ['questionario' => '{secoes: '])
+            ->assertSessionHasErrors(['questionario' => 'Valor inválido.']);
     }
 
-    public function test_questionario_grande_vai_inteiro_num_campo_json(): void
+    public function test_envio_sem_o_questionario_e_recusado_e_nada_e_apagado(): void
+    {
+        $secao = EditalQuestionarioSecao::factory()->create(['edital_id' => $this->edital->id]);
+        EditalPergunta::factory()->create(['edital_id' => $this->edital->id, 'edital_questionario_secao_id' => $secao->id, 'enunciado' => 'Fica']);
+
+        $this->put("/retaguarda/editais/{$this->edital->slug}/questionario", [])
+            ->assertSessionHasErrors(['questionario' => 'Este campo é obrigatório.']);
+
+        $this->assertSame(['Fica'], EditalPergunta::query()->pluck('enunciado')->all());
+    }
+
+    public function test_questionario_com_200_perguntas_e_salvo(): void
     {
         $secoes = [];
         foreach (range(1, 4) as $numero) {
@@ -515,28 +552,33 @@ class QuestionarioDoEditalTest extends TestCase
             );
         }
 
-        $documentos = array_map(fn (int $i): array => [
-            'nome' => "Documento {$i}",
-            'etapa' => 'habilitacao',
-            'checagem' => 'aceita_sem_validar',
-            'obrigatorio' => '1',
-            'todas_categorias' => '1',
-        ], range(1, 50));
+        $this->enviar($this->edital, ['secoes' => $secoes])->assertSessionHasNoErrors();
 
-        $this->post('/retaguarda/editais', [
-            'com_listas' => '1',
-            'com_questionario' => '1',
-            'titulo' => 'Edital grande',
-            'categorias' => [['nome' => 'Teatro'], ['nome' => 'Dança']],
-            'documentos' => $documentos,
-            'questionario' => json_encode(['secoes' => $secoes]),
-            'pdf' => $this->arquivoPdf(),
-        ])->assertSessionHasNoErrors();
+        $this->assertSame(200, $this->edital->perguntas()->count());
+        $this->assertSame(4, $this->edital->secoesDoQuestionario()->count());
+    }
 
-        $edital = Edital::query()->where('titulo', 'Edital grande')->sole();
-        $this->assertSame(200, $edital->perguntas()->count());
-        $this->assertSame(4, $edital->secoesDoQuestionario()->count());
-        $this->assertSame(50, $edital->documentos()->count());
+    public function test_salvar_volta_para_a_lista_com_o_aviso(): void
+    {
+        $this->enviar($this->edital, ['secoes' => [$this->secao([$this->pergunta()])]])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/retaguarda/editais')
+            ->assertSessionHas('sucesso', 'Questionário salvo.');
+
+        $this->assertSame(1, $this->edital->perguntas()->count());
+    }
+
+    public function test_edital_sem_categoria_nao_abre_nem_salva_o_questionario(): void
+    {
+        $semCategoria = Edital::factory()->create(['publicado' => false]);
+
+        $this->get("/retaguarda/editais/{$semCategoria->slug}/questionario")
+            ->assertRedirect("/retaguarda/editais/{$semCategoria->slug}/edit?aba=categorias")
+            ->assertSessionHas('aviso', 'Cadastre ao menos uma categoria antes do questionário: as perguntas são vinculadas às categorias.');
+
+        $this->enviar($semCategoria, ['secoes' => [$this->secao([$this->pergunta()])]])->assertForbidden();
+
+        $this->assertSame(0, $semCategoria->perguntas()->count());
     }
 
     public function test_mais_de_200_perguntas_e_recusado(): void
@@ -550,7 +592,7 @@ class QuestionarioDoEditalTest extends TestCase
             ->assertSessionHasErrors(['questionario' => 'Cadastre no máximo 200 perguntas.']);
     }
 
-    public function test_tela_de_edicao_traz_o_questionario_com_posicoes_e_a_trava(): void
+    public function test_tela_do_questionario_traz_as_perguntas_com_posicoes_e_a_trava(): void
     {
         [, $danca] = $this->edital->categorias()->get()->all();
         $secao = EditalQuestionarioSecao::factory()->create(['edital_id' => $this->edital->id, 'titulo' => 'Dados']);
@@ -563,11 +605,13 @@ class QuestionarioDoEditalTest extends TestCase
             ->create(['edital_id' => $this->edital->id, 'edital_questionario_secao_id' => $secao->id, 'ordem' => 2]);
         $dependente->categorias()->attach($danca->id);
 
-        $this->get("/retaguarda/editais/{$this->edital->slug}/edit")
+        $this->get("/retaguarda/editais/{$this->edital->slug}/questionario")
             ->assertOk()
             ->assertInertia(fn (Assert $p) => $p
+                ->component('Retaguarda/Editais/Questionario')
                 ->where('questionarioTravado', false)
                 ->has('tiposPergunta', 8)
+                ->where('edital.categorias.1.nome', 'Dança')
                 ->where('edital.questionario.secoes.0.titulo', 'Dados')
                 ->where('edital.questionario.secoes.0.perguntas.0.id', $origem->id)
                 ->where('edital.questionario.secoes.0.perguntas.0.tipo', 'escolha_unica')
@@ -581,14 +625,14 @@ class QuestionarioDoEditalTest extends TestCase
 
         Inscricao::factory()->finalizada()->create(['edital_id' => $this->edital->id]);
 
-        $this->get("/retaguarda/editais/{$this->edital->slug}/edit")
+        $this->get("/retaguarda/editais/{$this->edital->slug}/questionario")
             ->assertInertia(fn (Assert $p) => $p->where('questionarioTravado', true)->where('avisoQuestionarioTravado', Edital::AVISO_QUESTIONARIO_TRAVADO));
     }
 
-    public function test_novo_edital_nao_tem_trava(): void
+    public function test_formulario_do_edital_nao_traz_mais_o_questionario(): void
     {
-        $this->get('/retaguarda/editais/create')
+        $this->get("/retaguarda/editais/{$this->edital->slug}/edit")
             ->assertOk()
-            ->assertInertia(fn (Assert $p) => $p->where('questionarioTravado', false)->has('tiposPergunta', 8));
+            ->assertInertia(fn (Assert $p) => $p->missing('edital.questionario')->missing('questionarioTravado')->missing('tiposPergunta'));
     }
 }

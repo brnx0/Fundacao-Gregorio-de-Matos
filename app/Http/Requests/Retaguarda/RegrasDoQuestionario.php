@@ -78,6 +78,18 @@ final class RegrasDoQuestionario
         }
     }
 
+    /** Perguntas enviadas que não aparecem a ninguém: nem são de todas as categorias, nem de alguma. */
+    public static function perguntasSemVinculo(mixed $questionario): int
+    {
+        $semVinculo = array_filter(
+            self::perguntasEmOrdem($questionario),
+            fn (array $pergunta): bool => ! filter_var($pergunta['dados']['todas_categorias'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                && blank($pergunta['dados']['categorias'] ?? null),
+        );
+
+        return count($semVinculo);
+    }
+
     /**
      * @return array<string, string>
      */

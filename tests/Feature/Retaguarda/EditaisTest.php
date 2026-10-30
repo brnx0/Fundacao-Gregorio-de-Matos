@@ -9,6 +9,8 @@ use App\Models\ConfiguracaoIa;
 use App\Models\Edital;
 use App\Models\EditalCategoria;
 use App\Models\EditalChamada;
+use App\Models\EditalPergunta;
+use App\Models\EditalQuestionarioSecao;
 use App\Models\ImportacaoEdital;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -86,6 +88,25 @@ class EditaisTest extends TestCase
         return $edital;
     }
 
+    public function test_lista_diz_se_o_edital_tem_categoria_e_quantas_perguntas(): void
+    {
+        $comPerguntas = Edital::factory()->create(['titulo' => 'Com perguntas', 'inscricoes_inicio' => '2026-12-01']);
+        EditalCategoria::factory()->for($comPerguntas)->create();
+        $secao = EditalQuestionarioSecao::factory()->create(['edital_id' => $comPerguntas->id]);
+        EditalPergunta::factory()->count(2)->create(['edital_id' => $comPerguntas->id, 'edital_questionario_secao_id' => $secao->id]);
+        Edital::factory()->create(['titulo' => 'Sem categoria', 'inscricoes_inicio' => '2026-11-01']);
+
+        $this->get('/retaguarda/editais')
+            ->assertOk()
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('editais.data.0.titulo', 'Com perguntas')
+                ->where('editais.data.0.temCategorias', true)
+                ->where('editais.data.0.perguntas', 2)
+                ->where('editais.data.1.titulo', 'Sem categoria')
+                ->where('editais.data.1.temCategorias', false)
+                ->where('editais.data.1.perguntas', 0));
+    }
+
     public function test_lista_com_busca_e_filtros(): void
     {
         $this->travelTo(Carbon::parse('2026-11-10 10:00', 'America/Bahia'));
@@ -93,8 +114,6 @@ class EditaisTest extends TestCase
         Edital::factory()->create(['titulo' => 'Edital de Audiovisual', 'inscricoes_inicio' => '2026-12-01', 'inscricoes_fim' => '2026-12-20']);
         Edital::factory()->semPdf()->create(['titulo' => 'Rede de Leitura', 'publicado' => false, 'inscricoes_inicio' => '2026-10-01', 'inscricoes_fim' => '2026-11-09']);
         Edital::factory()->create(['titulo' => 'Cultura excluída'])->delete();
-
-        $this->get('/retaguarda')->assertRedirect('/retaguarda/editais');
 
         $this->get('/retaguarda/editais')
             ->assertOk()
@@ -180,7 +199,7 @@ class EditaisTest extends TestCase
 
     public function test_editar_sem_reenviar_mantem_arquivos(): void
     {
-        $edital = Edital::factory()->create(['pdf' => 'editais/atual.pdf', 'imagem' => 'editais/atual.png', 'publicado' => true]);
+        $edital = $this->editalCompleto(['pdf' => 'editais/atual.pdf', 'imagem' => 'editais/atual.png', 'publicado' => true]);
         Storage::disk('local')->put('editais/atual.pdf', 'pdf');
         Storage::disk('public')->put('editais/atual.png', 'png');
 
@@ -425,6 +444,26 @@ class EditaisTest extends TestCase
         $this->get("/retaguarda/editais/{$manual->slug}/edit")->assertInertia(fn (Assert $p) => $p->where('importacao', null));
     }
 
+    public function test_visualizar_abre_o_formulario_so_para_leitura(): void
+    {
+        $edital = ImportacaoEdital::factory()->concluida()->create()->edital;
+
+        $this->get("/retaguarda/editais/{$edital->slug}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $p) => $p
+                ->component('Retaguarda/Editais/Form')
+                ->where('somenteLeitura', true)
+                ->where('edital.slug', $edital->slug)
+                // Conferir a importação é de quem edita: só para ler, o quadro não vem.
+                ->where('importacao', null));
+
+        $this->get("/retaguarda/editais/{$edital->slug}/edit")
+            ->assertOk()
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('somenteLeitura', false)
+                ->whereNot('importacao', null));
+    }
+
     public function test_salva_modo_de_checagem_e_instrucao_do_documento(): void
     {
         $edital = Edital::factory()->create();
@@ -477,6 +516,7 @@ class EditaisTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         $this->get('/retaguarda/editais')->assertRedirect('/retaguarda/login');
+        $this->get("/retaguarda/editais/{$edital->slug}")->assertRedirect('/retaguarda/login');
         $this->post('/retaguarda/editais', $this->dados())->assertRedirect('/retaguarda/login');
         $this->delete("/retaguarda/editais/{$edital->slug}")->assertRedirect('/retaguarda/login');
 

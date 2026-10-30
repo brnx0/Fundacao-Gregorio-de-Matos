@@ -11,8 +11,8 @@ use App\Enums\NaturezaProponente;
 use App\Enums\SituacaoEdital;
 use App\Enums\SituacaoImportacao;
 use App\Enums\TipoEdital;
-use App\Enums\TipoPergunta;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Retaguarda\Concerns\FormatoDoFormulario;
 use App\Http\Requests\Retaguarda\SalvarEditalRequest;
 use App\Models\ConfiguracaoIa;
 use App\Models\Edital;
@@ -21,22 +21,14 @@ use App\Models\EditalCategoriaItem;
 use App\Models\EditalChamada;
 use App\Models\EditalCriterio;
 use App\Models\EditalDocumento;
-use App\Models\EditalPergunta;
-use App\Models\EditalQuestionarioSecao;
 use App\Models\ImportacaoEdital;
-use App\Models\ImportacaoQuestionario;
 use App\Support\ArquivoArmazenado;
 use App\Support\Edital\SincronizadorDoEdital;
-use App\Support\Edital\SincronizadorDoQuestionario;
 use App\Support\EditalIa\EsquemaDaResposta;
-use App\Support\EditalIa\QuestionarioDaResposta;
 use App\Support\SlugUnico;
-use BackedEnum;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -48,13 +40,14 @@ use Throwable;
 
 /**
  * Gestão de editais na retaguarda. PDF no disco local (privado), imagem no public, ambos em editais/;
- * listas e arquivos-modelo dos documentos gravados por SincronizadorDoEdital.
+ * listas e arquivos-modelo dos documentos gravados por SincronizadorDoEdital. O questionário tem a sua própria tela
+ * (QuestionarioDoEditalController), aberta pelo ícone da lista.
  */
 class EditalController extends Controller
 {
-    private const string PASTA = 'editais';
+    use FormatoDoFormulario;
 
-    private const string ROTULO_DO_QUESTIONARIO = 'Questionário';
+    private const string PASTA = 'editais';
 
     public function index(Request $request): Response
     {
@@ -64,6 +57,7 @@ class EditalController extends Controller
 
         $editais = Edital::query()
             ->paraListagem()
+            ->withCount(['categorias', 'perguntas'])
             // No Oracle a comparação de texto diferencia maiúsculas; % e _ digitados valem literalmente.
             ->when($busca !== '', fn (Builder $q) => $q->whereRaw(
                 "LOWER(titulo) LIKE ? ESCAPE '\\'",
@@ -90,6 +84,9 @@ class EditalController extends Controller
                     'situacaoRotulo' => $situacao?->rotulo(),
                     'publicado' => $edital->publicado,
                     'temPdf' => filled($edital->pdf),
+                    // O ícone do questionário só aparece com categoria; a cor diz se já há perguntas.
+                    'temCategorias' => (int) $edital->categorias_count > 0,
+                    'perguntas' => (int) $edital->perguntas_count,
                 ];
             });
 
@@ -118,15 +115,10 @@ class EditalController extends Controller
         return Inertia::render('Retaguarda/Editais/Form', [
             'edital' => null,
             'pendencias' => [],
-            'questionarioTravado' => false,
-            'avisoQuestionarioTravado' => Edital::AVISO_QUESTIONARIO_TRAVADO,
             'documentosTravados' => false,
             'avisoDocumentosTravados' => Edital::AVISO_DOCUMENTOS_TRAVADOS,
             'importacao' => null,
-            'importacaoQuestionario' => null,
-            'quadroQuestionario' => null,
-            'questionarioVersao' => null,
-            ...$this->dadosDaImportacaoDoQuestionario(),
+            'somenteLeitura' => false,
             ...$this->opcoesDoFormulario(),
         ]);
     }
@@ -138,13 +130,25 @@ class EditalController extends Controller
         $edital->slug = SlugUnico::para(Edital::class, $edital->titulo ?? 'edital');
 
         $this->salvar($request, $edital);
+        [$tipo, $mensagem] = $this->mensagemDoSalvo($edital);
 
-        return redirect()->route('retaguarda.editais.index')->with('sucesso', 'Edital salvo.');
+        return redirect()->route('retaguarda.editais.index')->with($tipo, $mensagem);
+    }
+
+    /** O mesmo formulário, só para ler (ícone Visualizar da lista): mostra tudo, sem editar nem salvar. */
+    public function show(Edital $edital): Response
+    {
+        return $this->formulario($edital, somenteLeitura: true);
     }
 
     public function edit(Edital $edital): Response
     {
-        $edital->load(['chamadas', 'categorias.itens', 'documentos.categorias', 'criterios.categorias', 'secoesDoQuestionario.perguntas.categorias']);
+        return $this->formulario($edital, somenteLeitura: false);
+    }
+
+    private function formulario(Edital $edital, bool $somenteLeitura): Response
+    {
+        $edital->load(['chamadas', 'categorias.itens', 'documentos.categorias', 'criterios.categorias']);
 
         // Referências entre listas vão por posição, como o formulário as envia de volta.
         $posicaoDaChamada = $this->posicoesPorId($edital->chamadas);
@@ -230,18 +234,13 @@ class EditalController extends Controller
                     'todas_categorias' => $criterio->todas_categorias,
                     'categorias' => $this->posicoesDe($criterio->categorias, $posicaoDaCategoria),
                 ])->all(),
-                'questionario' => $this->questionarioParaOFormulario($edital, $posicaoDaCategoria),
             ],
             'pendencias' => $edital->pendenciasParaPublicar(),
-            'questionarioTravado' => $edital->questionarioTravado(),
-            'avisoQuestionarioTravado' => Edital::AVISO_QUESTIONARIO_TRAVADO,
             'documentosTravados' => $edital->documentosTravados(),
             'avisoDocumentosTravados' => Edital::AVISO_DOCUMENTOS_TRAVADOS,
-            'importacao' => $this->importacaoNaoConferida($edital),
-            'importacaoQuestionario' => $this->ultimaImportacaoDoQuestionario($edital),
-            'quadroQuestionario' => $this->quadroDoQuestionario($edital),
-            'questionarioVersao' => ImportacaoQuestionario::versaoDoQuestionario($edital),
-            ...$this->dadosDaImportacaoDoQuestionario(),
+            // Conferir a importação é de quem edita: só para ler, o quadro não aparece.
+            'importacao' => $somenteLeitura ? null : $this->importacaoNaoConferida($edital),
+            'somenteLeitura' => $somenteLeitura,
             ...$this->opcoesDoFormulario(),
         ]);
     }
@@ -252,8 +251,23 @@ class EditalController extends Controller
         $edital->fill($request->dadosDoEdital());
 
         $this->salvar($request, $edital, $request->boolean('remover_imagem'));
+        [$tipo, $mensagem] = $this->mensagemDoSalvo($edital);
 
-        return redirect()->route('retaguarda.editais.index')->with('sucesso', 'Edital salvo.');
+        return redirect()->route('retaguarda.editais.index')->with($tipo, $mensagem);
+    }
+
+    /**
+     * Rascunho salva incompleto (a importação com IA também cria assim), mas avisa o que ainda falta para publicar.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function mensagemDoSalvo(Edital $edital): array
+    {
+        $pendencias = $edital->publicado ? [] : $edital->pendenciasParaPublicar();
+
+        return $pendencias === []
+            ? ['sucesso', 'Edital salvo.']
+            : ['aviso', 'Rascunho salvo. Para publicar, ainda falta: '.implode(' ', $pendencias)];
     }
 
     /** Exclusão lógica: os arquivos ficam no disco. */
@@ -298,17 +312,18 @@ class EditalController extends Controller
 
     /**
      * Grava o edital, os arquivos e (com o marcador) as listas numa transação. Arquivos novos são apagados
-     * se algo falhar; os substituídos, só depois do commit. Quem passa a publicar precisa do edital completo.
+     * se algo falhar; os substituídos, só depois do commit. Publicado precisa do edital completo: o
+     * SalvarEditalRequest já confere o envio, e aqui se confere o que ficou gravado, cada pendência no campo da aba
+     * (o questionário não vem daqui, mas apagar uma categoria pode deixar pergunta dele sem vínculo).
      */
     private function salvar(SalvarEditalRequest $request, Edital $edital, bool $removerImagem = false): void
     {
-        $passaAPublicar = $edital->publicado && ! $edital->getOriginal('publicado');
         $sincronizador = new SincronizadorDoEdital;
         $novos = [];
         $antigos = [];
 
         try {
-            DB::transaction(function () use ($request, $edital, $removerImagem, $passaAPublicar, $sincronizador, &$novos, &$antigos): void {
+            DB::transaction(function () use ($request, $edital, $removerImagem, $sincronizador, &$novos, &$antigos): void {
                 if ($request->hasFile('pdf')) {
                     $antigos[] = ['local', $edital->pdf];
                     $edital->pdf = ArquivoArmazenado::guardar($request->file('pdf'), 'local', self::PASTA);
@@ -328,16 +343,6 @@ class EditalController extends Controller
                     throw new RuntimeException('Não foi possível salvar o edital.');
                 }
 
-                $questionario = $request->questionarioDoEdital();
-
-                // Uma inscrição pode ter sido finalizada depois da validação do envio: confere de novo, com o edital travado.
-                if ($questionario !== null) {
-                    Edital::query()->whereKey($edital->getKey())->lockForUpdate()->first();
-                    if ($edital->questionarioTravado()) {
-                        throw ValidationException::withMessages(['questionario' => Edital::AVISO_QUESTIONARIO_TRAVADO]);
-                    }
-                }
-
                 // Uma inscrição pode ter sido decidida depois da validação do envio: confere de novo, com o edital travado.
                 if ($request->comListas()) {
                     Edital::query()->whereKey($edital->getKey())->lockForUpdate()->first();
@@ -345,22 +350,17 @@ class EditalController extends Controller
                         throw ValidationException::withMessages(['documentos' => Edital::AVISO_DOCUMENTOS_TRAVADOS]);
                     }
 
-                    $sincronizador->sincronizar($edital, $request->listasDoEdital(), $questionario);
-                } elseif ($questionario !== null) {
-                    (new SincronizadorDoQuestionario)->sincronizar($edital, $questionario, $edital->categorias()->get()->all());
+                    $sincronizador->sincronizar($edital, $request->listasDoEdital());
                 }
 
-                $pendencias = $passaAPublicar ? $edital->pendenciasParaPublicar() : [];
+                // Pergunta sem vínculo também aparece quando uma categoria é apagada. Com o questionário travado a equipe
+                // não teria como vincular as perguntas: isso não barra.
+                $pendencias = $edital->publicado ? $edital->pendenciasPorCampo() : [];
+                if (isset($pendencias['questionario']) && $edital->questionarioTravado()) {
+                    unset($pendencias['questionario']);
+                }
                 if ($pendencias !== []) {
-                    throw ValidationException::withMessages(['publicado' => implode(' ', $pendencias)]);
-                }
-
-                // Publicado não pode ficar com pergunta que não aparece a ninguém (também se uma categoria foi apagada).
-                // Com o questionário travado a equipe não teria como vincular: não barra.
-                $conferirVinculo = $edital->publicado && ($questionario !== null || $request->comListas()) && ! $edital->questionarioTravado();
-                $semVinculo = $conferirVinculo ? $edital->pendenciasDoQuestionario() : [];
-                if ($semVinculo !== []) {
-                    throw ValidationException::withMessages(['questionario' => implode(' ', $semVinculo)]);
+                    throw ValidationException::withMessages($pendencias);
                 }
             });
         } catch (Throwable $erro) {
@@ -454,202 +454,26 @@ class EditalController extends Controller
     }
 
     /**
-     * Configuração da importação do questionário (provedor com modelo e chave; tamanho máximo do arquivo).
-     *
-     * @return array{importacaoQuestionarioConfigurada: bool, tamanhoMaximoArquivoMb: int}
-     */
-    private function dadosDaImportacaoDoQuestionario(): array
-    {
-        $configuracaoIa = ConfiguracaoIa::atual();
-
-        return [
-            'importacaoQuestionarioConfigurada' => $configuracaoIa->provedoresDaImportacao() !== [],
-            'tamanhoMaximoArquivoMb' => $configuracaoIa->tamanhoMaximoPdfMb(),
-        ];
-    }
-
-    /**
-     * A importação do questionário mais recente do edital, para a linha de situação da aba (sem as colunas CLOB).
-     *
-     * @return array{id: int, situacao: string, erro: ?string, arquivoNome: string, enviadaEm: string}|null
-     */
-    private function ultimaImportacaoDoQuestionario(Edital $edital): ?array
-    {
-        $importacao = ImportacaoQuestionario::query()
-            ->select(['id', 'situacao', 'erro', 'iniciada_em', 'arquivo_nome', 'created_at'])
-            ->where('edital_id', $edital->getKey())
-            ->latest('id')
-            ->first();
-
-        if ($importacao === null) {
-            return null;
-        }
-
-        return [
-            'id' => (int) $importacao->id,
-            'situacao' => $importacao->situacaoExibida()->value,
-            'erro' => $importacao->erroExibido(),
-            'arquivoNome' => $importacao->arquivo_nome,
-            'enviadaEm' => $importacao->created_at->setTimezone(config('app.timezone'))->format('d/m/Y H:i'),
-        ];
-    }
-
-    /**
-     * Quadro "Importado pela IA" da aba Questionário, enquanto a última importação concluída não foi conferida.
-     * Só essa importação tem as colunas CLOB lidas.
-     *
-     * @return array{
-     *     confiabilidade: array{geral: ?int, blocos: list<array{bloco: string, rotulo: string, nota: int, justificativa: string}>},
-     *     atencao: list<array{bloco: ?string, blocoRotulo: string, tipo: string, tipoRotulo: string, texto: string, itens: list<string>}>,
-     *     conferida: bool, modelo: string, tokensTotal: ?int, importadaEm: string
-     * }|null
-     */
-    private function quadroDoQuestionario(Edital $edital): ?array
-    {
-        $ultima = ImportacaoQuestionario::query()
-            ->select(['id', 'conferida_em'])
-            ->where('edital_id', $edital->getKey())
-            ->where('situacao', SituacaoImportacao::Concluida->value)
-            ->latest('id')
-            ->first();
-
-        if ($ultima === null || $ultima->conferida_em !== null) {
-            return null;
-        }
-
-        $importacao = ImportacaoQuestionario::query()
-            ->select(['id', 'confiabilidade', 'atencao', 'conferida_em', 'modelo', 'tokens_total', 'updated_at'])
-            ->whereNull('conferida_em')
-            ->find($ultima->getKey());
-
-        if ($importacao === null) {
-            return null;
-        }
-
-        $bloco = QuestionarioDaResposta::BLOCO;
-        $nota = $importacao->confiabilidade['blocos'][$bloco] ?? null;
-
-        return [
-            'confiabilidade' => [
-                'geral' => $importacao->confiabilidade['geral'] ?? null,
-                'blocos' => $nota === null ? [] : [[
-                    'bloco' => $bloco,
-                    'rotulo' => self::ROTULO_DO_QUESTIONARIO,
-                    'nota' => (int) $nota['nota'],
-                    'justificativa' => (string) ($nota['justificativa'] ?? ''),
-                ]],
-            ],
-            'atencao' => array_map(fn (array $ponto): array => [
-                'bloco' => ($ponto['bloco'] ?? null) === $bloco ? $bloco : null,
-                'blocoRotulo' => ($ponto['bloco'] ?? null) === $bloco ? self::ROTULO_DO_QUESTIONARIO : 'Geral',
-                'tipo' => $ponto['tipo'],
-                'tipoRotulo' => EsquemaDaResposta::TIPOS_ATENCAO[$ponto['tipo']] ?? $ponto['tipo'],
-                'texto' => $ponto['texto'],
-                'itens' => $ponto['itens'] ?? [],
-            ], $importacao->atencao ?? []),
-            'conferida' => false,
-            'modelo' => $importacao->modelo,
-            'tokensTotal' => $importacao->tokens_total,
-            'importadaEm' => $importacao->updated_at->setTimezone(config('app.timezone'))->format('d/m/Y H:i'),
-        ];
-    }
-
-    /**
      * Opções dos campos de escolha do formulário.
      *
      * @return array<string, list<array{valor: string, rotulo: string}>>
      */
     private function opcoesDoFormulario(): array
     {
-        $opcoes = fn (string $enum): array => array_map(
-            fn (BackedEnum $caso): array => ['valor' => $caso->value, 'rotulo' => $caso->rotulo()],
-            $enum::cases(),
-        );
-
         return [
-            'naturezas' => $opcoes(NaturezaProponente::class),
-            'etapas' => $opcoes(EtapaDocumento::class),
-            'modalidadesCota' => $opcoes(ModalidadeCota::class),
-            'checagensDocumento' => $opcoes(ChecagemDocumento::class),
-            'basesCota' => $opcoes(BaseCota::class),
-            'alcancesCota' => $opcoes(AlcanceCota::class),
-            'tiposEdital' => $opcoes(TipoEdital::class),
-            'tiposPergunta' => $opcoes(TipoPergunta::class),
+            'naturezas' => $this->opcoesDe(NaturezaProponente::class),
+            'etapas' => $this->opcoesDe(EtapaDocumento::class),
+            'modalidadesCota' => $this->opcoesDe(ModalidadeCota::class),
+            'checagensDocumento' => $this->opcoesDe(ChecagemDocumento::class),
+            'basesCota' => $this->opcoesDe(BaseCota::class),
+            'alcancesCota' => $this->opcoesDe(AlcanceCota::class),
+            'tiposEdital' => $this->opcoesDe(TipoEdital::class),
             'secoesInformativas' => array_map(
                 fn (string $chave, string $rotulo): array => ['valor' => $chave, 'rotulo' => $rotulo],
                 array_keys(Edital::SECOES_INFORMATIVAS),
                 Edital::SECOES_INFORMATIVAS,
             ),
         ];
-    }
-
-    /**
-     * Seções e perguntas como o formulário as envia de volta: categorias por posição e a origem da condição por
-     * posição global (índice da pergunta na ordem do questionário).
-     *
-     * @param  array<int, int>  $posicaoDaCategoria
-     * @return array{secoes: list<array<string, mixed>>}
-     */
-    private function questionarioParaOFormulario(Edital $edital, array $posicaoDaCategoria): array
-    {
-        $posicaoGlobal = [];
-        foreach ($edital->secoesDoQuestionario->flatMap->perguntas->values() as $posicao => $pergunta) {
-            $posicaoGlobal[(int) $pergunta->getKey()] = $posicao;
-        }
-
-        return [
-            'secoes' => $edital->secoesDoQuestionario->map(fn (EditalQuestionarioSecao $secao): array => [
-                'id' => (int) $secao->id,
-                'titulo' => $secao->titulo,
-                'descricao' => $secao->descricao,
-                'perguntas' => $secao->perguntas->map(fn (EditalPergunta $pergunta): array => [
-                    'id' => (int) $pergunta->id,
-                    'enunciado' => $pergunta->enunciado,
-                    'ajuda' => $pergunta->ajuda,
-                    'tipo' => $pergunta->tipo->value,
-                    'obrigatoria' => $pergunta->obrigatoria,
-                    'limite_caracteres' => $pergunta->limite_caracteres,
-                    'opcoes' => $pergunta->opcoes ?? [],
-                    'todas_categorias' => $pergunta->todas_categorias,
-                    'categorias' => $this->posicoesDe($pergunta->categorias, $posicaoDaCategoria),
-                    'condicao_pergunta' => $pergunta->condicao_pergunta_id !== null ? ($posicaoGlobal[(int) $pergunta->condicao_pergunta_id] ?? null) : null,
-                    'condicao_opcoes' => $pergunta->condicao_opcoes ?? [],
-                ])->values()->all(),
-            ])->values()->all(),
-        ];
-    }
-
-    /**
-     * @param  Collection<int, Model>  $registros
-     * @return array<int, int> id => posição
-     */
-    private function posicoesPorId(Collection $registros): array
-    {
-        return $registros->values()->mapWithKeys(fn (Model $registro, int $posicao): array => [(int) $registro->getKey() => $posicao])->all();
-    }
-
-    /**
-     * @param  Collection<int, Model>  $registros
-     * @param  array<int, int>  $posicaoPorId
-     * @return list<int>
-     */
-    private function posicoesDe(Collection $registros, array $posicaoPorId): array
-    {
-        return $registros
-            ->map(fn (Model $registro): ?int => $posicaoPorId[(int) $registro->getKey()] ?? null)
-            ->filter(fn (?int $posicao): bool => $posicao !== null)
-            ->sort()
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  Collection<int, NaturezaProponente>|null  $naturezas
-     * @return list<string>
-     */
-    private function valoresDasNaturezas(?Collection $naturezas): array
-    {
-        return $naturezas?->map(fn (NaturezaProponente $natureza): string => $natureza->value)->values()->all() ?? [];
     }
 
     private function reais(?int $centavos): ?float

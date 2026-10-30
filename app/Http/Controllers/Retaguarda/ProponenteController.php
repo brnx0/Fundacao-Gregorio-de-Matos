@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Retaguarda;
 use App\Enums\TipoCadastro;
 use App\Enums\TipoDeficiencia;
 use App\Http\Controllers\Controller;
+use App\Models\AreaAtuacao;
 use App\Models\Organizacao;
 use App\Models\PessoaFisica;
 use App\Models\PrefeituraBairro;
@@ -113,7 +114,7 @@ class ProponenteController extends Controller
     /** Quem tem os dados da etapa "Seus dados" e não é usuário da retaguarda (com papel). */
     private function doPortal(): Builder
     {
-        return User::query()->whereHas('pessoaFisica')->whereDoesntHave('papeis');
+        return User::query()->doPortal();
     }
 
     /** 404 para usuário da retaguarda e para quem ainda não enviou os dados. */
@@ -166,6 +167,7 @@ class ProponenteController extends Controller
                 'Nome completo' => $user->name,
                 'Nome social' => $pessoa->nome_social,
                 'Nome artístico' => $pessoa->nome_artistico,
+                'Data de nascimento' => $pessoa->data_nascimento?->format('d/m/Y'),
             ]),
             $secao('documentos', 'Documentos', [
                 'CPF' => Cpf::mascarar($user->cpf),
@@ -174,6 +176,7 @@ class ProponenteController extends Controller
             ]),
             $secao('profissional', 'Informações profissionais', [
                 'Registro profissional (DRT)' => $pessoa->drt,
+                'Áreas de atuação' => AreaAtuacao::emOrdem($pessoa->areasAtuacao)->pluck('nome')->implode(', '),
                 'A atividade cultural é a principal fonte de renda' => $simNao($pessoa->cultura_principal_renda),
                 'Já atuou como avaliador(a) em editais culturais' => $simNao($pessoa->ja_foi_avaliador),
                 'Tem interesse em ser avaliador(a)' => $simNao($pessoa->interesse_avaliador),

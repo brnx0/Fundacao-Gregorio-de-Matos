@@ -28,7 +28,7 @@ const props = defineProps<{
     importacao: ImportacaoDoQuestionario | null;
 }>();
 
-const MOTIVO_SEM_SALVAR = 'Salve o edital antes de importar.';
+const MOTIVO_SEM_SALVAR = 'Salve o questionário antes de importar.';
 // Mesmos textos das recusas do servidor (ImportacaoQuestionarioController).
 const MOTIVO_SEM_CATEGORIA = 'Cadastre ao menos uma categoria e salve o edital antes de importar o questionário.';
 const MOTIVO_EM_ANALISE = 'Já há uma importação do questionário em análise para este edital.';
@@ -184,7 +184,7 @@ onBeforeUnmount(pararConsulta);
 
 // Recarrega a página já na aba Questionário (?aba=), com o formulário refeito a partir do que o servidor gravou.
 const recarregarNoQuestionario = (): void => {
-    router.visit(`${window.location.pathname}?aba=questionario`, { preserveState: false, preserveScroll: true });
+    router.visit(window.location.pathname, { preserveState: false, preserveScroll: true });
 };
 
 const verQuestionario = (): void => {
@@ -238,7 +238,7 @@ const verQuestionario = (): void => {
             ref="dialogo"
             aria-labelledby="importar-questionario-titulo"
             :aria-describedby="semConfiguracao ? 'importar-questionario-descricao importar-questionario-recusa' : 'importar-questionario-descricao'"
-            class="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
+            class="dialogo-retaguarda m-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
             @close="aoFechar"
         >
             <form id="formulario-importar-questionario" novalidate class="flex flex-col gap-5" @submit.prevent.stop="enviar">

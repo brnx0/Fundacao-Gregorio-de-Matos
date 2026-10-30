@@ -109,7 +109,7 @@ class VLibrasTest extends TestCase
 
     public function test_menu_aponta_para_vlibras(): void
     {
-        $menu = file_get_contents(resource_path('js/Components/Retaguarda/MenuRetaguarda.vue'));
+        $menu = file_get_contents(resource_path('js/Components/Retaguarda/menuRetaguarda.ts'));
 
         $this->assertStringContainsString(route('retaguarda.vlibras.edit', absolute: false), $menu);
         $this->assertStringContainsString("'VLibras'", $menu);

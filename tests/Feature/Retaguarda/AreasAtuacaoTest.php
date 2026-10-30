@@ -117,7 +117,7 @@ class AreasAtuacaoTest extends TestCase
 
     public function test_menu_de_parametrizacao_tem_areas_de_atuacao(): void
     {
-        $menu = file_get_contents(resource_path('js/Components/Retaguarda/MenuRetaguarda.vue'));
+        $menu = file_get_contents(resource_path('js/Components/Retaguarda/menuRetaguarda.ts'));
 
         $this->assertStringContainsString(route('retaguarda.areas-atuacao.index', absolute: false), $menu);
         $this->assertStringContainsString("'Áreas de atuação'", $menu);

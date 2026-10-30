@@ -7,7 +7,7 @@ import QuadroImportacao from './QuadroImportacao.vue';
 import VincularEmLote from './VincularEmLote.vue';
 import { classeCampo, classeDica, classeTexto, novaChave } from '../listaEditavel';
 import { TIPO_PADRAO, perguntasEmOrdem, semVinculo } from '../questionario';
-import type { CategoriaEditavel, ImportacaoDoEdital, OpcaoFormulario, PerguntaEditavel, SecaoQuestionarioEditavel, VinculoEditavel } from '../../../types';
+import type { CategoriaDoQuestionario, ImportacaoDoEdital, OpcaoFormulario, PerguntaEditavel, SecaoQuestionarioEditavel, VinculoEditavel } from '../../../types';
 
 /**
  * Aba Questionário do formulário do edital: seções com perguntas, vínculo (um a um e em lote) e condições.
@@ -16,8 +16,8 @@ import type { CategoriaEditavel, ImportacaoDoEdital, OpcaoFormulario, PerguntaEd
 const props = defineProps<{
     /** Erros do useForm; os do questionário vêm como "questionario" e "questionario.secoes.S.perguntas.P.campo". */
     erros: Partial<Record<string, string>>;
-    /** Categorias atuais da aba Categorias, na ordem em que estão. */
-    categorias: CategoriaEditavel[];
+    /** Categorias gravadas do edital, na ordem em que estão. */
+    categorias: CategoriaDoQuestionario[];
     tiposPergunta: OpcaoFormulario[];
     travado: boolean;
     avisoTravado: string;
@@ -117,7 +117,7 @@ const aplicarEmLote = (chaves: string[], vinculo: VinculoEditavel): void => {
     }
 
     emit('limparErros', errosDoQuestionario((chave) => /\.perguntas\.\d+\.(todas_categorias|categorias)(\.\d+)?$/.test(chave)));
-    anuncio.value = `Vínculo aplicado a ${plural(chaves.length, 'pergunta', 'perguntas')}. Salve o edital para gravar.`;
+    anuncio.value = `Vínculo aplicado a ${plural(chaves.length, 'pergunta', 'perguntas')}. Salve o questionário para gravar.`;
 };
 </script>
 
@@ -131,7 +131,7 @@ const aplicarEmLote = (chaves: string[], vinculo: VinculoEditavel): void => {
             <p class="text-[0.9375rem] leading-[1.6] font-semibold">{{ avisoTravado }}</p>
         </div>
 
-        <QuadroImportacao v-if="quadro && urlConferida" :importacao="quadro" :url-conferida="urlConferida" :abas="['questionario']" @ir-para-aba="irParaAsSecoes" />
+        <QuadroImportacao v-if="quadro && urlConferida" :importacao="quadro" :url-conferida="urlConferida" :abas="['questionario']" destino="Ir para as perguntas" @ir-para-aba="irParaAsSecoes" />
 
         <p v-if="erroGeral" id="questionario-erro" role="alert" class="rounded-[12px] bg-erro-fundo px-4 py-3 text-[0.9375rem] font-semibold text-invalido-texto">{{ erroGeral }}</p>
 
@@ -258,6 +258,6 @@ const aplicarEmLote = (chaves: string[], vinculo: VinculoEditavel): void => {
             </ListaEditavel>
         </div>
 
-        <p v-if="!travado && secoes.length > 0" :class="classeDica">Remover, mover ou reordenar só vale depois de salvar o edital.</p>
+        <p v-if="!travado && secoes.length > 0" :class="classeDica">Remover, mover ou reordenar só vale depois de salvar o questionário.</p>
     </div>
 </template>

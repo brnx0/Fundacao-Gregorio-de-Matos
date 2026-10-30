@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, provide, ref, watch } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AvisoCamposObrigatorios from '../../../Components/AvisoCamposObrigatorios.vue';
 import CampoArquivo from '../../../Components/CampoArquivo.vue';
@@ -12,24 +12,29 @@ import CriteriosEdital from '../../../Components/Retaguarda/Edital/CriteriosEdit
 import DocumentosEdital from '../../../Components/Retaguarda/Edital/DocumentosEdital.vue';
 import InformacoesEdital from '../../../Components/Retaguarda/Edital/InformacoesEdital.vue';
 import QuadroImportacao from '../../../Components/Retaguarda/Edital/QuadroImportacao.vue';
-import ImportarQuestionario from '../../../Components/Retaguarda/Edital/ImportarQuestionario.vue';
-import QuestionarioEdital from '../../../Components/Retaguarda/Edital/QuestionarioEdital.vue';
 import {
     OPCOES_SIM_NAO,
+    SOMENTE_LEITURA,
+    chaveNaPosicao,
+    chavesNasPosicoes,
     classeCaixa,
     classeCampo,
     classeDica,
     classeMarcacao,
     classeTexto,
     decimal,
+    emPosicoes,
     inteiro,
     novaChave,
     numeroDecimal,
+    posicoes,
     textoDecimal,
 } from '../../../Components/Retaguarda/listaEditavel';
-import { nomeDaPergunta, perguntasEmOrdem, regraDoTipo, respostasDaOrigem, semVinculo } from '../../../Components/Retaguarda/questionario';
 import SecaoCadastro from '../../../Components/SecaoCadastro.vue';
 import { focarPrimeiroErro } from '../../../Components/focarPrimeiroErro';
+import BarraAcoes from '../../../Components/Retaguarda/BarraAcoes.vue';
+import IconeAcao from '../../../Components/Retaguarda/IconeAcao.vue';
+import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
 import type {
     AbaFormulario,
@@ -39,10 +44,7 @@ import type {
     CotasEditavel,
     CriterioEditavel,
     DocumentoEditavel,
-    ItemEditavel,
-    PerguntaEditavel,
     RetaguardaEditaisFormProps,
-    SecaoQuestionarioEditavel,
 } from '../../../types';
 
 defineOptions({ layout: RetaguardaLayout });
@@ -55,9 +57,9 @@ const BASE = '/retaguarda/editais';
 const salvo = props.edital;
 const editando = salvo !== null;
 
-// Listas salvas viram cartões com chave própria; as referências por posição do servidor viram chaves dos cartões.
-const chaveNaPosicao = (lista: ItemEditavel[], posicao: number | null): string | null => (posicao === null ? null : (lista[posicao]?.chave ?? null));
-const chavesNasPosicoes = (lista: ItemEditavel[], posicoes: number[]): string[] => posicoes.flatMap((posicao) => lista[posicao]?.chave ?? []);
+// Visualizar (show) usa este mesmo formulário só para ler: as abas trocam, os campos ficam bloqueados
+// (AbasFormulario) e os componentes de dentro escondem o que é de editar.
+provide(SOMENTE_LEITURA, props.somenteLeitura);
 
 const chamadasSalvas: ChamadaEditavel[] = (salvo?.chamadas ?? []).map((chamada) => ({
     chave: novaChave(),
@@ -113,36 +115,6 @@ const criteriosSalvos: CriterioEditavel[] = (salvo?.criterios ?? []).map((criter
     categorias: chavesNasPosicoes(categoriasSalvas, criterio.categorias),
 }));
 
-// Questionário: categorias por posição viram chaves; a origem da condição vem pela posição global (ordem do questionário).
-const secoesDoServidor = salvo?.questionario?.secoes ?? [];
-const secoesSalvas: SecaoQuestionarioEditavel[] = secoesDoServidor.map((secao) => ({
-    chave: novaChave(),
-    id: secao.id,
-    titulo: secao.titulo,
-    descricao: secao.descricao ?? '',
-    perguntas: secao.perguntas.map((pergunta) => ({
-        chave: novaChave(),
-        id: pergunta.id,
-        enunciado: pergunta.enunciado,
-        ajuda: pergunta.ajuda ?? '',
-        tipo: pergunta.tipo,
-        obrigatoria: pergunta.obrigatoria,
-        limite_caracteres: pergunta.limite_caracteres,
-        opcoes: pergunta.opcoes.map((opcao) => ({ chave: opcao.chave, texto: opcao.texto, outro: Boolean(opcao.outro) })),
-        todas_categorias: pergunta.todas_categorias,
-        categorias: chavesNasPosicoes(categoriasSalvas, pergunta.categorias),
-        condicao_pergunta: null,
-        condicao_opcoes: [...pergunta.condicao_opcoes],
-    })),
-}));
-const perguntasSalvas = perguntasEmOrdem(secoesSalvas);
-secoesDoServidor
-    .flatMap((secao) => secao.perguntas)
-    .forEach((pergunta, posicao) => {
-        const editavel = perguntasSalvas[posicao];
-        if (editavel) editavel.condicao_pergunta = chaveNaPosicao(perguntasSalvas, pergunta.condicao_pergunta);
-    });
-
 const cotasSalvas = salvo?.cotas ?? null;
 const cotaSalva = (modalidade: string): CotaModalidadeFormulario | undefined =>
     (cotasSalvas as unknown as Record<string, CotaModalidadeFormulario | undefined> | null)?.[modalidade];
@@ -194,7 +166,6 @@ const form = useForm({
         teto: textoDecimal(salvo?.pontuacao_extra?.teto),
         conta_para_corte: salvo?.pontuacao_extra?.conta_para_corte ?? null,
     },
-    questionario: { secoes: secoesSalvas },
     informacoes: Object.fromEntries(props.secoesInformativas.map((secao) => [secao.valor, salvo?.informacoes[secao.valor] ?? ''])) as Record<string, string>,
     publicado: salvo?.publicado ?? false,
     pdf: null as File | null,
@@ -239,29 +210,24 @@ const DEFINICAO_ABAS: AbaFormulario[] = [
     { id: 'categorias', rotulo: 'Categorias', campos: ['categorias', 'categorias.*'] },
     { id: 'cotas', rotulo: 'Cotas', campos: ['cotas', 'cotas.*'] },
     { id: 'documentos', rotulo: 'Documentos', campos: ['documentos', 'documentos.*'] },
-    { id: 'questionario', rotulo: 'Questionário', campos: ['questionario', 'questionario.*'] },
     { id: 'avaliacao', rotulo: 'Avaliação', campos: ['nota_maxima', 'nota_corte', 'criterios', 'criterios.*', 'pontuacao_extra', 'pontuacao_extra.*'] },
     { id: 'informacoes', rotulo: 'Informações', campos: ['informacoes', 'informacoes.*'] },
     { id: 'arquivos', rotulo: 'Arquivos', campos: ['pdf', 'imagem', 'remover_imagem'] },
-    { id: 'publicacao', rotulo: 'Publicação', campos: ['publicado'] },
+    // O questionário tem a sua tela; a pendência dele (pergunta sem vínculo) impede publicar e aparece aqui.
+    { id: 'publicacao', rotulo: 'Publicação', campos: ['publicado', 'questionario'] },
 ];
 
 // AbasFormulario conta os erros pelos campos da aba: aqui eles são as chaves com erro que caem na aba.
-// Perguntas sem vínculo contam como pendência da aba Questionário (impedem a publicação); travado, não há o que fazer.
 const abas = computed<AbaFormulario[]>(() => {
     const comErro = Object.keys(erros.value).filter((chave) => Boolean(erros.value[chave]));
-    const semVinculoNoQuestionario = props.questionarioTravado ? 0 : perguntasEmOrdem(form.questionario.secoes).filter(semVinculo).length;
 
     return DEFINICAO_ABAS.map((aba) => ({
         ...aba,
         campos: comErro.filter((chave) => aba.campos.some((campo) => (campo.endsWith('.*') ? chave.startsWith(campo.slice(0, -1)) : chave === campo))),
-        ...(aba.id === 'questionario' ? { pendencias: semVinculoNoQuestionario } : {}),
     }));
 });
-// "?aba=" abre o formulário numa aba (usado ao recarregar depois de importar o questionário).
-// Uma importação do questionário concluiu com esta página aberta: o questionário do formulário está velho.
-const questionarioImportado = ref<boolean>(false);
 
+// "?aba=" abre o formulário numa aba (a tela do questionário manda para Categorias quando o edital não tem nenhuma).
 const abaDaUrl = new URLSearchParams(window.location.search).get('aba');
 const abaAtiva = ref<string>(DEFINICAO_ABAS.some((aba) => aba.id === abaDaUrl) ? (abaDaUrl as string) : 'identificacao');
 
@@ -306,66 +272,11 @@ vigiarReferencias(
 vigiarReferencias(
     () => form.categorias.map((categoria) => categoria.chave),
     (existentes) => {
-        for (const item of [...form.documentos, ...form.criterios, ...perguntasEmOrdem(form.questionario.secoes)]) {
+        for (const item of [...form.documentos, ...form.criterios]) {
             if (item.categorias.some((chave) => !existentes.has(chave))) item.categorias = item.categorias.filter((chave) => existentes.has(chave));
         }
     },
-    /^((documentos|criterios)\.\d+|questionario\.secoes\.\d+\.perguntas\.\d+)\.categorias(\.\d+)?$/,
-);
-
-// Condição cuja origem sumiu (apagada, mudou de tipo) ou perdeu todas as respostas escolhidas sai, com aviso na aba.
-// Resposta tirada da origem (opção removida) sai da condição.
-const avisosDoQuestionario = ref<{ id: number; texto: string }[]>([]);
-let proximoAviso = 0;
-
-const removerCondicao = (pergunta: PerguntaEditavel): void => {
-    pergunta.condicao_pergunta = null;
-    pergunta.condicao_opcoes = [];
-};
-
-watch(
-    () =>
-        perguntasEmOrdem(form.questionario.secoes)
-            .map((pergunta) => `${pergunta.chave}:${pergunta.tipo}:${pergunta.opcoes.map((opcao) => opcao.chave).join(',')}`)
-            .join('|'),
-    () => {
-        const perguntas = perguntasEmOrdem(form.questionario.secoes);
-        const porChave = new Map(perguntas.map((pergunta) => [pergunta.chave, pergunta]));
-        const avisos: { id: number; texto: string }[] = [];
-        const avisar = (texto: string): void => {
-            avisos.push({ id: ++proximoAviso, texto });
-        };
-
-        for (const pergunta of perguntas) {
-            if (pergunta.condicao_pergunta === null) continue;
-            const origem = porChave.get(pergunta.condicao_pergunta);
-            const nome = nomeDaPergunta(pergunta);
-
-            if (!origem) {
-                removerCondicao(pergunta);
-                avisar(`A condição de "${nome}" foi removida porque a pergunta de origem foi apagada.`);
-                continue;
-            }
-            if (!regraDoTipo(origem.tipo).podeSerOrigem) {
-                removerCondicao(pergunta);
-                avisar(`A condição de "${nome}" foi removida porque a pergunta de origem mudou de tipo.`);
-                continue;
-            }
-
-            const validas = new Set(respostasDaOrigem(origem).map((resposta) => resposta.chave));
-            const restantes = pergunta.condicao_opcoes.filter((chave) => validas.has(chave));
-            if (restantes.length === pergunta.condicao_opcoes.length) continue;
-
-            if (restantes.length === 0) {
-                removerCondicao(pergunta);
-                avisar(`A condição de "${nome}" foi removida porque as respostas escolhidas saíram da pergunta de origem.`);
-            } else {
-                pergunta.condicao_opcoes = restantes;
-            }
-        }
-
-        if (avisos.length > 0) avisosDoQuestionario.value = avisos;
-    },
+    /^(documentos|criterios)\.\d+\.categorias(\.\d+)?$/,
 );
 
 /** Período do edital como o servidor calcula: menor início e maior fim das chamadas com as duas datas. */
@@ -382,53 +293,12 @@ const periodo = computed<string | null>(() => {
 
 type DadosDoFormulario = ReturnType<typeof form.data>;
 
-const posicoes = (lista: ItemEditavel[]): Map<string, number> => new Map(lista.map((item, posicao) => [item.chave, posicao]));
-const emPosicoes = (chaves: string[], mapa: Map<string, number>): number[] =>
-    chaves
-        .map((chave) => mapa.get(chave))
-        .filter((posicao): posicao is number => posicao !== undefined)
-        .sort((a, b) => a - b);
-
 const cotasPreenchidas = (dados: CotasEditavel): boolean =>
     Object.values(dados.modalidades).some((cota) => cota.ativa || cota.percentual !== '' || cota.quantidade !== '') ||
     dados.base !== '' ||
     dados.alcance !== '' ||
     dados.veda_negro_indigena !== null ||
     dados.heteroidentificacao !== null;
-
-/**
- * Questionário no contrato de RegrasDoQuestionario: categorias por posição, origem da condição por posição global;
- * opções só nos tipos de escolha e limite só nos textos (o servidor confere as opções de todo tipo).
- */
-const questionarioParaEnvio = (secoes: SecaoQuestionarioEditavel[], posicaoDaCategoria: Map<string, number>): string => {
-    const posicaoGlobal = posicoes(perguntasEmOrdem(secoes));
-
-    return JSON.stringify({
-        secoes: secoes.map((secao) => ({
-            id: secao.id,
-            titulo: secao.titulo,
-            descricao: secao.descricao || null,
-            perguntas: secao.perguntas.map((pergunta) => {
-                const regra = regraDoTipo(pergunta.tipo);
-                const condicao = pergunta.condicao_pergunta === null ? null : (posicaoGlobal.get(pergunta.condicao_pergunta) ?? null);
-
-                return {
-                    id: pergunta.id,
-                    enunciado: pergunta.enunciado,
-                    ajuda: pergunta.ajuda || null,
-                    tipo: pergunta.tipo,
-                    obrigatoria: pergunta.obrigatoria,
-                    limite_caracteres: regra.temLimite ? pergunta.limite_caracteres : null,
-                    opcoes: regra.temOpcoes ? pergunta.opcoes.map(({ chave, texto, outro }) => ({ chave, texto, outro })) : [],
-                    todas_categorias: pergunta.todas_categorias,
-                    categorias: pergunta.todas_categorias ? [] : emPosicoes(pergunta.categorias, posicaoDaCategoria),
-                    condicao_pergunta: condicao,
-                    condicao_opcoes: condicao === null ? [] : pergunta.condicao_opcoes,
-                };
-            }),
-        })),
-    });
-};
 
 // Envio no contrato do SalvarEditalRequest: com o marcador, as listas vão inteiras (ausente = nenhuma);
 // sem as chaves da tela; referências entre listas viram posições na lista enviada; decimais viram números.
@@ -509,18 +379,12 @@ const paraEnvio = (dados: DadosDoFormulario): Record<string, unknown> => {
             conta_para_corte: dados.pontuacao_extra.conta_para_corte,
         },
         informacoes: dados.informacoes,
-        // Travado, ou já substituído por uma importação concluída com a página aberta, o questionário nem vai: o servidor
-        // recusaria (trava) ou o formulário velho apagaria o importado. A versão dá ao servidor como conferir.
-        ...(props.questionarioTravado || questionarioImportado.value
-            ? {}
-            : { com_questionario: true, questionario_versao: props.questionarioVersao ?? '', questionario: questionarioParaEnvio(dados.questionario.secoes, posicaoDaCategoria) }),
     };
 };
 
 // Edição vai como POST com _method=put: PUT com multipart não chega ao PHP.
 // "indices" monta chamadas[0][nome]; o padrão ("brackets") viraria chamadas[][nome] e quebraria as listas.
 const salvar = (): void => {
-    avisosDoQuestionario.value = [];
     const opcoes = {
         forceFormData: true,
         queryStringArrayFormat: 'indices' as const,
@@ -535,10 +399,12 @@ const salvar = (): void => {
     }
 };
 
-// O servidor exige título, resumo e categoria de quem publica, e o PDF (o enviado agora ou o já salvo). Na passagem de
-// rascunho a publicado exige também o edital completo (EditalController), e esse erro volta no campo "publicado".
+// O servidor exige título, resumo e categoria de quem publica, o PDF (o enviado agora ou o já salvo) e o edital
+// completo, também do que já estava publicado. Tudo volta de uma vez: cada pendência no campo da sua aba (chamadas,
+// naturezas, categorias; a do questionário, que tem a sua tela, na Publicação), para todas as abas que faltam ficarem
+// marcadas. Rascunho salva incompleto.
 const pdfObrigatorio = computed<boolean>(() => form.publicado && !salvo?.pdfUrl);
-const completoParaPublicar = computed<boolean>(() => form.publicado && !salvo?.publicado);
+const completoParaPublicar = computed<boolean>(() => form.publicado);
 
 const textoBotao = computed(() => {
     if (!form.processing) return 'Salvar edital';
@@ -555,7 +421,6 @@ const ICONES: Record<string, string> = {
     categorias: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
     cotas: 'M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0zM19 7l-3 7a4 4 0 0 0 6 0z',
     documentos: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13l2 2 4-4',
-    questionario: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01',
     avaliacao: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z',
     informacoes: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8h.01',
     arquivos: 'M12 16V4M7 9l5-5 5 5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3',
@@ -563,22 +428,32 @@ const ICONES: Record<string, string> = {
 };
 
 const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo edital';
+
+/** Trilha e título da aba do navegador: "Visualizar edital", "Editar edital" ou "Novo edital". */
+const modo = props.somenteLeitura ? 'Visualizar' : editando ? 'Editar' : 'Novo';
+
+// A tela do questionário só abre com categoria gravada (as perguntas se vinculam a categorias).
+const urlDoQuestionario = salvo && salvo.categorias.length > 0 ? `${BASE}/${salvo.slug}/questionario` : null;
 </script>
 
 <template>
-    <!-- Mais largo que os outros formulários: as abas laterais ocupam uma coluna. -->
-    <div class="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-8 lg:px-6">
-        <Head :title="editando ? 'Editar edital · Retaguarda' : 'Novo edital · Retaguarda'" />
+    <!-- Na largura das listas: as abas laterais ocupam uma coluna. -->
+    <PaginaRetaguarda :titulo="tituloDaPagina" :trilha="[{ texto: modo }]">
+        <Head :title="`${modo} edital · Retaguarda`" />
 
-        <div>
-            <Link :href="BASE" class="inline-flex min-h-11 items-center gap-1.5 text-[0.9375rem] font-semibold text-acao hover:underline">
-                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 12H5M11 6l-6 6 6 6" />
-                </svg>
-                Editais
+        <template v-if="somenteLeitura" #detalhe>
+            <span class="selo-faixa">Somente visualização</span>
+        </template>
+
+        <template v-if="somenteLeitura && salvo" #acoes>
+            <Link
+                :href="`${BASE}/${salvo.slug}/edit`"
+                class="vidro vidro-pilula pressionavel inline-flex min-h-11 items-center justify-center gap-2 rounded-pill px-5 text-[0.8125rem] font-bold tracking-[0.1em] text-white uppercase"
+            >
+                <IconeAcao nome="editar" />
+                Editar edital
             </Link>
-            <h1 class="mt-1 text-[1.75rem] leading-tight font-bold break-words">{{ tituloDaPagina }}</h1>
-        </div>
+        </template>
 
         <QuadroImportacao
             v-if="salvo && importacao"
@@ -589,9 +464,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
         />
 
         <form id="formulario-edital" novalidate class="flex flex-col gap-6" @submit.prevent="salvar">
-            <AvisoCamposObrigatorios />
-
-            <AbasFormulario id="edital" v-model="abaAtiva" variante="lateral" :abas="abas" :erros="erros">
+            <AbasFormulario id="edital" v-model="abaAtiva" variante="lateral" :abas="abas" :erros="erros" :somente-leitura="somenteLeitura">
                 <template v-for="(aba, indice) in DEFINICAO_ABAS" :key="aba.id" #[aba.id]>
                     <SecaoCadastro :id="`secao-edital-${aba.id}`" :numero="indice + 1" :titulo="aba.rotulo">
                         <template #icone>
@@ -599,6 +472,8 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                 <path :d="ICONES[aba.id]" />
                             </svg>
                         </template>
+
+                        <AvisoCamposObrigatorios v-if="!somenteLeitura" class="mb-5" />
 
                         <div v-if="aba.id === 'identificacao'" class="grid gap-x-6 gap-y-5 md:grid-cols-2">
                             <CampoCadastro id="numero" rotulo="Número" :erro="erros.numero" v-slot="{ descricao, invalido }">
@@ -608,7 +483,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                     type="text"
                                     maxlength="30"
                                     placeholder="Ex.: 007/2026"
-                                    :class="classeCampo"
+                                    class="campo-retaguarda"
                                     :aria-invalid="invalido || undefined"
                                     :aria-describedby="descricao"
                                     @input="form.clearErrors('numero')"
@@ -619,7 +494,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                 <select
                                     id="tipo"
                                     v-model="form.tipo"
-                                    :class="classeCampo"
+                                    class="campo-retaguarda"
                                     :aria-invalid="invalido || undefined"
                                     :aria-describedby="descricao"
                                     @change="form.clearErrors('tipo')"
@@ -644,7 +519,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                         type="text"
                                         maxlength="255"
                                         :required="form.publicado"
-                                        :class="classeCampo"
+                                        class="campo-retaguarda"
                                         :aria-invalid="invalido || undefined"
                                         :aria-describedby="descricao"
                                         @input="form.clearErrors('titulo')"
@@ -672,7 +547,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                     id="dom_data"
                                     v-model="form.dom_data"
                                     type="date"
-                                    :class="classeCampo"
+                                    class="campo-retaguarda"
                                     :aria-invalid="invalido || undefined"
                                     :aria-describedby="descricao"
                                     @input="form.clearErrors('dom_data')"
@@ -686,7 +561,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                     type="text"
                                     maxlength="20"
                                     placeholder="Ex.: 8.123"
-                                    :class="classeCampo"
+                                    class="campo-retaguarda"
                                     :aria-invalid="invalido || undefined"
                                     :aria-describedby="descricao"
                                     @input="form.clearErrors('dom_numero')"
@@ -709,7 +584,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                         maxlength="255"
                                         :required="form.publicado"
                                         placeholder="Ex.: Fomento, Audiovisual"
-                                        :class="classeCampo"
+                                        class="campo-retaguarda"
                                         :aria-invalid="invalido || undefined"
                                         :aria-describedby="descricao"
                                         @input="form.clearErrors('categoria')"
@@ -803,7 +678,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                     <select
                                         id="aceita_coletivos"
                                         v-model="form.aceita_coletivos"
-                                        :class="classeCampo"
+                                        class="campo-retaguarda"
                                         :aria-invalid="invalido || undefined"
                                         :aria-describedby="descricao"
                                         @change="form.clearErrors('aceita_coletivos')"
@@ -819,7 +694,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                         type="text"
                                         inputmode="numeric"
                                         autocomplete="off"
-                                        :class="[classeCampo, 'tabular-nums']"
+                                        class="campo-retaguarda tabular-nums"
                                         :aria-invalid="invalido || undefined"
                                         :aria-describedby="descricao"
                                         @input="
@@ -833,7 +708,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                     <select
                                         id="limite_por_chamada"
                                         v-model="form.limite_por_chamada"
-                                        :class="classeCampo"
+                                        class="campo-retaguarda"
                                         :aria-invalid="invalido || undefined"
                                         :aria-describedby="descricao"
                                         @change="form.clearErrors('limite_por_chamada')"
@@ -879,35 +754,6 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                             @definir-erro="definirErro"
                         />
 
-                        <QuestionarioEdital
-                            v-else-if="aba.id === 'questionario'"
-                            v-model="form.questionario.secoes"
-                            :erros="erros"
-                            :categorias="form.categorias"
-                            :tipos-pergunta="tiposPergunta"
-                            :travado="questionarioTravado"
-                            :aviso-travado="avisoQuestionarioTravado"
-                            :avisos="avisosDoQuestionario"
-                            :quadro="quadroQuestionario"
-                            :url-conferida="salvo ? `${BASE}/${salvo.slug}/questionario/importacao/conferida` : null"
-                            @limpar-erros="limparErros"
-                        >
-                            <template #importar>
-                                <ImportarQuestionario
-                                    :edital-slug="salvo?.slug ?? null"
-                                    :tem-categoria-salva="(salvo?.categorias.length ?? 0) > 0"
-                                    :tem-secoes="form.questionario.secoes.length > 0"
-                                    :travado="questionarioTravado"
-                                    :aviso-travado="avisoQuestionarioTravado"
-                                    :alteracoes-nao-salvas="form.isDirty"
-                                    :configurada="importacaoQuestionarioConfigurada"
-                                    :tamanho-maximo-mb="tamanhoMaximoArquivoMb"
-                                    :importacao="importacaoQuestionario"
-                                    @concluida="questionarioImportado = true"
-                                />
-                            </template>
-                        </QuestionarioEdital>
-
                         <div v-else-if="aba.id === 'avaliacao'" class="flex flex-col gap-8">
                             <div class="grid gap-x-6 gap-y-5 md:grid-cols-2">
                                 <CampoCadastro id="nota_maxima" rotulo="Nota máxima" :erro="erros.nota_maxima" v-slot="{ descricao, invalido }">
@@ -917,7 +763,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                         type="text"
                                         inputmode="numeric"
                                         autocomplete="off"
-                                        :class="[classeCampo, 'tabular-nums']"
+                                        class="campo-retaguarda tabular-nums"
                                         :aria-invalid="invalido || undefined"
                                         :aria-describedby="descricao"
                                         @input="
@@ -934,7 +780,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                         type="text"
                                         inputmode="decimal"
                                         autocomplete="off"
-                                        :class="[classeCampo, 'tabular-nums']"
+                                        class="campo-retaguarda tabular-nums"
                                         :aria-invalid="invalido || undefined"
                                         :aria-describedby="descricao"
                                         @input="
@@ -964,7 +810,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
 
                         <div v-else-if="aba.id === 'arquivos'" class="grid gap-x-6 gap-y-6 md:grid-cols-2">
                             <div class="flex min-w-0 flex-col gap-3">
-                                <CampoCadastro id="pdf" rotulo="PDF do edital" :obrigatorio="pdfObrigatorio" :erro="erros.pdf" v-slot="{ descricao, invalido }">
+                                <CampoCadastro v-if="!somenteLeitura" id="pdf" rotulo="PDF do edital" :obrigatorio="pdfObrigatorio" :erro="erros.pdf" v-slot="{ descricao, invalido }">
                                     <CampoArquivo
                                         id="pdf"
                                         accept="application/pdf"
@@ -978,13 +824,17 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                     />
                                 </CampoCadastro>
                                 <p v-if="salvo?.pdfUrl" class="text-[0.9375rem]">
-                                    PDF atual:
+                                    {{ somenteLeitura ? 'PDF do edital:' : 'PDF atual:' }}
                                     <a :href="salvo.pdfUrl" class="font-semibold break-all text-acao underline">{{ salvo.pdfNome }}</a>
                                 </p>
+                                <p v-else-if="somenteLeitura" :class="classeDica">Sem PDF do edital.</p>
                             </div>
 
                             <div class="flex min-w-0 flex-col gap-3">
-                                <CampoCadastro id="imagem" rotulo="Imagem da vitrine" :erro="erros.imagem" v-slot="{ descricao, invalido }">
+                                <p v-if="somenteLeitura" :class="salvo?.imagemUrl ? 'text-[0.9375rem]' : classeDica">
+                                    {{ salvo?.imagemUrl ? 'Imagem da vitrine:' : 'Sem imagem da vitrine.' }}
+                                </p>
+                                <CampoCadastro v-else id="imagem" rotulo="Imagem da vitrine" :erro="erros.imagem" v-slot="{ descricao, invalido }">
                                     <CampoArquivo
                                         id="imagem"
                                         accept="image/jpeg,image/png,image/webp"
@@ -1003,7 +853,7 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                         class="h-24 w-36 shrink-0 rounded-[12px] border border-hairline object-cover"
                                         :class="{ 'opacity-40': form.remover_imagem }"
                                     />
-                                    <label :class="classeMarcacao">
+                                    <label v-if="!somenteLeitura" :class="classeMarcacao">
                                         <input v-model="form.remover_imagem" type="checkbox" :class="classeCaixa" />
                                         Remover imagem
                                     </label>
@@ -1019,7 +869,13 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                 <ul aria-labelledby="pendencias-titulo" class="mt-2 flex list-disc flex-col gap-1 pl-5 text-[0.9375rem] leading-[1.5]">
                                     <li v-for="pendencia in pendencias" :key="pendencia">{{ pendencia }}</li>
                                 </ul>
-                                <p class="mt-2 text-[0.8125rem]">Conforme a última versão salva.</p>
+                                <p class="mt-2 text-[0.8125rem]">
+                                    Conforme a última versão salva.
+                                    <template v-if="urlDoQuestionario">
+                                        O questionário fica na sua tela:
+                                        <Link :href="urlDoQuestionario" class="font-semibold underline">abrir o questionário</Link>.
+                                    </template>
+                                </p>
                             </div>
                             <p v-else-if="!editando" :class="classeDica">Ao salvar marcado para publicar, o sistema confere se o edital está completo.</p>
 
@@ -1040,30 +896,27 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                                 </label>
                                 <p v-if="erros.publicado" id="publicado-erro" class="flex items-start gap-1.5 text-[0.875rem] font-semibold text-invalido-texto">{{ erros.publicado }}</p>
                             </div>
+
+                            <p v-if="erros.questionario" id="questionario-erro" role="alert" class="rounded-[12px] bg-erro-fundo px-4 py-3 text-[0.9375rem] font-semibold text-invalido-texto">
+                                {{ erros.questionario }}
+                                <Link v-if="urlDoQuestionario" :href="urlDoQuestionario" class="underline">Abrir o questionário</Link>
+                            </p>
                         </div>
                     </SecaoCadastro>
                 </template>
             </AbasFormulario>
-
-            <div class="flex flex-col-reverse gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <Link
-                    :href="BASE"
-                    class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-tinta-suave/70 bg-superficie px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-home-tinta uppercase no-underline hover:border-acao hover:text-acao"
-                >
-                    Cancelar
-                </Link>
-
-                <div class="flex flex-col gap-2 sm:items-end">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-acao px-8 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro disabled:cursor-wait disabled:opacity-70"
-                    >
-                        {{ textoBotao }}
-                    </button>
-                    <p v-if="form.hasErrors" role="alert" class="text-[0.9375rem] font-semibold text-invalido-texto">Confira os campos destacados nas abas marcadas.</p>
-                </div>
+            <!-- Só para ler não há o que salvar: volta para a lista (Editar fica no topo). -->
+            <div v-if="somenteLeitura">
+                <Link :href="BASE" class="botao-secundario">Voltar para a lista</Link>
             </div>
+            <BarraAcoes
+                v-else
+                :cancelar="BASE"
+                :salvar="textoBotao"
+                :processando="form.processing"
+                :com-erros="form.hasErrors"
+                mensagem-erro="Confira os campos destacados nas abas marcadas."
+            />
         </form>
-    </div>
+    </PaginaRetaguarda>
 </template>

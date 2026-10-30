@@ -3,6 +3,8 @@ import { Head, useForm } from '@inertiajs/vue3';
 import AvisoCamposObrigatorios from '../../Components/AvisoCamposObrigatorios.vue';
 import { focarPrimeiroErro } from '../../Components/focarPrimeiroErro';
 import SecaoCadastro from '../../Components/SecaoCadastro.vue';
+import BarraAcoes from '../../Components/Retaguarda/BarraAcoes.vue';
+import PaginaRetaguarda from '../../Components/Retaguarda/PaginaRetaguarda.vue';
 import RetaguardaLayout from '../../Layouts/RetaguardaLayout.vue';
 import type { RetaguardaVLibrasProps } from '../../types';
 
@@ -27,33 +29,25 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-8 lg:px-6">
+    <PaginaRetaguarda
+        largura="estreita"
+        titulo="VLibras"
+        descricao="Tradutor de português para Libras do governo federal. Aparece no portal e na área do proponente, nunca na retaguarda. As mudanças valem a partir da próxima página aberta no portal."
+    >
         <Head title="VLibras · Retaguarda" />
 
-        <div>
-            <p class="text-[0.75rem] font-bold tracking-[0.12em] text-acao uppercase">Retaguarda</p>
-            <h1 class="mt-1 text-[1.75rem] leading-tight font-bold">VLibras</h1>
-            <p class="mt-1 text-[0.9375rem] text-tinta-suave">
-                Tradutor de português para Libras do governo federal. Aparece no portal e na área do proponente, nunca na retaguarda. As mudanças
-                valem a partir da próxima página aberta no portal.
-            </p>
+        <template #acoes>
             <!-- Link comum, não <Link>: o portal abre em outra aba, fora da retaguarda. -->
-            <a
-                href="/"
-                target="_blank"
-                rel="noopener"
-                class="mt-2 inline-flex min-h-11 items-center gap-1.5 text-[0.9375rem] font-semibold text-acao hover:underline"
-            >
-                Abrir o portal em nova aba
+            <a href="/" target="_blank" rel="noopener" class="vidro vidro-pilula pressionavel inline-flex min-h-11 items-center justify-center gap-2 rounded-pill px-5 text-[0.8125rem] font-bold tracking-[0.1em] text-white uppercase">
+                Abrir o portal
                 <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
                 </svg>
+                <span class="sr-only">(abre em nova aba)</span>
             </a>
-        </div>
+        </template>
 
         <form id="formulario-vlibras" novalidate class="flex flex-col gap-6" @submit.prevent="salvar">
-            <AvisoCamposObrigatorios />
-
             <SecaoCadastro id="secao-vlibras" :numero="1" titulo="VLibras no portal">
                 <template #icone>
                     <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -62,6 +56,8 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                         />
                     </svg>
                 </template>
+
+                <AvisoCamposObrigatorios class="mb-5" />
 
                 <div class="grid gap-y-5">
                     <div>
@@ -124,17 +120,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                     </fieldset>
                 </div>
             </SecaoCadastro>
-
-            <div class="flex flex-col gap-2 sm:items-end">
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-acao px-8 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro disabled:cursor-wait disabled:opacity-70"
-                >
-                    {{ form.processing ? 'Salvando…' : 'Salvar' }}
-                </button>
-                <p v-if="form.hasErrors" role="alert" class="text-[0.9375rem] font-semibold text-invalido-texto">Confira os campos destacados acima.</p>
-            </div>
+            <BarraAcoes :salvar="form.processing ? 'Salvando…' : 'Salvar'" :processando="form.processing" :com-erros="form.hasErrors" />
         </form>
-    </div>
+    </PaginaRetaguarda>
 </template>

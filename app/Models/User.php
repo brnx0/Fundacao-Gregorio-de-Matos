@@ -107,4 +107,10 @@ class User extends Authenticatable
     {
         return $this->ativo && $this->papeis()->exists();
     }
+
+    /** Pessoas do portal: enviaram a etapa "Seus dados" e não são usuárias da retaguarda. */
+    public function scopeDoPortal(Builder $query): void
+    {
+        $query->whereHas('pessoaFisica')->whereDoesntHave('papeis');
+    }
 }

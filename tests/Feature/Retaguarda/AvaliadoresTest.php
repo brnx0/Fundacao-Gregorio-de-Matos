@@ -144,7 +144,7 @@ class AvaliadoresTest extends TestCase
 
     public function test_menu_de_cadastro_tem_avaliadores(): void
     {
-        $menu = file_get_contents(resource_path('js/Components/Retaguarda/MenuRetaguarda.vue'));
+        $menu = file_get_contents(resource_path('js/Components/Retaguarda/menuRetaguarda.ts'));
 
         $this->assertStringContainsString(route('retaguarda.avaliadores.index', absolute: false), $menu);
         $this->assertStringContainsString("'Avaliadores'", $menu);

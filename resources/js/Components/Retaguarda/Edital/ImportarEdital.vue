@@ -78,7 +78,7 @@ const textoBotao = computed(() => {
     <div class="inline-flex">
         <button
             type="button"
-            class="pressionavel inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-pill border border-acao bg-superficie px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-acao uppercase hover:bg-nevoa"
+            class="vidro vidro-pilula pressionavel inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-pill px-6 text-[0.8125rem] font-bold tracking-[0.1em] text-white uppercase"
             @click="abrir"
         >
             <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -91,7 +91,7 @@ const textoBotao = computed(() => {
             ref="dialogo"
             aria-labelledby="importar-edital-titulo"
             :aria-describedby="semConfiguracao ? 'importar-edital-descricao importar-edital-recusa' : 'importar-edital-descricao'"
-            class="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
+            class="dialogo-retaguarda m-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
             @close="aoFechar"
         >
             <form id="formulario-importar-edital" novalidate class="flex flex-col gap-5" @submit.prevent="enviar">

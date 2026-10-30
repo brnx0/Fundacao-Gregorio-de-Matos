@@ -3,9 +3,10 @@ import { computed, nextTick, ref } from 'vue';
 import CampoCadastro from '../../CampoCadastro.vue';
 import Interruptor from '../../Interruptor.vue';
 import VinculoDaPergunta from './VinculoDaPergunta.vue';
-import { MAXIMO_ITENS, classeBotaoCartao, classeCampo, classeCampoBase, classeDica, classeTexto, inteiro } from '../listaEditavel';
+import IconeAcao from '../IconeAcao.vue';
+import { MAXIMO_ITENS, classeCampo, classeCampoBase, classeDica, classeTexto, inteiro } from '../listaEditavel';
 import { LIMITE_MAXIMO_CARACTERES, TIPO_DECLARACAO, nomeDaPergunta, novaChaveDeOpcao, perguntasEmOrdem, regraDoTipo, respostasDaOrigem } from '../questionario';
-import type { CategoriaEditavel, OpcaoFormulario, PerguntaEditavel, SecaoQuestionarioEditavel } from '../../../types';
+import type { CategoriaDoQuestionario, OpcaoFormulario, PerguntaEditavel, SecaoQuestionarioEditavel } from '../../../types';
 
 /** Campos de uma pergunta do questionário, dentro do cartão da ListaEditavel. */
 const props = defineProps<{
@@ -13,7 +14,7 @@ const props = defineProps<{
     secoes: SecaoQuestionarioEditavel[];
     /** Chave da seção em que a pergunta está. */
     secao: string;
-    categorias: CategoriaEditavel[];
+    categorias: CategoriaDoQuestionario[];
     tiposPergunta: OpcaoFormulario[];
     /** Do escopo do cartão (ListaEditavel). */
     idCampo: (campo: string) => string;
@@ -273,35 +274,32 @@ const mover = (): void => {
                                 :id="idCampo(`opcao-${opcao.chave}-subir`)"
                                 type="button"
                                 :disabled="indiceOpcao === 0"
-                                :class="classeBotaoCartao"
+                                class="acao-icone"
+                                data-dica="Subir"
                                 @click="moverOpcao(indiceOpcao, -1)"
                             >
-                                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 19V5M6 11l6-6 6 6" />
-                                </svg>
-                                Subir<span class="sr-only">{{ ` opção ${indiceOpcao + 1}` }}</span>
+                                <IconeAcao nome="subir" />
+                                <span class="sr-only">Subir{{ ` opção ${indiceOpcao + 1}` }}</span>
                             </button>
                             <button
                                 :id="idCampo(`opcao-${opcao.chave}-descer`)"
                                 type="button"
                                 :disabled="indiceOpcao === pergunta.opcoes.length - 1"
-                                :class="classeBotaoCartao"
+                                class="acao-icone"
+                                data-dica="Descer"
                                 @click="moverOpcao(indiceOpcao, 1)"
                             >
-                                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 5v14M6 13l6 6 6-6" />
-                                </svg>
-                                Descer<span class="sr-only">{{ ` opção ${indiceOpcao + 1}` }}</span>
+                                <IconeAcao nome="descer" />
+                                <span class="sr-only">Descer{{ ` opção ${indiceOpcao + 1}` }}</span>
                             </button>
                             <button
                                 type="button"
-                                class="pressionavel inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 text-[0.8125rem] font-bold text-erro-texto hover:bg-erro-fundo"
+                                class="acao-icone acao-icone-perigo"
+                                data-dica="Remover"
                                 @click="removerOpcao(indiceOpcao)"
                             >
-                                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
-                                </svg>
-                                Remover<span class="sr-only">{{ ` opção ${indiceOpcao + 1}` }}</span>
+                                <IconeAcao nome="remover" />
+                                <span class="sr-only">Remover{{ ` opção ${indiceOpcao + 1}` }}</span>
                             </button>
                         </div>
                     </div>

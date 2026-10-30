@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import AvisoCamposObrigatorios from '../../Components/AvisoCamposObrigatorios.vue';
 import CampoArquivo from '../../Components/CampoArquivo.vue';
@@ -40,6 +40,7 @@ const salvo = props.cadastro;
 const form = useForm({
     nome_social: salvo?.nome_social ?? '',
     nome_artistico: salvo?.nome_artistico ?? '',
+    data_nascimento: salvo?.data_nascimento ?? '',
     foto_perfil: null as File | null,
 
     pais_origem: salvo?.pais_origem ?? 'Brasil',
@@ -51,6 +52,7 @@ const form = useForm({
     documento_outros: null as File | null,
 
     drt: salvo?.drt ?? '',
+    areas_atuacao: [...(salvo?.areas_atuacao ?? [])] as number[],
     cultura_principal_renda: salvo?.cultura_principal_renda ?? false,
     ja_foi_avaliador: salvo?.ja_foi_avaliador ?? false,
     interesse_avaliador: salvo?.interesse_avaliador ?? false,
@@ -80,6 +82,15 @@ const form = useForm({
     territorio: salvo?.territorio ?? '',
     comprovante_residencia: null as File | null,
 });
+
+// Área desativada com o formulário aberto: o erro do servidor traz a lista sem ela, e ela sai do que vai ser enviado
+// (marcada e sem caixa na tela, não haveria como desmarcá-la).
+watch(
+    () => props.opcoes.areasAtuacao,
+    (areas) => {
+        form.areas_atuacao = form.areas_atuacao.filter((id) => areas.some((area) => area.valor === id));
+    },
+);
 
 // Como no FakeLogin: atualiza o próprio campo, senão o Vue não redesenha quando a máscara descarta o que foi digitado.
 const mascarar = (evento: Event, campo: 'telefone' | 'telefone_adicional' | 'cep', formatar: (valor: string) => string): void => {
@@ -185,6 +196,22 @@ const classeSomenteLeitura =
                             :class="classeCampo"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
+                        />
+                    </CampoCadastro>
+
+                    <CampoCadastro id="data_nascimento" rotulo="Data de nascimento" obrigatorio :erro="form.errors.data_nascimento" v-slot="{ descricao, invalido }">
+                        <input
+                            id="data_nascimento"
+                            v-model="form.data_nascimento"
+                            type="date"
+                            autocomplete="bday"
+                            min="1900-01-02"
+                            :max="opcoes.nascimentoMaximo"
+                            required
+                            :class="[classeCampo, 'tabular-nums']"
+                            :aria-invalid="invalido || undefined"
+                            :aria-describedby="descricao"
+                            @input="form.clearErrors('data_nascimento')"
                         />
                     </CampoCadastro>
 
@@ -346,6 +373,37 @@ const classeSomenteLeitura =
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                         />
+                    </CampoCadastro>
+
+                    <CampoCadastro
+                        id="areas_atuacao"
+                        class="md:col-span-2"
+                        grupo
+                        rotulo="Áreas de atuação"
+                        obrigatorio
+                        ajuda="Marque todas em que você atua."
+                        :erro="form.errors.areas_atuacao"
+                        v-slot="{ invalido }"
+                    >
+                        <!-- Em colunas, e não em grade: a ordem alfabética corre de cima para baixo, coluna a coluna. -->
+                        <div class="gap-x-4 rounded-[12px] border border-hairline p-2 sm:columns-2 lg:columns-3" :class="{ 'campo-invalido': invalido }">
+                            <label
+                                v-for="area in opcoes.areasAtuacao"
+                                :key="area.valor"
+                                class="flex min-h-11 cursor-pointer break-inside-avoid items-center gap-3 rounded-[8px] px-2 py-1.5 hover:bg-nevoa"
+                            >
+                                <input
+                                    v-model="form.areas_atuacao"
+                                    type="checkbox"
+                                    name="areas_atuacao"
+                                    :value="area.valor"
+                                    class="size-5 shrink-0 cursor-pointer accent-acao"
+                                    :aria-invalid="invalido || undefined"
+                                    @change="form.clearErrors('areas_atuacao')"
+                                />
+                                <span class="min-w-0 break-words">{{ area.rotulo }}</span>
+                            </label>
+                        </div>
                     </CampoCadastro>
 
                     <fieldset class="md:col-span-2">

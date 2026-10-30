@@ -225,7 +225,7 @@ class PrefeiturasBairroTest extends TestCase
 
     public function test_menu_tem_o_grupo_parametrizacao_com_prefeituras_bairro(): void
     {
-        $menu = file_get_contents(resource_path('js/Components/Retaguarda/MenuRetaguarda.vue'));
+        $menu = file_get_contents(resource_path('js/Components/Retaguarda/menuRetaguarda.ts'));
 
         $this->assertStringContainsString("'Parametrização'", $menu);
         $this->assertStringContainsString(route('retaguarda.prefeituras-bairro.index', absolute: false), $menu);

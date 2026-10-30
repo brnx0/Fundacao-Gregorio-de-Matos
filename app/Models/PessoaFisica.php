@@ -8,16 +8,25 @@ use App\Enums\IdentidadeGenero;
 use App\Enums\PovoTradicional;
 use App\Enums\RacaCor;
 use App\Enums\TipoDeficiencia;
+use App\Models\Concerns\UsaDiaCivil;
 use BackedEnum;
+use Carbon\CarbonInterface;
 use Database\Factories\PessoaFisicaFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class PessoaFisica extends Model
 {
     /** @use HasFactory<PessoaFisicaFactory> */
     use HasFactory;
+
+    use UsaDiaCivil;
+
+    /** Idade, em anos completos, a partir da qual a pessoa pode se cadastrar. */
+    public const int IDADE_MINIMA = 18;
 
     /** Colunas com o caminho de um arquivo enviado, no disco local. */
     public const array ARQUIVOS = [
@@ -25,7 +34,10 @@ class PessoaFisica extends Model
         'documento_crnm', 'documento_outros', 'comprovante_residencia',
     ];
 
-    /** Campos do perfil que o questionário do edital reaproveita. */
+    /**
+     * Campos do perfil que o questionário do edital reaproveita. A data de nascimento fica de fora: não muda com o
+     * tempo, e a idade na inscrição sai dela e de finalizada_em, sem copiar o dado pessoal em cada inscrição.
+     */
     public const array CAMPOS_DO_PERFIL = [
         'identidade_genero', 'raca_cor', 'pcd', 'deficiencia', 'deficiencia_outra',
         'escolaridade', 'renda', 'povo_tradicional', 'anos_atuacao',
@@ -34,7 +46,7 @@ class PessoaFisica extends Model
     protected $table = 'pessoas_fisicas';
 
     protected $fillable = [
-        'nome_social', 'nome_artistico', 'foto_perfil',
+        'nome_social', 'nome_artistico', 'data_nascimento', 'foto_perfil',
         'pais_origem', 'rg', 'documento_cpf', 'documento_rg', 'documento_passaporte', 'documento_crnm', 'documento_outros',
         'drt', 'cultura_principal_renda', 'ja_foi_avaliador', 'interesse_avaliador', 'representa_coletivo',
         'telefone', 'telefone_adicional', 'email',
@@ -45,6 +57,7 @@ class PessoaFisica extends Model
     protected function casts(): array
     {
         return [
+            'data_nascimento' => 'date',
             'cultura_principal_renda' => 'boolean',
             'ja_foi_avaliador' => 'boolean',
             'interesse_avaliador' => 'boolean',
@@ -58,6 +71,19 @@ class PessoaFisica extends Model
             'povo_tradicional' => PovoTradicional::class,
             'anos_atuacao' => 'integer',
         ];
+    }
+
+    /** @return Attribute<mixed, mixed> */
+    protected function dataNascimento(): Attribute
+    {
+        return Attribute::set(fn ($valor) => self::diaParaGravar($valor));
+    }
+
+    /** Último dia de nascimento aceito no cadastro (AAAA-MM-DD): quem nasceu até ele já tem a idade mínima hoje. */
+    public static function nascimentoMaximo(?CarbonInterface $agora = null): string
+    {
+        // Sem transbordar: em 29/02, o limite fica em 28/02, e não em 01/03.
+        return self::hoje($agora)->subYearsNoOverflow(self::IDADE_MINIMA)->toDateString();
     }
 
     /** Cadastros anteriores ao perfil ficam incompletos até a pessoa preencher o que falta. */
@@ -102,5 +128,17 @@ class PessoaFisica extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsToMany<AreaAtuacao, $this> */
+    public function areasAtuacao(): BelongsToMany
+    {
+        return $this->belongsToMany(AreaAtuacao::class, 'area_atuacao_pessoa_fisica');
+    }
+
+    /** @return list<int> */
+    public function idsDasAreas(): array
+    {
+        return $this->areasAtuacao()->pluck('areas_atuacao.id')->map(fn (mixed $id): int => (int) $id)->all();
     }
 }

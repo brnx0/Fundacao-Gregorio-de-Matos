@@ -4,15 +4,15 @@ import Interruptor from '../../Interruptor.vue';
 import VinculoDaPergunta from './VinculoDaPergunta.vue';
 import { classeDica } from '../listaEditavel';
 import { nomeDaPergunta, perguntasEmOrdem, semVinculo } from '../questionario';
-import type { CategoriaEditavel, SecaoQuestionarioEditavel, VinculoEditavel } from '../../../types';
+import type { CategoriaDoQuestionario, SecaoQuestionarioEditavel, VinculoEditavel } from '../../../types';
 
 /**
  * "Vincular em lote": escolhe perguntas (uma a uma ou a seção inteira) e copia para elas o mesmo vínculo.
- * Só muda o formulário; nada é gravado até salvar o edital.
+ * Só muda a tela; nada é gravado até salvar o questionário.
  */
 const props = defineProps<{
     secoes: SecaoQuestionarioEditavel[];
-    categorias: CategoriaEditavel[];
+    categorias: CategoriaDoQuestionario[];
     desabilitado?: boolean;
 }>();
 
@@ -95,13 +95,13 @@ const classeBotaoSecundario =
             ref="dialogo"
             aria-labelledby="vincular-lote-titulo"
             aria-describedby="vincular-lote-descricao"
-            class="m-auto max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-2rem))] overflow-y-auto rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
+            class="dialogo-retaguarda m-auto max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-2rem))] overflow-y-auto rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
         >
             <div class="@container flex flex-col gap-6">
                 <div>
                     <h2 id="vincular-lote-titulo" class="text-[1.25rem] leading-tight font-bold">Vincular em lote</h2>
                     <p id="vincular-lote-descricao" class="mt-2 text-[0.9375rem] text-tinta-suave">
-                        Escolha as perguntas e o vínculo. O vínculo é copiado para todas elas; nada é gravado até você salvar o edital.
+                        Escolha as perguntas e o vínculo. O vínculo é copiado para todas elas; nada é gravado até você salvar o questionário.
                     </p>
                 </div>
 
