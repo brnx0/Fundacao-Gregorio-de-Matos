@@ -8,13 +8,15 @@ use App\Enums\SituacaoInscricao;
 use App\Models\Edital;
 use App\Models\EditalCategoria;
 use App\Models\EditalChamada;
+use App\Models\EditalPergunta;
+use App\Models\EditalQuestionarioSecao;
 use App\Models\Inscricao;
 use App\Models\User;
 use App\Support\Cnpj;
 use App\Support\Cpf;
 use Illuminate\Support\Collection;
 
-/** Dados que as telas da inscrição recebem: o edital e o que o proponente escolhe (cadastro, categoria e cotas). */
+/** Dados que as telas da inscrição recebem: o edital, o que o proponente escolhe (cadastro, categoria e cotas) e o questionário. */
 final class PropsDaInscricao
 {
     /**
@@ -108,6 +110,51 @@ final class PropsDaInscricao
                 RegrasDaInscricao::cotasOferecidas($edital),
             ),
             'vedaNegroIndigena' => ($edital->cotas['veda_negro_indigena'] ?? null) === true,
+        ];
+    }
+
+    /**
+     * As seções do questionário que valem para a inscrição, cada uma com todas as perguntas que valem (visíveis ou não).
+     *
+     * @return list<array{id: int, titulo: string, descricao: ?string, perguntas: list<array<string, mixed>>}>
+     */
+    public static function secoes(QuestionarioDaInscricao $questionario): array
+    {
+        return $questionario->secoesQueValem()
+            ->map(fn (EditalQuestionarioSecao $secao): array => [
+                'id' => (int) $secao->id,
+                'titulo' => $secao->titulo,
+                'descricao' => $secao->descricao,
+                'perguntas' => $secao->perguntas->map(fn (EditalPergunta $pergunta): array => self::pergunta($pergunta))->all(),
+            ])
+            ->all();
+    }
+
+    /**
+     * A pergunta como a tela usa. Sim/não e declaração vão sem opções: a tela usa as chaves fixas.
+     *
+     * @return array{id: int, enunciado: string, ajuda: ?string, tipo: string, obrigatoria: bool, limite: ?int, opcoes: list<array{chave: string, texto: string, outro: bool}>, condicao: array{pergunta: int, opcoes: list<string>}|null}
+     */
+    public static function pergunta(EditalPergunta $pergunta): array
+    {
+        return [
+            'id' => (int) $pergunta->id,
+            'enunciado' => $pergunta->enunciado,
+            'ajuda' => $pergunta->ajuda,
+            'tipo' => $pergunta->tipo->value,
+            'obrigatoria' => $pergunta->obrigatoria,
+            'limite' => $pergunta->limiteDeCaracteres(),
+            'opcoes' => $pergunta->tipo->temOpcoes()
+                ? array_values(array_map(fn (array $opcao): array => [
+                    'chave' => (string) $opcao['chave'],
+                    'texto' => (string) $opcao['texto'],
+                    'outro' => (bool) ($opcao['outro'] ?? false),
+                ], $pergunta->opcoes ?? []))
+                : [],
+            'condicao' => $pergunta->condicao_pergunta_id === null ? null : [
+                'pergunta' => (int) $pergunta->condicao_pergunta_id,
+                'opcoes' => array_values($pergunta->condicao_opcoes ?? []),
+            ],
         ];
     }
 

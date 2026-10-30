@@ -9,8 +9,6 @@ use App\Http\Requests\SalvarInscricaoRequest;
 use App\Models\ConfiguracaoIa;
 use App\Models\Edital;
 use App\Models\EditalDocumento;
-use App\Models\EditalPergunta;
-use App\Models\EditalQuestionarioSecao;
 use App\Models\Inscricao;
 use App\Models\InscricaoDocumento;
 use App\Support\ArquivoArmazenado;
@@ -124,14 +122,7 @@ class InscricaoController extends Controller
             'passoAtual' => $podeEditar
                 ? PassosDaInscricao::atual($passos, is_string($passoPedido) ? $passoPedido : null)
                 : PassosDaInscricao::REVISAO,
-            'secoes' => $questionario->secoesQueValem()
-                ->map(fn (EditalQuestionarioSecao $secao): array => [
-                    'id' => (int) $secao->id,
-                    'titulo' => $secao->titulo,
-                    'descricao' => $secao->descricao,
-                    'perguntas' => $secao->perguntas->map(fn (EditalPergunta $pergunta): array => $this->perguntaParaATela($pergunta))->all(),
-                ])
-                ->all(),
+            'secoes' => PropsDaInscricao::secoes($questionario),
             // Objeto mesmo vazio: a tela lê as respostas pelo id da pergunta.
             'respostas' => (object) $questionario->respostasSalvas(),
             'perfilIncompleto' => ! $user->perfilCompleto(),
@@ -270,34 +261,6 @@ class InscricaoController extends Controller
 
             return redirect()->route('portal.inscricoes.show', $inscricao);
         });
-    }
-
-    /**
-     * A pergunta como a tela usa. Sim/não e declaração vão sem opções: a tela usa as chaves fixas.
-     *
-     * @return array{id: int, enunciado: string, ajuda: ?string, tipo: string, obrigatoria: bool, limite: ?int, opcoes: list<array{chave: string, texto: string, outro: bool}>, condicao: array{pergunta: int, opcoes: list<string>}|null}
-     */
-    private function perguntaParaATela(EditalPergunta $pergunta): array
-    {
-        return [
-            'id' => (int) $pergunta->id,
-            'enunciado' => $pergunta->enunciado,
-            'ajuda' => $pergunta->ajuda,
-            'tipo' => $pergunta->tipo->value,
-            'obrigatoria' => $pergunta->obrigatoria,
-            'limite' => $pergunta->limiteDeCaracteres(),
-            'opcoes' => $pergunta->tipo->temOpcoes()
-                ? array_values(array_map(fn (array $opcao): array => [
-                    'chave' => (string) $opcao['chave'],
-                    'texto' => (string) $opcao['texto'],
-                    'outro' => (bool) ($opcao['outro'] ?? false),
-                ], $pergunta->opcoes ?? []))
-                : [],
-            'condicao' => $pergunta->condicao_pergunta_id === null ? null : [
-                'pergunta' => (int) $pergunta->condicao_pergunta_id,
-                'opcoes' => array_values($pergunta->condicao_opcoes ?? []),
-            ],
-        ];
     }
 
     /**
