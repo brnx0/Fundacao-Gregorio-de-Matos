@@ -132,6 +132,9 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
                 ->whereNumber('inscricao')
                 ->name('homologacao.show');
         });
+        Route::put('/homologacao/{inscricao}/conferencias', [HomologacaoController::class, 'marcar'])
+            ->whereNumber('inscricao')
+            ->name('homologacao.conferencias.update');
         Route::get('/homologacao/{inscricao}/documentos/{documento}/arquivo', [HomologacaoController::class, 'arquivo'])
             ->whereNumber(['inscricao', 'documento'])
             ->name('homologacao.documentos.arquivo');

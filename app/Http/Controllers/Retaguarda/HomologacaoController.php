@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Retaguarda;
 
+use App\Enums\MarcacaoDoItem;
 use App\Enums\ModalidadeCota;
 use App\Enums\SituacaoConferencia;
 use App\Enums\SituacaoHomologacao;
 use App\Enums\SituacaoInscricao;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\InscricaoDocumentoController;
+use App\Http\Requests\Retaguarda\MarcarItemRequest;
 use App\Models\Edital;
 use App\Models\EditalDocumento;
 use App\Models\EditalPergunta;
@@ -20,10 +22,14 @@ use App\Support\Inscricao\ConferenciaDaInscricao;
 use App\Support\Inscricao\PropsDaInscricao;
 use App\Support\Inscricao\QuestionarioDaInscricao;
 use App\Support\Inscricao\RetratoDoPerfil;
+use App\Support\Inscricao\Travas;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -41,6 +47,14 @@ class HomologacaoController extends Controller
     public const string AVISO_FORA_DO_PERIODO = 'Fora do período de homologação da chamada (:inicio a :fim): a inscrição fica só para consulta.';
 
     /** Valor do filtro das inscrições ainda sem decisão. */
+    public const string ERRO_FORA_DO_PERIODO = 'Fora do período de homologação: a inscrição fica só para consulta.';
+
+    public const string ERRO_JA_DECIDIDA = 'Esta inscrição já tem decisão registrada; as marcações ficam só para consulta.';
+
+    public const string ERRO_NAO_FINALIZADA = 'Só inscrições finalizadas podem ser conferidas.';
+
+    public const string ERRO_ITEM = 'Este item não faz parte da conferência desta inscrição.';
+
     private const string SEM_DECISAO = 'sem_decisao';
 
     public function index(Request $request): Response
@@ -166,6 +180,55 @@ class HomologacaoController extends Controller
             'recurso' => $this->recurso($inscricao, $enviados),
             'podeJulgar' => $inscricao->homologacao === SituacaoHomologacao::EmRecurso,
         ]);
+    }
+
+    /**
+     * Marca o documento ou a pergunta como ok ou com problema (uma linha por item: marcar de novo atualiza). A situação,
+     * a decisão e o período valem na linha travada da inscrição, dentro da transação. A tela atualiza a marcação, sem
+     * mensagem de sucesso.
+     */
+    public function marcar(MarcarItemRequest $request, Inscricao $inscricao): RedirectResponse
+    {
+        $erro = DB::transaction(function () use ($request, $inscricao): ?string {
+            Travas::edital($inscricao->edital);
+            $travada = Travas::inscricao($inscricao);
+
+            if ($travada->situacao !== SituacaoInscricao::Finalizada) {
+                return self::ERRO_NAO_FINALIZADA;
+            }
+
+            if ($travada->homologacao !== null) {
+                return self::ERRO_JA_DECIDIDA;
+            }
+
+            if (! $travada->naHomologacao()) {
+                return self::ERRO_FORA_DO_PERIODO;
+            }
+
+            $item = (int) $request->integer('item');
+            $documento = $request->input('tipo') === 'documento';
+            $conferencia = new ConferenciaDaInscricao($travada);
+
+            if (! ($documento ? $conferencia->temDocumento($item) : $conferencia->temPergunta($item))) {
+                throw ValidationException::withMessages(['item' => self::ERRO_ITEM]);
+            }
+
+            $travada->conferencias()->updateOrCreate(
+                [
+                    'edital_documento_id' => $documento ? $item : null,
+                    'edital_pergunta_id' => $documento ? null : $item,
+                ],
+                [
+                    'situacao' => $request->enum('situacao', MarcacaoDoItem::class),
+                    'observacao' => $request->input('observacao'),
+                    'user_id' => $request->user()->id,
+                ],
+            );
+
+            return null;
+        });
+
+        return $erro === null ? back() : back()->with('erro', $erro);
     }
 
     /** Abre na aba o arquivo que a inscrição enviou para o documento; 404 sem envio ou sem o arquivo no disco. */
