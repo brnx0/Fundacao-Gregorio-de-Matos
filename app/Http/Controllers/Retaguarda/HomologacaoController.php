@@ -9,6 +9,7 @@ use App\Enums\SituacaoHomologacao;
 use App\Enums\SituacaoInscricao;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\InscricaoDocumentoController;
+use App\Http\Requests\Retaguarda\DecidirHomologacaoRequest;
 use App\Http\Requests\Retaguarda\MarcarItemRequest;
 use App\Models\Edital;
 use App\Models\EditalDocumento;
@@ -46,7 +47,6 @@ class HomologacaoController extends Controller
 
     public const string AVISO_FORA_DO_PERIODO = 'Fora do período de homologação da chamada (:inicio a :fim): a inscrição fica só para consulta.';
 
-    /** Valor do filtro das inscrições ainda sem decisão. */
     public const string ERRO_FORA_DO_PERIODO = 'Fora do período de homologação: a inscrição fica só para consulta.';
 
     public const string ERRO_JA_DECIDIDA = 'Esta inscrição já tem decisão registrada; as marcações ficam só para consulta.';
@@ -55,6 +55,11 @@ class HomologacaoController extends Controller
 
     public const string ERRO_ITEM = 'Este item não faz parte da conferência desta inscrição.';
 
+    public const string ERRO_HOMOLOGAR_COM_PENDENCIA = 'Para homologar, marque todos os itens como ok.';
+
+    public const string ERRO_NAO_HOMOLOGAR_SEM_MOTIVO = 'Marque ao menos um item com problema ou escreva o motivo.';
+
+    /** Valor do filtro das inscrições ainda sem decisão. */
     private const string SEM_DECISAO = 'sem_decisao';
 
     public function index(Request $request): Response
@@ -192,17 +197,10 @@ class HomologacaoController extends Controller
         $erro = DB::transaction(function () use ($request, $inscricao): ?string {
             Travas::edital($inscricao->edital);
             $travada = Travas::inscricao($inscricao);
+            $recusa = $this->recusaDaConferencia($travada);
 
-            if ($travada->situacao !== SituacaoInscricao::Finalizada) {
-                return self::ERRO_NAO_FINALIZADA;
-            }
-
-            if ($travada->homologacao !== null) {
-                return self::ERRO_JA_DECIDIDA;
-            }
-
-            if (! $travada->naHomologacao()) {
-                return self::ERRO_FORA_DO_PERIODO;
+            if ($recusa !== null) {
+                return $recusa;
             }
 
             $item = (int) $request->integer('item');
@@ -229,6 +227,63 @@ class HomologacaoController extends Controller
         });
 
         return $erro === null ? back() : back()->with('erro', $erro);
+    }
+
+    /**
+     * Registra a decisão da homologação, com quem e quando, na linha travada da inscrição (recusada como na marcação).
+     * Homologar exige todos os itens ok. Não homologar exige item com problema ou motivo escrito; sem texto, o motivo é
+     * o montado dos itens com problema. As marcações automáticas (obrigatório não enviado) são gravadas antes da
+     * decisão, enquanto ainda contam, para valerem depois dela.
+     */
+    public function decidir(DecidirHomologacaoRequest $request, Inscricao $inscricao): RedirectResponse
+    {
+        $decisao = $request->enum('decisao', SituacaoHomologacao::class);
+        $motivo = $request->filled('motivo') ? $request->string('motivo')->toString() : null;
+
+        $erro = DB::transaction(function () use ($request, $inscricao, $decisao, $motivo): ?string {
+            Travas::edital($inscricao->edital);
+            $travada = Travas::inscricao($inscricao);
+            $recusa = $this->recusaDaConferencia($travada);
+
+            if ($recusa !== null) {
+                return $recusa;
+            }
+
+            $conferencia = new ConferenciaDaInscricao($travada);
+
+            if ($decisao === SituacaoHomologacao::Homologada) {
+                if (! $conferencia->tudoOk()) {
+                    return self::ERRO_HOMOLOGAR_COM_PENDENCIA;
+                }
+
+                $motivo = null;
+            } else {
+                if ($conferencia->itensComProblema() === [] && $motivo === null) {
+                    return self::ERRO_NAO_HOMOLOGAR_SEM_MOTIVO;
+                }
+
+                $conferencia->gravarProblemasAutomaticos($request->user()->id);
+                $motivo ??= $conferencia->motivoSugerido();
+            }
+
+            $travada->update([
+                'homologacao' => $decisao,
+                'homologacao_motivo' => $motivo,
+                'homologada_por' => $request->user()->id,
+                'homologada_em' => now(),
+            ]);
+
+            return null;
+        });
+
+        if ($erro !== null) {
+            return back()->with('erro', $erro);
+        }
+
+        return redirect()->route('retaguarda.homologacao.show', $inscricao)->with(
+            'sucesso',
+            $decisao === SituacaoHomologacao::Homologada ? 'Inscrição homologada.' : 'Inscrição não homologada.',
+        );
     }
 
     /** Abre na aba o arquivo que a inscrição enviou para o documento; 404 sem envio ou sem o arquivo no disco. */
@@ -262,6 +317,24 @@ class HomologacaoController extends Controller
             ->orWhereHas('organizacao', fn (Builder $o) => $o
                 ->whereRaw("LOWER(organizacoes.nome_fantasia) LIKE ? ESCAPE '\'", [$termo])
                 ->orWhereRaw("LOWER(organizacoes.razao_social) LIKE ? ESCAPE '\'", [$termo])));
+    }
+
+    /** Por que a inscrição travada não pode ser marcada nem decidida: não finalizada, já decidida ou fora do período. */
+    private function recusaDaConferencia(Inscricao $travada): ?string
+    {
+        if ($travada->situacao !== SituacaoInscricao::Finalizada) {
+            return self::ERRO_NAO_FINALIZADA;
+        }
+
+        if ($travada->homologacao !== null) {
+            return self::ERRO_JA_DECIDIDA;
+        }
+
+        if (! $travada->naHomologacao()) {
+            return self::ERRO_FORA_DO_PERIODO;
+        }
+
+        return null;
     }
 
     /** Nulo dentro do período ou com decisão; o aviso de sem período (sem chamada ou sem as datas) ou de fora dele. */
