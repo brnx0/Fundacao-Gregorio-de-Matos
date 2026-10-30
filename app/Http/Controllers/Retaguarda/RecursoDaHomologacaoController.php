@@ -76,6 +76,8 @@ class RecursoDaHomologacaoController extends Controller
     /** Abre na aba o arquivo novo enviado no recurso para o documento; 404 sem ele ou sem o arquivo no disco. */
     public function arquivo(Inscricao $inscricao, EditalDocumento $documento): StreamedResponse
     {
+        abort_if($inscricao->edital === null, 404);
+
         $novo = $inscricao->recurso?->documentos()->where('edital_documento_id', $documento->id)->first();
 
         abort_unless($novo !== null && Storage::disk(Inscricao::DISCO)->exists($novo->arquivo), 404);
@@ -86,6 +88,9 @@ class RecursoDaHomologacaoController extends Controller
     /**
      * Cada arquivo do recurso vira o envio da inscrição para o documento (criado quando não tinha sido enviado), só
      * enviado e sem o resultado de conferência anterior. Devolve os originais trocados, para apagar depois do commit.
+     *
+     * Depois de aceito, o envio da inscrição e o documento do recurso apontam para o mesmo arquivo guardado: nada pode
+     * apagar um sem o outro.
      *
      * @return list<array{string, ?string}> Pares [disco, caminho].
      */

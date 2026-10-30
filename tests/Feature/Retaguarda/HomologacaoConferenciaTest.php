@@ -135,6 +135,32 @@ class HomologacaoConferenciaTest extends TestCase
         $this->assertStringNotContainsString('inscricoes/', $props);
     }
 
+    public function test_homologada_nao_mostra_prazo_do_recurso(): void
+    {
+        $inscricao = $this->inscricaoFinalizada($this->editalEmHomologacao());
+        $inscricao->update([
+            'homologacao' => 'homologada',
+            'homologada_por' => User::factory()->gestor()->create()->id,
+            'homologada_em' => Carbon::parse('2026-12-04 15:30', 'America/Bahia'),
+        ]);
+
+        $this->get("/retaguarda/homologacao/{$inscricao->id}")->assertOk()->assertInertia(fn (Assert $p) => $p
+            ->where('inscricao.homologacao', 'homologada')
+            ->where('inscricao.prazoDoRecurso', null));
+    }
+
+    public function test_edital_apagado_da_404_na_conferencia_e_nos_arquivos(): void
+    {
+        $inscricao = $this->inscricaoFinalizada($this->editalEmHomologacao());
+        $rg = $this->documentoEnviado($inscricao, 'RG', arquivo: 'inscricoes/1/rg.pdf');
+        Storage::disk('local')->put('inscricoes/1/rg.pdf', 'rg-original');
+        $inscricao->edital->delete();
+
+        $this->get("/retaguarda/homologacao/{$inscricao->id}")->assertNotFound();
+        $this->get("/retaguarda/homologacao/{$inscricao->id}/documentos/{$rg->id}/arquivo")->assertNotFound();
+        $this->get("/retaguarda/homologacao/{$inscricao->id}/recurso/documentos/{$rg->id}/arquivo")->assertNotFound();
+    }
+
     public function test_rascunho_da_404(): void
     {
         $inscricao = $this->inscricaoFinalizada($this->editalEmHomologacao());

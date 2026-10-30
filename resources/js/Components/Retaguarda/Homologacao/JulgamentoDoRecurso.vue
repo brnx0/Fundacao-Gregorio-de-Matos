@@ -77,6 +77,7 @@ const classeCancelar =
                                     <span class="sr-only">Abrir em nova aba o original de {{ documento.nome }}</span>
                                 </a>
                             </div>
+                            <p v-else-if="recurso.decisao === 'aceito'" class="text-tinta-suave">Substituído pelo novo, do recurso</p>
                             <p v-else class="text-tinta-suave">Não enviado</p>
                         </div>
                         <div class="rounded-[12px] bg-nevoa p-3">

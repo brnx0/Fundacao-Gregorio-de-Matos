@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\CenarioDaHomologacao;
 use Tests\TestCase;
 
@@ -110,6 +111,22 @@ class HomologacaoRecursoTest extends TestCase
         $this->assertSame('RG legível agora.', $recurso->parecer);
         $this->assertSame($this->gestor->id, (int) $recurso->julgado_por);
         $this->assertTrue($recurso->julgado_em->equalTo(now()));
+    }
+
+    public function test_aceito_nao_mostra_o_arquivo_trocado_como_original(): void
+    {
+        $inscricao = $this->inscricaoFinalizada($this->editalEmHomologacao());
+        Storage::disk(Inscricao::DISCO)->put('inscricoes/original.pdf', 'original');
+        $rg = $this->documentoEnviado($inscricao, 'RG');
+        $recurso = $this->emRecurso($inscricao);
+        $this->novoNoRecurso($recurso, $rg, 'inscricoes/rg-novo.pdf');
+        $this->julgar($inscricao, ['decisao' => 'aceito', 'parecer' => 'RG legível agora.']);
+
+        $this->get("/retaguarda/homologacao/{$inscricao->id}")->assertOk()->assertInertia(fn (Assert $p) => $p
+            ->where('inscricao.homologacao', 'homologada')
+            ->where('inscricao.prazoDoRecurso', null)
+            ->where('recurso.documentos.0.original', null)
+            ->where('recurso.documentos.0.novo.nome', 'rg-legivel.pdf'));
     }
 
     public function test_aceito_cria_o_documento_que_nao_tinha_sido_enviado(): void

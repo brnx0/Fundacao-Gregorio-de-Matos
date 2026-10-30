@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Retaguarda;
 
+use App\Enums\DecisaoRecurso;
 use App\Enums\MarcacaoDoItem;
 use App\Enums\ModalidadeCota;
 use App\Enums\SituacaoConferencia;
@@ -49,7 +50,7 @@ class HomologacaoController extends Controller
 
     public const string ERRO_FORA_DO_PERIODO = 'Fora do período de homologação: a inscrição fica só para consulta.';
 
-    public const string ERRO_JA_DECIDIDA = 'Esta inscrição já tem decisão registrada; as marcações ficam só para consulta.';
+    public const string ERRO_JA_DECIDIDA = 'Esta inscrição já tem decisão registrada e fica só para consulta.';
 
     public const string ERRO_NAO_FINALIZADA = 'Só inscrições finalizadas podem ser conferidas.';
 
@@ -127,7 +128,7 @@ class HomologacaoController extends Controller
      */
     public function show(Inscricao $inscricao): Response
     {
-        abort_unless($inscricao->situacao === SituacaoInscricao::Finalizada, 404);
+        abort_unless($inscricao->situacao === SituacaoInscricao::Finalizada && $inscricao->edital !== null, 404);
 
         $inscricao->load(['edital:id,titulo', 'chamada', 'user:id,name', 'organizacao:id,razao_social,nome_fantasia', 'categoria:id,nome', 'homologador:id,name']);
         $conferencia = new ConferenciaDaInscricao($inscricao);
@@ -155,7 +156,9 @@ class HomologacaoController extends Controller
                 'motivo' => $inscricao->homologacao_motivo,
                 'decididaPor' => $inscricao->homologador?->name,
                 'decididaEm' => $inscricao->homologada_em?->format('d/m/Y H:i'),
-                'prazoDoRecurso' => $inscricao->prazoDoRecurso()?->format('d/m/Y'),
+                'prazoDoRecurso' => in_array($inscricao->homologacao, [SituacaoHomologacao::NaoHomologada, SituacaoHomologacao::EmRecurso], true)
+                    ? $inscricao->prazoDoRecurso()?->format('d/m/Y')
+                    : null,
             ],
             'periodo' => [
                 'inicio' => $chamada?->homologacao_inicio?->format('d/m/Y'),
@@ -289,6 +292,8 @@ class HomologacaoController extends Controller
     /** Abre na aba o arquivo que a inscrição enviou para o documento; 404 sem envio ou sem o arquivo no disco. */
     public function arquivo(Inscricao $inscricao, EditalDocumento $documento): StreamedResponse
     {
+        abort_if($inscricao->edital === null, 404);
+
         $enviado = $inscricao->documentos()->where('edital_documento_id', $documento->id)->first();
 
         abort_unless($enviado !== null && Storage::disk(Inscricao::DISCO)->exists($enviado->arquivo), 404);
@@ -403,7 +408,8 @@ class HomologacaoController extends Controller
 
     /**
      * O recurso da inscrição, com cada arquivo novo ao lado do original que ele substituiria, na ordem do edital; nulo
-     * sem recurso.
+     * sem recurso. Com o recurso aceito o original já foi substituído (o envio da inscrição aponta para o arquivo novo),
+     * então não há original para mostrar.
      *
      * @param  Collection<int, InscricaoDocumento>  $enviados  pelo id do documento exigido
      * @return array<string, mixed>|null
@@ -432,7 +438,9 @@ class HomologacaoController extends Controller
                 ->map(fn (InscricaoRecursoDocumento $novo): array => [
                     'id' => (int) $novo->edital_documento_id,
                     'nome' => $novo->documento->nome,
-                    'original' => $this->arquivoEnviado($inscricao, $novo->documento, $enviados->get((int) $novo->edital_documento_id)),
+                    'original' => $recurso->decisao === DecisaoRecurso::Aceito
+                        ? null
+                        : $this->arquivoEnviado($inscricao, $novo->documento, $enviados->get((int) $novo->edital_documento_id)),
                     'novo' => [
                         'nome' => $novo->arquivo_nome,
                         'url' => route('retaguarda.homologacao.recurso.arquivo', [$inscricao, $novo->documento]),

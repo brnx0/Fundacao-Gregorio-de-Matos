@@ -273,7 +273,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
                     <dd class="font-semibold">{{ inscricao.situacaoRotulo }}</dd>
                 </div>
                 <div v-if="inscricao.motivo">
-                    <dt :class="classeTermo">Motivo</dt>
+                    <dt :class="classeTermo">{{ inscricao.homologacao === 'homologada' && recurso ? 'Motivo da decisão inicial (revertida pelo recurso)' : 'Motivo' }}</dt>
                     <dd class="break-words whitespace-pre-line">{{ inscricao.motivo }}</dd>
                 </div>
                 <div>
