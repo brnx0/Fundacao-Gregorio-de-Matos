@@ -18,6 +18,7 @@ use App\Http\Controllers\Retaguarda\PerfilController;
 use App\Http\Controllers\Retaguarda\PrefeituraBairroController;
 use App\Http\Controllers\Retaguarda\ProponenteController;
 use App\Http\Controllers\Retaguarda\QuestionarioDoEditalController;
+use App\Http\Controllers\Retaguarda\RecursoDaHomologacaoController;
 use App\Http\Controllers\Retaguarda\UsuarioController;
 use App\Http\Controllers\Retaguarda\VLibrasController;
 use App\Models\PessoaFisica;
@@ -123,10 +124,20 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
                 ->name('proponentes.anexo');
         });
 
-        // Homologação das inscrições finalizadas. A lista traz nome e documento do proponente: cifrada no histórico.
+        // Homologação das inscrições finalizadas. A lista e a conferência trazem nome e documento do proponente:
+        // cifradas no histórico. Os arquivos (da inscrição e do recurso) saem só por estas rotas, nunca pelo caminho.
         Route::middleware('inertia.encrypt')->group(function () {
             Route::get('/homologacao', [HomologacaoController::class, 'index'])->name('homologacao.index');
+            Route::get('/homologacao/{inscricao}', [HomologacaoController::class, 'show'])
+                ->whereNumber('inscricao')
+                ->name('homologacao.show');
         });
+        Route::get('/homologacao/{inscricao}/documentos/{documento}/arquivo', [HomologacaoController::class, 'arquivo'])
+            ->whereNumber(['inscricao', 'documento'])
+            ->name('homologacao.documentos.arquivo');
+        Route::get('/homologacao/{inscricao}/recurso/documentos/{documento}/arquivo', [RecursoDaHomologacaoController::class, 'arquivo'])
+            ->whereNumber(['inscricao', 'documento'])
+            ->name('homologacao.recurso.arquivo');
 
         // Cadastro. Avaliador não se exclui, só se desativa. As telas ficam cifradas no histórico (CPF e data de nascimento).
         Route::middleware('inertia.encrypt')->group(function () {

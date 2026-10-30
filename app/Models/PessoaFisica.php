@@ -124,6 +124,18 @@ class PessoaFisica extends Model
             ->all();
     }
 
+    /** O tipo de deficiência com o "Qual?" quando é "Outra"; nulo sem PcD. */
+    public function rotuloDoTipoDeDeficiencia(): ?string
+    {
+        if (! $this->pcd || $this->deficiencia === null) {
+            return null;
+        }
+
+        return $this->deficiencia === TipoDeficiencia::Outra && filled($this->deficiencia_outra)
+            ? $this->deficiencia->rotulo().': '.$this->deficiencia_outra
+            : $this->deficiencia->rotulo();
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {

@@ -1137,6 +1137,94 @@ export interface RetaguardaHomologacaoIndexProps {
     situacoes: { valor: string; rotulo: string }[];
 }
 
+/** Marcação do gestor sobre um item conferido (App\Support\Inscricao\ConferenciaDaInscricao); `em` em "d/m/Y H:i". */
+export interface MarcacaoConferida {
+    situacao: 'ok' | 'problema';
+    observacao: string | null;
+    /** Obrigatório não enviado, ainda sem decisão: problema "Não enviado." posto pelo sistema. */
+    automatica: boolean;
+    por: string | null;
+    em: string | null;
+}
+
+/** Arquivo para abrir na aba: a URL é a da rota da retaguarda, nunca o caminho no disco. */
+export interface ArquivoDaHomologacao {
+    nome: string;
+    url: string;
+}
+
+/** Documento conferido: os enviados e os obrigatórios sem envio, na ordem do edital. */
+export interface DocumentoDaHomologacao {
+    id: number;
+    nome: string;
+    etapaRotulo: string;
+    obrigatorio: boolean;
+    enviado: ArquivoDaHomologacao | null;
+    /** Parecer da conferência por IA; nulo sem envio ou com o arquivo só enviado, sem passar pela IA. */
+    ia: { situacao: SituacaoConferencia; rotulo: string; motivo: string | null } | null;
+    marcacao: MarcacaoConferida | null;
+}
+
+/** Recurso contra a não homologação, com cada arquivo novo ao lado do original. Datas em "d/m/Y H:i". */
+export interface RecursoDaHomologacao {
+    justificativa: string | null;
+    enviadoEm: string | null;
+    decisao: 'aceito' | 'negado' | null;
+    decisaoRotulo: string | null;
+    parecer: string | null;
+    julgadoPor: string | null;
+    julgadoEm: string | null;
+    documentos: { id: number; nome: string; original: ArquivoDaHomologacao | null; novo: ArquivoDaHomologacao }[];
+}
+
+/** Conferência de uma inscrição finalizada (Retaguarda\HomologacaoController@show). */
+export interface RetaguardaHomologacaoShowProps {
+    inscricao: {
+        id: number;
+        numero: string;
+        edital: string;
+        chamada: string | null;
+        proponente: string;
+        /** CPF mascarado ou CNPJ formatado. */
+        documento: string;
+        cadastro: 'Pessoa física' | 'Pessoa jurídica';
+        categoria: string | null;
+        /** Rótulos das cotas marcadas. */
+        cotas: string[];
+        finalizadaEm: string;
+        homologacao: SituacaoHomologacao | null;
+        /** "Sem decisão" ou o rótulo da situação. */
+        situacaoRotulo: string;
+        motivo: string | null;
+        decididaPor: string | null;
+        decididaEm: string | null;
+        /** Último dia para recorrer ("13/12/2026"); nulo sem decisão. */
+        prazoDoRecurso: string | null;
+    };
+    /** Período de homologação da chamada ("d/m/Y"); nulos sem chamada ou sem as datas. */
+    periodo: { inicio: string | null; fim: string | null };
+    /** Sem decisão e dentro do período de homologação: marcar e decidir. */
+    podeConferir: boolean;
+    /** Por que a inscrição está só para consulta (sem período ou fora dele); nulo dentro dele ou com decisão. */
+    aviso: string | null;
+    /** Retrato do perfil gravado na finalização, com os rótulos de "Identidade e perfil". */
+    perfil: { rotulo: string; valor: string | null }[];
+    documentos: DocumentoDaHomologacao[];
+    secoes: SecaoDaInscricao[];
+    /** Respostas gravadas, pelo id da pergunta. */
+    respostas: Record<number, RespostaDaInscricao>;
+    /** Ids das perguntas visíveis, que entram na conferência. */
+    perguntasConferidas: number[];
+    marcacoesDasPerguntas: Record<number, MarcacaoConferida>;
+    /** Motivo da não homologação montado dos itens com problema; vazio sem problema. */
+    motivoSugerido: string;
+    /** Pode conferir e todos os itens estão marcados como ok. */
+    podeHomologar: boolean;
+    recurso: RecursoDaHomologacao | null;
+    /** Em recurso: o julgamento não depende do período. */
+    podeJulgar: boolean;
+}
+
 /** Bloco do detalhe do proponente, com os valores já formatados (nulo quando não informado). */
 export interface SecaoProponente {
     id: string;

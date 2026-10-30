@@ -2,22 +2,44 @@
 
 namespace App\Http\Controllers\Retaguarda;
 
+use App\Enums\ModalidadeCota;
+use App\Enums\SituacaoConferencia;
 use App\Enums\SituacaoHomologacao;
 use App\Enums\SituacaoInscricao;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\InscricaoDocumentoController;
 use App\Models\Edital;
+use App\Models\EditalDocumento;
+use App\Models\EditalPergunta;
 use App\Models\Inscricao;
+use App\Models\InscricaoDocumento;
+use App\Models\InscricaoRecursoDocumento;
 use App\Support\Cnpj;
 use App\Support\Cpf;
+use App\Support\Inscricao\ConferenciaDaInscricao;
 use App\Support\Inscricao\PropsDaInscricao;
+use App\Support\Inscricao\QuestionarioDaInscricao;
+use App\Support\Inscricao\RetratoDoPerfil;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/** Homologação das inscrições finalizadas: a lista do gestor, com o que pede atenção primeiro. */
+/**
+ * Homologação das inscrições finalizadas: a lista do gestor, com o que pede atenção primeiro, e a conferência de cada
+ * inscrição. Os arquivos saem só pela rota de arquivo, nunca pelo caminho no disco.
+ *
+ * @phpstan-import-type Marcacao from ConferenciaDaInscricao
+ */
 class HomologacaoController extends Controller
 {
+    public const string AVISO_SEM_PERIODO = 'A chamada desta inscrição não tem período de homologação. Cadastre o período na aba Períodos do edital para conferir e decidir.';
+
+    public const string AVISO_FORA_DO_PERIODO = 'Fora do período de homologação da chamada (:inicio a :fim): a inscrição fica só para consulta.';
+
     /** Valor do filtro das inscrições ainda sem decisão. */
     private const string SEM_DECISAO = 'sem_decisao';
 
@@ -79,6 +101,83 @@ class HomologacaoController extends Controller
         ]);
     }
 
+    /**
+     * A inscrição finalizada para conferir: os documentos (com o parecer da IA), as respostas, as marcações, a decisão e
+     * o recurso. Marcar e decidir só sem decisão e dentro do período de homologação da chamada; fora dele (ou sem ele),
+     * só consulta, com o aviso.
+     */
+    public function show(Inscricao $inscricao): Response
+    {
+        abort_unless($inscricao->situacao === SituacaoInscricao::Finalizada, 404);
+
+        $inscricao->load(['edital:id,titulo', 'chamada', 'user:id,name', 'organizacao:id,razao_social,nome_fantasia', 'categoria:id,nome', 'homologador:id,name']);
+        $conferencia = new ConferenciaDaInscricao($inscricao);
+        $questionario = new QuestionarioDaInscricao($inscricao);
+        $marcacoes = $conferencia->marcacoes();
+        $enviados = $inscricao->documentos()->get()
+            ->keyBy(fn (InscricaoDocumento $enviado): int => (int) $enviado->edital_documento_id);
+        $podeConferir = $inscricao->homologacao === null && $inscricao->naHomologacao();
+        $chamada = $inscricao->chamada;
+
+        return Inertia::render('Retaguarda/Homologacao/Show', [
+            'inscricao' => [
+                'id' => (int) $inscricao->id,
+                'numero' => $inscricao->numero,
+                'edital' => $inscricao->edital->titulo,
+                'chamada' => $chamada?->nome,
+                'proponente' => PropsDaInscricao::nomeDoCadastro($inscricao, $inscricao->user),
+                'documento' => $this->documento($inscricao->documento_cadastro),
+                'cadastro' => $inscricao->organizacao_id === null ? 'Pessoa física' : 'Pessoa jurídica',
+                'categoria' => $inscricao->categoria?->nome,
+                'cotas' => $inscricao->cotas?->map(fn (ModalidadeCota $cota): string => $cota->rotulo())->values()->all() ?? [],
+                'finalizadaEm' => $inscricao->finalizada_em->format('d/m/Y H:i'),
+                'homologacao' => $inscricao->homologacao?->value,
+                'situacaoRotulo' => $inscricao->homologacao?->rotulo() ?? 'Sem decisão',
+                'motivo' => $inscricao->homologacao_motivo,
+                'decididaPor' => $inscricao->homologador?->name,
+                'decididaEm' => $inscricao->homologada_em?->format('d/m/Y H:i'),
+                'prazoDoRecurso' => $inscricao->prazoDoRecurso()?->format('d/m/Y'),
+            ],
+            'periodo' => [
+                'inicio' => $chamada?->homologacao_inicio?->format('d/m/Y'),
+                'fim' => $chamada?->homologacao_fim?->format('d/m/Y'),
+            ],
+            'podeConferir' => $podeConferir,
+            'aviso' => $this->aviso($inscricao),
+            'perfil' => RetratoDoPerfil::linhas($inscricao->perfil),
+            'documentos' => $conferencia->documentos()
+                ->map(fn (EditalDocumento $documento): array => [
+                    'id' => (int) $documento->id,
+                    'nome' => $documento->nome,
+                    'etapaRotulo' => $documento->etapa->rotulo(),
+                    'obrigatorio' => $documento->obrigatorio,
+                    'enviado' => $this->arquivoEnviado($inscricao, $documento, $enviados->get((int) $documento->id)),
+                    'ia' => $this->parecerDaIa($enviados->get((int) $documento->id)),
+                    'marcacao' => $this->marcacao($marcacoes['documentos'][(int) $documento->id] ?? null),
+                ])
+                ->all(),
+            'secoes' => PropsDaInscricao::secoes($questionario),
+            // Objetos mesmo vazios: a tela lê as respostas e as marcações pelo id da pergunta.
+            'respostas' => (object) $questionario->respostasSalvas(),
+            'perguntasConferidas' => $conferencia->perguntas()->map(fn (EditalPergunta $pergunta): int => (int) $pergunta->id)->values()->all(),
+            'marcacoesDasPerguntas' => (object) array_map(fn (array $marcacao): array => $this->marcacao($marcacao), $marcacoes['perguntas']),
+            'motivoSugerido' => $conferencia->motivoSugerido(),
+            'podeHomologar' => $podeConferir && $conferencia->tudoOk(),
+            'recurso' => $this->recurso($inscricao, $enviados),
+            'podeJulgar' => $inscricao->homologacao === SituacaoHomologacao::EmRecurso,
+        ]);
+    }
+
+    /** Abre na aba o arquivo que a inscrição enviou para o documento; 404 sem envio ou sem o arquivo no disco. */
+    public function arquivo(Inscricao $inscricao, EditalDocumento $documento): StreamedResponse
+    {
+        $enviado = $inscricao->documentos()->where('edital_documento_id', $documento->id)->first();
+
+        abort_unless($enviado !== null && Storage::disk(Inscricao::DISCO)->exists($enviado->arquivo), 404);
+
+        return Storage::disk(Inscricao::DISCO)->response($enviado->arquivo, $enviado->arquivo_nome);
+    }
+
     /** @return Builder<Inscricao> */
     private function finalizadasDosEditaisPublicados(): Builder
     {
@@ -100,6 +199,112 @@ class HomologacaoController extends Controller
             ->orWhereHas('organizacao', fn (Builder $o) => $o
                 ->whereRaw("LOWER(organizacoes.nome_fantasia) LIKE ? ESCAPE '\'", [$termo])
                 ->orWhereRaw("LOWER(organizacoes.razao_social) LIKE ? ESCAPE '\'", [$termo])));
+    }
+
+    /** Nulo dentro do período ou com decisão; o aviso de sem período (sem chamada ou sem as datas) ou de fora dele. */
+    private function aviso(Inscricao $inscricao): ?string
+    {
+        $chamada = $inscricao->chamada;
+
+        if ($inscricao->homologacao !== null || $inscricao->naHomologacao()) {
+            return null;
+        }
+
+        if ($chamada === null || ! $chamada->temPeriodoDeHomologacao()) {
+            return self::AVISO_SEM_PERIODO;
+        }
+
+        return strtr(self::AVISO_FORA_DO_PERIODO, [
+            ':inicio' => $chamada->homologacao_inicio->format('d/m/Y'),
+            ':fim' => $chamada->homologacao_fim->format('d/m/Y'),
+        ]);
+    }
+
+    /**
+     * Nome e URL (rota da retaguarda) do arquivo enviado; nulo sem envio.
+     *
+     * @return array{nome: string, url: string}|null
+     */
+    private function arquivoEnviado(Inscricao $inscricao, EditalDocumento $documento, ?InscricaoDocumento $enviado): ?array
+    {
+        return $enviado === null ? null : [
+            'nome' => $enviado->arquivo_nome,
+            'url' => route('retaguarda.homologacao.documentos.arquivo', [$inscricao, $documento]),
+        ];
+    }
+
+    /**
+     * O parecer da conferência por IA como o proponente vê (conferindo parado vale como não conferido); nulo sem envio
+     * ou com o arquivo só enviado, sem passar pela IA.
+     *
+     * @return array{situacao: string, rotulo: string, motivo: ?string}|null
+     */
+    private function parecerDaIa(?InscricaoDocumento $enviado): ?array
+    {
+        $situacao = $enviado?->situacaoExibida();
+
+        if ($situacao === null || $situacao === SituacaoConferencia::Enviado) {
+            return null;
+        }
+
+        return [
+            'situacao' => $situacao->value,
+            'rotulo' => $situacao->rotulo(),
+            'motivo' => $enviado->motivo ?? ($situacao === SituacaoConferencia::NaoConferido ? InscricaoDocumentoController::NAO_CONFERIDO : null),
+        ];
+    }
+
+    /**
+     * A marcação para a tela, com a situação como texto.
+     *
+     * @param  Marcacao|null  $marcacao
+     * @return array{situacao: string, observacao: ?string, automatica: bool, por: ?string, em: ?string}|null
+     */
+    private function marcacao(?array $marcacao): ?array
+    {
+        return $marcacao === null ? null : [...$marcacao, 'situacao' => $marcacao['situacao']->value];
+    }
+
+    /**
+     * O recurso da inscrição, com cada arquivo novo ao lado do original que ele substituiria, na ordem do edital; nulo
+     * sem recurso.
+     *
+     * @param  Collection<int, InscricaoDocumento>  $enviados  pelo id do documento exigido
+     * @return array<string, mixed>|null
+     */
+    private function recurso(Inscricao $inscricao, Collection $enviados): ?array
+    {
+        $recurso = $inscricao->recurso()->with(['julgador:id,name', 'documentos.documento:id,nome,ordem'])->first();
+
+        if ($recurso === null) {
+            return null;
+        }
+
+        return [
+            'justificativa' => $recurso->justificativa,
+            'enviadoEm' => $recurso->enviado_em?->format('d/m/Y H:i'),
+            'decisao' => $recurso->decisao?->value,
+            'decisaoRotulo' => $recurso->decisao?->rotulo(),
+            'parecer' => $recurso->parecer,
+            'julgadoPor' => $recurso->julgador?->name,
+            'julgadoEm' => $recurso->julgado_em?->format('d/m/Y H:i'),
+            'documentos' => $recurso->documentos
+                ->sortBy([
+                    fn (InscricaoRecursoDocumento $a, InscricaoRecursoDocumento $b): int => (int) $a->documento->ordem <=> (int) $b->documento->ordem,
+                    fn (InscricaoRecursoDocumento $a, InscricaoRecursoDocumento $b): int => (int) $a->edital_documento_id <=> (int) $b->edital_documento_id,
+                ])
+                ->map(fn (InscricaoRecursoDocumento $novo): array => [
+                    'id' => (int) $novo->edital_documento_id,
+                    'nome' => $novo->documento->nome,
+                    'original' => $this->arquivoEnviado($inscricao, $novo->documento, $enviados->get((int) $novo->edital_documento_id)),
+                    'novo' => [
+                        'nome' => $novo->arquivo_nome,
+                        'url' => route('retaguarda.homologacao.recurso.arquivo', [$inscricao, $novo->documento]),
+                    ],
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 
     /** CPF mascarado (11 dígitos) ou CNPJ formatado. */

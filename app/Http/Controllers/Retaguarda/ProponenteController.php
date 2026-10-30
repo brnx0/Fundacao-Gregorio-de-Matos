@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Retaguarda;
 
 use App\Enums\TipoCadastro;
-use App\Enums\TipoDeficiencia;
 use App\Http\Controllers\Controller;
 use App\Models\AreaAtuacao;
 use App\Models\Organizacao;
@@ -191,7 +190,7 @@ class ProponenteController extends Controller
                 'Identidade de gênero' => $pessoa->identidade_genero?->rotulo(),
                 'Raça/cor' => $pessoa->raca_cor?->rotulo(),
                 'Pessoa com deficiência (PcD)' => $simNao($pessoa->pcd),
-                'Tipo de deficiência' => $this->tipoDeDeficiencia($pessoa),
+                'Tipo de deficiência' => $pessoa->rotuloDoTipoDeDeficiencia(),
                 'Escolaridade' => $pessoa->escolaridade?->rotulo(),
                 'Renda mensal' => $pessoa->renda?->rotulo(),
                 'Povo ou comunidade tradicional' => $pessoa->povo_tradicional?->rotulo(),
@@ -208,18 +207,6 @@ class ProponenteController extends Controller
                 'Território' => PrefeituraBairro::rotuloDoCodigo($pessoa->territorio),
             ]),
         ];
-    }
-
-    /** O tipo de deficiência com o "Qual?" quando é "Outra"; nulo sem PcD. */
-    private function tipoDeDeficiencia(PessoaFisica $pessoa): ?string
-    {
-        if (! $pessoa->pcd || $pessoa->deficiencia === null) {
-            return null;
-        }
-
-        return $pessoa->deficiencia === TipoDeficiencia::Outra && filled($pessoa->deficiencia_outra)
-            ? $pessoa->deficiencia->rotulo().': '.$pessoa->deficiencia_outra
-            : $pessoa->deficiencia->rotulo();
     }
 
     /**
