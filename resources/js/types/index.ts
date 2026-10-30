@@ -608,8 +608,10 @@ export interface PortalInscricaoPassosProps extends OpcoesDaInscricao {
     };
     /** Rascunho dentro do período da chamada: só então as escolhas e os documentos podem ser trocados. */
     podeEditar: boolean;
-    /** Finalizada e dentro do período da chamada. */
+    /** Finalizada, sem resultado da homologação e dentro do período da chamada. */
     podeReabrir: boolean;
+    /** Resultado da homologação; nulo no rascunho. */
+    resultado: ResultadoDaHomologacao | null;
     /** O que ainda impede de finalizar (vazio = pode finalizar); a consulta JSON de situação traz a lista atualizada e podeFinalizar. */
     pendencias: string[];
     /** Os exigidos para as escolhas da inscrição, de todas as etapas, na ordem do edital. */
@@ -623,6 +625,63 @@ export interface PortalInscricaoPassosProps extends OpcoesDaInscricao {
     respostas: Record<number, RespostaDaInscricao>;
     /** O perfil de Pessoa Física do dono ainda não está completo: não dá para finalizar. */
     perfilIncompleto: boolean;
+}
+
+/** Chave de Inscricao::situacaoNoPortal: rascunho, em homologação ou um valor de SituacaoHomologacao. */
+export type SituacaoNoPortal = 'rascunho' | 'em_homologacao' | SituacaoHomologacao;
+
+/** Item marcado com problema na conferência da homologação (documento ou pergunta). */
+export interface ItemComProblema {
+    nome: string;
+    observacao: string | null;
+}
+
+/** Resultado da homologação mostrado ao proponente (InscricaoController@show). */
+export interface ResultadoDaHomologacao {
+    /** Sem o rascunho: a inscrição com resultado já foi finalizada. */
+    situacao: Exclude<SituacaoNoPortal, 'rascunho'>;
+    rotulo: string;
+    /** Só na não homologada (com ou sem recurso). */
+    motivo: string | null;
+    /** Só na não homologada (com ou sem recurso). */
+    itens: ItemComProblema[];
+    /** Último dia para recorrer ("13/12/2026"), só na não homologada que ainda não recorreu. */
+    prazoDoRecurso: string | null;
+    podeRecorrer: boolean;
+    /** Parecer do gestor depois do julgamento do recurso. */
+    parecer: string | null;
+}
+
+/** Linha de Minhas inscrições (InscricaoController@index). */
+export interface MinhaInscricao {
+    id: number;
+    numero: string | null;
+    /** Título do edital. */
+    edital: string;
+    /** Nome da pessoa física ou da organização inscrita. */
+    cadastro: string;
+    categoria: string | null;
+    situacao: SituacaoNoPortal;
+    situacaoRotulo: string;
+    /** Data e hora do envio ("12/11/2026 15:30"); nulo no rascunho. */
+    finalizadaEm: string | null;
+}
+
+/** Minhas inscrições, das mais novas para as mais antigas (InscricaoController@index). */
+export interface PortalMinhasInscricoesProps {
+    inscricoes: MinhaInscricao[];
+}
+
+/** Envio do recurso contra a não homologação (InscricaoRecursoController@create). */
+export interface PortalRecursoDaInscricaoProps {
+    edital: { titulo: string; slug: string };
+    inscricao: { id: number; numero: string | null };
+    /** Último dia para recorrer ("13/12/2026"); vale até 23:59. */
+    prazo: string;
+    motivo: string | null;
+    itens: ItemComProblema[];
+    /** Os documentos marcados com problema, os únicos que aceitam arquivo novo no recurso. */
+    documentos: { id: number; nome: string; orientacao: string | null; observacao: string | null }[];
 }
 
 /** Consulta periódica enquanto há documento conferindo (InscricaoController@situacao). */

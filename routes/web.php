@@ -12,6 +12,7 @@ use App\Http\Controllers\EventoController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InscricaoController;
 use App\Http\Controllers\InscricaoDocumentoController;
+use App\Http\Controllers\InscricaoRecursoController;
 use App\Http\Controllers\InscricaoRespostaController;
 use App\Http\Controllers\OrganizacaoController;
 use App\Http\Controllers\PaginaController;
@@ -59,6 +60,7 @@ Route::middleware(['auth', 'nao-gestor', 'cadastro-completo', 'inertia.encrypt']
 
 // A inscrição é só de quem a criou (InscricaoPolicy): para os outros, 404. whereNumber: id não numérico não chega ao Oracle (ORA-01722).
 Route::middleware(['auth', 'nao-gestor', 'cadastro-completo', 'inertia.encrypt', 'tipo-cadastro:proponente'])->controller(InscricaoController::class)->group(function () {
+    Route::get('/portal/inscricoes', 'index')->name('portal.inscricoes.index');
     Route::post('/portal/editais/{edital:slug}/inscricoes', 'store')->name('portal.inscricoes.store');
     Route::get('/portal/inscricoes/{inscricao}', 'show')->whereNumber('inscricao')->name('portal.inscricoes.show');
     Route::put('/portal/inscricoes/{inscricao}', 'update')->whereNumber('inscricao')->name('portal.inscricoes.update');
@@ -72,6 +74,12 @@ Route::middleware(['auth', 'nao-gestor', 'cadastro-completo', 'inertia.encrypt',
         Route::delete('/portal/inscricoes/{inscricao}/documentos/{documento}', 'destroy')->whereNumber(['inscricao', 'documento'])->name('portal.inscricoes.documentos.destroy');
         Route::get('/portal/inscricoes/{inscricao}/documentos/{documento}/arquivo', 'arquivo')->whereNumber(['inscricao', 'documento'])->name('portal.inscricoes.documentos.arquivo');
         Route::post('/portal/inscricoes/{inscricao}/documentos/{documento}/conferir', 'conferir')->middleware('throttle:10,1,conferir-documento')->whereNumber(['inscricao', 'documento'])->name('portal.inscricoes.documentos.conferir');
+    });
+
+    // Recurso contra a não homologação; o throttle com chave própria não divide a contagem com o envio de documentos.
+    Route::controller(InscricaoRecursoController::class)->group(function () {
+        Route::get('/portal/inscricoes/{inscricao}/recurso', 'create')->whereNumber('inscricao')->name('portal.inscricoes.recurso.create');
+        Route::post('/portal/inscricoes/{inscricao}/recurso', 'store')->middleware('throttle:10,1,recurso-da-inscricao')->whereNumber('inscricao')->name('portal.inscricoes.recurso.store');
     });
 
     // {secao} é uma seção do questionário do edital da inscrição; de outro edital, 404.

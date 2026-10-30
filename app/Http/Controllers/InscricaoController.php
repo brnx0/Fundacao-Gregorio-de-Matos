@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\ModalidadeCota;
 use App\Enums\SituacaoConferencia;
+use App\Enums\SituacaoHomologacao;
 use App\Enums\SituacaoInscricao;
 use App\Http\Requests\SalvarInscricaoRequest;
 use App\Models\ConfiguracaoIa;
@@ -11,7 +12,9 @@ use App\Models\Edital;
 use App\Models\EditalDocumento;
 use App\Models\Inscricao;
 use App\Models\InscricaoDocumento;
+use App\Models\InscricaoRecurso;
 use App\Support\ArquivoArmazenado;
+use App\Support\Inscricao\ConferenciaDaInscricao;
 use App\Support\Inscricao\PassosDaInscricao;
 use App\Support\Inscricao\PropsDaInscricao;
 use App\Support\Inscricao\QuestionarioDaInscricao;
@@ -26,18 +29,56 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** Inscrição do proponente num edital: criar o rascunho, abrir, trocar as escolhas (cadastro, categoria e cotas), finalizar e reabrir. */
+/**
+ * Inscrição do proponente num edital: listar as suas, criar o rascunho, abrir (com o resultado da homologação), trocar
+ * as escolhas (cadastro, categoria e cotas), finalizar e reabrir.
+ */
 class InscricaoController extends Controller
 {
     public const string ERRO_LIMITE_ATINGIDO = 'Este cadastro já atingiu o limite de inscrições deste edital.';
 
     public const string ERRO_REABRIR = 'Reabra a inscrição para alterar as escolhas.';
 
+    public const string ERRO_REABRIR_COM_DECISAO = 'A inscrição já tem resultado da homologação e não pode mais ser reaberta.';
+
     public const string ERRO_PENDENCIAS = 'Resolva as pendências para finalizar a inscrição.';
 
     public const string AVISO_PERFIL_INCOMPLETO = 'Complete o seu perfil no cadastro de Pessoa Física para se inscrever.';
 
     public const string ERRO_PERFIL_INCOMPLETO_AO_FINALIZAR = 'Complete o seu perfil no cadastro de Pessoa Física para finalizar a inscrição.';
+
+    /**
+     * As inscrições do usuário em qualquer fase (rascunho, em homologação ou com o resultado), das mais novas para as
+     * mais antigas. Sem as colunas de texto longo (CLOB no Oracle); a de edital apagado fica de fora, como no 404.
+     */
+    public function index(Request $request): Response
+    {
+        $user = $request->user();
+
+        $inscricoes = Inscricao::query()
+            ->where('user_id', $user->id)
+            ->whereHas('edital')
+            ->with(['edital:id,titulo', 'organizacao', 'categoria'])
+            ->orderByDesc('id')
+            ->get(['id', 'edital_id', 'organizacao_id', 'edital_categoria_id', 'numero', 'situacao', 'homologacao', 'finalizada_em'])
+            ->map(function (Inscricao $inscricao) use ($user): array {
+                $situacao = $inscricao->situacaoNoPortal();
+
+                return [
+                    'id' => (int) $inscricao->id,
+                    'numero' => $inscricao->numero,
+                    'edital' => $inscricao->edital->titulo,
+                    'cadastro' => PropsDaInscricao::nomeDoCadastro($inscricao, $user),
+                    'categoria' => $inscricao->categoria?->nome,
+                    'situacao' => $situacao['chave'],
+                    'situacaoRotulo' => $situacao['rotulo'],
+                    'finalizadaEm' => $inscricao->finalizada_em?->format('d/m/Y H:i'),
+                ];
+            })
+            ->all();
+
+        return Inertia::render('Portal/MinhasInscricoes', ['inscricoes' => $inscricoes]);
+    }
 
     public function store(SalvarInscricaoRequest $request, Edital $edital): RedirectResponse
     {
@@ -102,7 +143,8 @@ class InscricaoController extends Controller
                 'finalizadaEm' => $inscricao->finalizada_em?->format('d/m/Y H:i'),
             ],
             'podeEditar' => $podeEditar,
-            'podeReabrir' => $inscricao->situacao === SituacaoInscricao::Finalizada && $inscricao->noPeriodo(),
+            'podeReabrir' => $inscricao->situacao === SituacaoInscricao::Finalizada && $inscricao->homologacao === null && $inscricao->noPeriodo(),
+            'resultado' => $this->resultadoDaHomologacao($inscricao),
             'pendencias' => $inscricao->pendenciasParaFinalizar(questionario: $questionario),
             'documentos' => $inscricao->documentosExigidos()
                 ->map(fn (EditalDocumento $documento): array => [
@@ -241,13 +283,22 @@ class InscricaoController extends Controller
         });
     }
 
-    /** Volta a inscrição finalizada a rascunho, no período; o número e os documentos ficam. */
+    /**
+     * Volta a inscrição finalizada a rascunho, no período e sem resultado da homologação; o número e os documentos
+     * ficam e as marcações da conferência são apagadas (a inscrição vai mudar e será conferida de novo).
+     */
     public function reabrir(Inscricao $inscricao): RedirectResponse
     {
         Gate::authorize('gerenciar', $inscricao);
 
         return DB::transaction(function () use ($inscricao): RedirectResponse {
+            // O edital antes da inscrição, como quem marca ou decide a homologação.
+            $this->travarEdital($inscricao->edital);
             $travada = $this->travarInscricao($inscricao);
+
+            if ($travada->homologacao !== null) {
+                return redirect()->route('portal.inscricoes.show', $inscricao)->with('erro', self::ERRO_REABRIR_COM_DECISAO);
+            }
 
             if (! $travada->noPeriodo()) {
                 return $this->inscricoesFechadas();
@@ -255,12 +306,49 @@ class InscricaoController extends Controller
 
             if ($travada->situacao === SituacaoInscricao::Finalizada) {
                 $travada->update(['situacao' => SituacaoInscricao::Rascunho, 'finalizada_em' => null]);
+                $travada->conferencias()->delete();
 
                 return redirect()->route('portal.inscricoes.show', $inscricao)->with('sucesso', 'Inscrição reaberta.');
             }
 
             return redirect()->route('portal.inscricoes.show', $inscricao);
         });
+    }
+
+    /**
+     * O resultado da homologação que o proponente vê; nulo no rascunho. O motivo e os itens com problema só na não
+     * homologada (com ou sem recurso), o prazo do recurso só enquanto ela aguarda recurso e o parecer depois do
+     * julgamento do recurso.
+     *
+     * @return array{situacao: string, rotulo: string, motivo: ?string, itens: list<array{nome: string, observacao: ?string}>, prazoDoRecurso: ?string, podeRecorrer: bool, parecer: ?string}|null
+     */
+    private function resultadoDaHomologacao(Inscricao $inscricao): ?array
+    {
+        if ($inscricao->situacao === SituacaoInscricao::Rascunho) {
+            return null;
+        }
+
+        $situacao = $inscricao->situacaoNoPortal();
+        $naoHomologada = in_array($inscricao->homologacao, [SituacaoHomologacao::NaoHomologada, SituacaoHomologacao::EmRecurso, SituacaoHomologacao::RecursoNegado], true);
+        /** @var InscricaoRecurso|null $recurso */
+        $recurso = $inscricao->recurso()->first();
+
+        return [
+            'situacao' => $situacao['chave'],
+            'rotulo' => $situacao['rotulo'],
+            'motivo' => $naoHomologada ? $inscricao->homologacao_motivo : null,
+            'itens' => $naoHomologada
+                ? array_map(
+                    fn (array $item): array => ['nome' => $item['nome'], 'observacao' => $item['observacao']],
+                    (new ConferenciaDaInscricao($inscricao))->itensComProblema(),
+                )
+                : [],
+            'prazoDoRecurso' => $inscricao->homologacao === SituacaoHomologacao::NaoHomologada
+                ? $inscricao->prazoDoRecurso()?->format('d/m/Y')
+                : null,
+            'podeRecorrer' => $inscricao->podeRecorrer(),
+            'parecer' => $recurso?->julgado_em !== null ? $recurso->parecer : null,
+        ];
     }
 
     /**
