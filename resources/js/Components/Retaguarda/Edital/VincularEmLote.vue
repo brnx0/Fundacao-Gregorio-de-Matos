@@ -4,7 +4,7 @@ import Interruptor from '../../Interruptor.vue';
 import VinculoDaPergunta from './VinculoDaPergunta.vue';
 import { classeDica } from '../listaEditavel';
 import { nomeDaPergunta, perguntasEmOrdem, semVinculo } from '../questionario';
-import type { CategoriaEditavel, OpcaoFormulario, SecaoQuestionarioEditavel, VinculoEditavel } from '../../../types';
+import type { CategoriaEditavel, SecaoQuestionarioEditavel, VinculoEditavel } from '../../../types';
 
 /**
  * "Vincular em lote": escolhe perguntas (uma a uma ou a seção inteira) e copia para elas o mesmo vínculo.
@@ -13,8 +13,6 @@ import type { CategoriaEditavel, OpcaoFormulario, SecaoQuestionarioEditavel, Vin
 const props = defineProps<{
     secoes: SecaoQuestionarioEditavel[];
     categorias: CategoriaEditavel[];
-    naturezasDoEdital: string[];
-    naturezas: OpcaoFormulario[];
     desabilitado?: boolean;
 }>();
 
@@ -25,14 +23,14 @@ const emit = defineEmits<{
 
 const dialogo = ref<HTMLDialogElement | null>(null);
 const escolhidas = reactive(new Set<string>());
-const vinculo = reactive<VinculoEditavel>({ todas_categorias: true, categorias: [], naturezas: [] });
+const vinculo = reactive<VinculoEditavel>({ todas_categorias: true, categorias: [] });
 /** Remonta o VinculoDaPergunta a cada abertura (a escolha "Algumas categorias" é estado dele). */
 const abertura = ref<number>(0);
 const erro = ref<string>('');
 
 const abrir = (): void => {
     escolhidas.clear();
-    Object.assign(vinculo, { todas_categorias: true, categorias: [], naturezas: [] });
+    Object.assign(vinculo, { todas_categorias: true, categorias: [] });
     abertura.value++;
     erro.value = '';
     dialogo.value?.showModal();
@@ -69,7 +67,7 @@ const aplicar = (): void => {
         return;
     }
 
-    emit('aplicar', chaves, { todas_categorias: vinculo.todas_categorias, categorias: [...vinculo.categorias], naturezas: [...vinculo.naturezas] });
+    emit('aplicar', chaves, { todas_categorias: vinculo.todas_categorias, categorias: [...vinculo.categorias] });
     fechar();
 };
 
@@ -150,8 +148,6 @@ const classeBotaoSecundario =
                         :key="abertura"
                         :model-value="vinculo"
                         :categorias="categorias"
-                        :naturezas-do-edital="naturezasDoEdital"
-                        :naturezas="naturezas"
                     />
                 </section>
 

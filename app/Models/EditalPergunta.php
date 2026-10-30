@@ -2,25 +2,23 @@
 
 namespace App\Models;
 
-use App\Enums\NaturezaProponente;
 use App\Enums\TipoPergunta;
-use App\Support\Inscricao\RegrasDaInscricao;
 use Database\Factories\EditalPerguntaFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * Pergunta do questionário do edital. Naturezas nulas = todas; categorias só contam sem todas_categorias.
+ * Pergunta do questionário do edital. Categorias só contam sem todas_categorias; a natureza vem da categoria (quem
+ * escolhe uma categoria já tem uma natureza que ela aceita).
  * Pergunta sem categoria nenhuma e sem todas_categorias é pendência do edital (não aparece a ninguém).
  * opcoes: list<array{chave: string, texto: string, outro: bool}>; condicao_opcoes: list<string> de chaves da origem.
  */
 #[Fillable([
     'edital_questionario_secao_id', 'enunciado', 'ajuda', 'tipo', 'obrigatoria', 'limite_caracteres', 'opcoes',
-    'todas_categorias', 'naturezas', 'condicao_pergunta_id', 'condicao_opcoes', 'ordem',
+    'todas_categorias', 'condicao_pergunta_id', 'condicao_opcoes', 'ordem',
 ])]
 class EditalPergunta extends Model
 {
@@ -38,7 +36,6 @@ class EditalPergunta extends Model
             'limite_caracteres' => 'integer',
             'opcoes' => 'array',
             'todas_categorias' => 'boolean',
-            'naturezas' => AsEnumCollection::of(NaturezaProponente::class),
             'condicao_opcoes' => 'array',
             'ordem' => 'integer',
         ];
@@ -78,18 +75,16 @@ class EditalPergunta extends Model
         return $this->relationLoaded('categorias') ? $this->categorias->isEmpty() : ! $this->categorias()->exists();
     }
 
-    public function valePara(?int $categoriaId, NaturezaProponente $natureza): bool
+    public function valePara(?int $categoriaId): bool
     {
         if ($this->semVinculo()) {
             return false;
         }
 
-        $categoriaServe = $this->todas_categorias
+        return $this->todas_categorias
             || ($categoriaId !== null && ($this->relationLoaded('categorias')
                 ? $this->categorias->contains(fn (EditalCategoria $categoria): bool => (int) $categoria->id === $categoriaId)
                 : $this->categorias()->whereKey($categoriaId)->exists()));
-
-        return $categoriaServe && RegrasDaInscricao::aceitaNatureza($this->naturezas, $natureza);
     }
 
     /** @return list<string> */

@@ -131,7 +131,6 @@ const secoesSalvas: SecaoQuestionarioEditavel[] = secoesDoServidor.map((secao) =
         opcoes: pergunta.opcoes.map((opcao) => ({ chave: opcao.chave, texto: opcao.texto, outro: Boolean(opcao.outro) })),
         todas_categorias: pergunta.todas_categorias,
         categorias: chavesNasPosicoes(categoriasSalvas, pergunta.categorias),
-        naturezas: [...pergunta.naturezas],
         condicao_pergunta: null,
         condicao_opcoes: [...pergunta.condicao_opcoes],
     })),
@@ -423,7 +422,6 @@ const questionarioParaEnvio = (secoes: SecaoQuestionarioEditavel[], posicaoDaCat
                     opcoes: regra.temOpcoes ? pergunta.opcoes.map(({ chave, texto, outro }) => ({ chave, texto, outro })) : [],
                     todas_categorias: pergunta.todas_categorias,
                     categorias: pergunta.todas_categorias ? [] : emPosicoes(pergunta.categorias, posicaoDaCategoria),
-                    naturezas: pergunta.naturezas,
                     condicao_pergunta: condicao,
                     condicao_opcoes: condicao === null ? [] : pergunta.condicao_opcoes,
                 };
@@ -884,8 +882,6 @@ const tituloDaPagina = editando ? salvo.titulo || 'Edital sem título' : 'Novo e
                             v-model="form.questionario.secoes"
                             :erros="erros"
                             :categorias="form.categorias"
-                            :naturezas-do-edital="form.naturezas"
-                            :naturezas="naturezas"
                             :tipos-pergunta="tiposPergunta"
                             :travado="questionarioTravado"
                             :aviso-travado="avisoQuestionarioTravado"

@@ -94,7 +94,6 @@ trait RespostaDoQuestionario
             'limite_caracteres' => null,
             'opcoes' => [],
             'categorias' => [],
-            'naturezas' => [],
             'condicao' => null,
             ...$campos,
         ];

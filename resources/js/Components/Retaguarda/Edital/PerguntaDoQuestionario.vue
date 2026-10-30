@@ -14,8 +14,6 @@ const props = defineProps<{
     /** Chave da seção em que a pergunta está. */
     secao: string;
     categorias: CategoriaEditavel[];
-    naturezasDoEdital: string[];
-    naturezas: OpcaoFormulario[];
     tiposPergunta: OpcaoFormulario[];
     /** Do escopo do cartão (ListaEditavel). */
     idCampo: (campo: string) => string;
@@ -127,9 +125,9 @@ const escolherOrigem = (evento: Event): void => {
     props.limparLista('condicao_opcoes');
 };
 
-const limparVinculo = (campo: 'categorias' | 'naturezas'): void => {
-    props.limparLista(campo);
-    if (campo === 'categorias') props.limpar('todas_categorias');
+const limparVinculo = (): void => {
+    props.limparLista('categorias');
+    props.limpar('todas_categorias');
 };
 
 const marcarResposta = (chave: string, marcada: boolean): void => {
@@ -333,10 +331,7 @@ const mover = (): void => {
             :id="idCampo('vinculo')"
             :model-value="pergunta"
             :categorias="categorias"
-            :naturezas-do-edital="naturezasDoEdital"
-            :naturezas="naturezas"
             :erro-categorias="erroDaLista('categorias') ?? erro('todas_categorias')"
-            :erro-naturezas="erroDaLista('naturezas')"
             @limpar="limparVinculo"
         />
 

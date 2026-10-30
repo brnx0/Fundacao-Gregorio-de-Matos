@@ -27,7 +27,6 @@ class EditalPerguntaFactory extends Factory
             'tipo' => TipoPergunta::TextoCurto,
             'obrigatoria' => true,
             'todas_categorias' => true,
-            'naturezas' => null,
             'ordem' => 1,
         ];
     }

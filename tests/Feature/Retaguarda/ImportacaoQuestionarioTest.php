@@ -166,7 +166,6 @@ class ImportacaoQuestionarioTest extends TestCase
     public function test_pdf_monta_o_questionario_com_vinculos_condicoes_limites_e_declaracao(): void
     {
         $resposta = $this->respostaDoQuestionario();
-        $resposta['secoes'][1]['perguntas'][0]['naturezas'] = ['mei'];
         Http::fake([self::URL_ANALISE => self::respostaDoGemini($resposta)]);
 
         $importacao = $this->importar($this->pdf());
@@ -195,7 +194,6 @@ class ImportacaoQuestionarioTest extends TestCase
         $espacos = $perguntas['Espaços onde pretende se apresentar'];
         $this->assertFalse($espacos->todas_categorias);
         $this->assertSame([(int) $this->teatro->id], $espacos->categorias->map(fn (EditalCategoria $categoria): int => (int) $categoria->id)->all());
-        $this->assertEquals([NaturezaProponente::Mei], $espacos->naturezas->all());
 
         $declaracao = $perguntas['DECLARO que as informações são verdadeiras.'];
         $this->assertSame(TipoPergunta::Declaracao, $declaracao->tipo);

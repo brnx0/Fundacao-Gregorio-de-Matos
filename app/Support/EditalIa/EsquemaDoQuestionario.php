@@ -2,7 +2,6 @@
 
 namespace App\Support\EditalIa;
 
-use App\Enums\NaturezaProponente;
 use App\Enums\TipoPergunta;
 
 /**
@@ -37,7 +36,6 @@ final class EsquemaDoQuestionario
                 self::texto(null, false),
                 'Nomes das categorias, exatamente como na lista de categorias enviada, só quando o formulário diz para quais a pergunta vale; vazia quando não diz.',
             ),
-            'naturezas' => self::lista(self::enum(NaturezaProponente::class), 'Naturezas a que a pergunta se aplica; vazia = todas.'),
             'condicao' => self::campo(self::objeto([
                 'pergunta' => self::texto('Enunciado da pergunta anterior, exatamente como você o escreveu.', false),
                 'respostas' => self::lista(

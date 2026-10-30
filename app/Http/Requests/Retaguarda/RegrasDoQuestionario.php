@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Retaguarda;
 
-use App\Enums\NaturezaProponente;
 use App\Enums\TipoPergunta;
 use App\Rules\TamanhoEmBytes;
 use Illuminate\Validation\Rule;
@@ -12,7 +11,7 @@ use Illuminate\Validation\Validator;
  * Validação do questionário do edital enviado pelo formulário (campo `questionario`, já decodificado).
  * Formato: {secoes: list<{id?, titulo, descricao?, perguntas?: list<{id?, enunciado, ajuda?, tipo, obrigatoria,
  * limite_caracteres?, opcoes?: list<{chave, texto, outro?}>, todas_categorias, categorias?: list<posição da categoria>,
- * naturezas?: list<string>, condicao_pergunta?: posição global, condicao_opcoes?: list<chave>}>}>}.
+ * condicao_pergunta?: posição global, condicao_opcoes?: list<chave>}>}>}.
  * Posição global = índice (desde 0) da pergunta na ordem do questionário.
  */
 final class RegrasDoQuestionario
@@ -53,8 +52,6 @@ final class RegrasDoQuestionario
             // ter a mesma categoria). Repetida na mesma pergunta, o SincronizadorDoQuestionario grava uma vez só.
             "{$pergunta}.categorias" => ['nullable', 'array'],
             "{$pergunta}.categorias.*" => ['integer', Rule::in($posicoesDeCategorias)],
-            "{$pergunta}.naturezas" => ['nullable', 'array'],
-            "{$pergunta}.naturezas.*" => [Rule::enum(NaturezaProponente::class)],
             "{$pergunta}.condicao_pergunta" => ['nullable', 'integer'],
             "{$pergunta}.condicao_opcoes" => ['nullable', 'array'],
             "{$pergunta}.condicao_opcoes.*" => ['string'],

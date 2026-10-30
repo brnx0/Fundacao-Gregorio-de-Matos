@@ -602,7 +602,6 @@ class EditalController extends Controller
                     'opcoes' => $pergunta->opcoes ?? [],
                     'todas_categorias' => $pergunta->todas_categorias,
                     'categorias' => $this->posicoesDe($pergunta->categorias, $posicaoDaCategoria),
-                    'naturezas' => $this->valoresDasNaturezas($pergunta->naturezas),
                     'condicao_pergunta' => $pergunta->condicao_pergunta_id !== null ? ($posicaoGlobal[(int) $pergunta->condicao_pergunta_id] ?? null) : null,
                     'condicao_opcoes' => $pergunta->condicao_opcoes ?? [],
                 ])->values()->all(),

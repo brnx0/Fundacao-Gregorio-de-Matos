@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import Interruptor from '../../Interruptor.vue';
 import { classeCaixa, classeDica, classeMarcacao } from '../listaEditavel';
-import { naturezasOferecidas } from '../questionario';
-import type { CategoriaEditavel, OpcaoFormulario, VinculoEditavel } from '../../../types';
+import type { CategoriaEditavel, VinculoEditavel } from '../../../types';
 
 /**
- * Para quais categorias e naturezas uma pergunta vale (no cartão da pergunta e no vínculo em lote).
+ * Para quais categorias uma pergunta vale (no cartão da pergunta e no vínculo em lote). A natureza vem da categoria:
+ * quem escolhe uma categoria já tem uma natureza que ela aceita.
  * "Algumas categorias" sem nenhuma marcada continua sem vínculo até marcar uma.
  */
 const props = defineProps<{
@@ -14,17 +14,12 @@ const props = defineProps<{
     id: string;
     /** Categorias atuais da aba Categorias, na ordem em que estão. */
     categorias: CategoriaEditavel[];
-    /** Naturezas aceitas pelo edital (aba Participação). */
-    naturezasDoEdital: string[];
-    /** Todas as naturezas (rótulos). */
-    naturezas: OpcaoFormulario[];
     erroCategorias?: string;
-    erroNaturezas?: string;
 }>();
 
 const emit = defineEmits<{
     /** Campo mudado: o erro dele sai. */
-    limpar: [campo: 'categorias' | 'naturezas'];
+    limpar: [campo: 'categorias'];
 }>();
 
 const vinculo = defineModel<VinculoEditavel>({ required: true });
@@ -68,25 +63,6 @@ const marcarCategoria = (chave: string, marcada: boolean): void => {
     vinculo.value.categorias = marcada ? [...sem, chave] : sem;
     emit('limpar', 'categorias');
 };
-
-const oferecidas = computed<OpcaoFormulario[]>(() => naturezasOferecidas(vinculo.value, props.categorias, props.naturezasDoEdital, props.naturezas));
-
-// Natureza que deixou de ser oferecida (categoria desmarcada) sai da escolha: nenhuma marcada = todas as oferecidas.
-watch(
-    () => oferecidas.value.map((natureza) => natureza.valor).join('|'),
-    () => {
-        const valores = new Set(oferecidas.value.map((natureza) => natureza.valor));
-        if (vinculo.value.naturezas.some((natureza) => !valores.has(natureza))) {
-            vinculo.value.naturezas = vinculo.value.naturezas.filter((natureza) => valores.has(natureza));
-        }
-    },
-);
-
-const marcarNatureza = (valor: string, marcada: boolean): void => {
-    const sem = vinculo.value.naturezas.filter((outra) => outra !== valor);
-    vinculo.value.naturezas = marcada ? [...sem, valor] : sem;
-    emit('limpar', 'naturezas');
-};
 </script>
 
 <template>
@@ -128,29 +104,6 @@ const marcarNatureza = (valor: string, marcada: boolean): void => {
                 </div>
             </div>
             <p v-if="erroCategorias" :id="`${id}-categorias-erro`" class="mt-1 text-[0.875rem] font-semibold text-invalido-texto">{{ erroCategorias }}</p>
-        </fieldset>
-
-        <fieldset
-            v-if="oferecidas.length > 0 || erroNaturezas"
-            class="min-w-0"
-            :aria-describedby="[`${id}-naturezas-ajuda`, erroNaturezas && `${id}-naturezas-erro`].filter(Boolean).join(' ')"
-        >
-            <legend class="text-[0.9375rem] font-semibold">Naturezas</legend>
-            <p :id="`${id}-naturezas-ajuda`" :class="[classeDica, 'mt-1']">Nenhuma marcada = todas as que as categorias aceitam.</p>
-            <div class="mt-1 grid gap-x-6 @lg:grid-cols-2" :class="{ 'campo-invalido rounded-[12px] px-3 py-1': erroNaturezas }">
-                <Interruptor
-                    v-for="natureza in oferecidas"
-                    :id="`${id}-natureza-${natureza.valor}`"
-                    :key="natureza.valor"
-                    :rotulo="natureza.rotulo"
-                    variante="linha"
-                    :invalido="Boolean(erroNaturezas)"
-                    :descricao="erroNaturezas ? `${id}-naturezas-erro` : undefined"
-                    :model-value="vinculo.naturezas.includes(natureza.valor)"
-                    @update:model-value="marcarNatureza(natureza.valor, $event)"
-                />
-            </div>
-            <p v-if="erroNaturezas" :id="`${id}-naturezas-erro`" class="mt-1 text-[0.875rem] font-semibold text-invalido-texto">{{ erroNaturezas }}</p>
         </fieldset>
     </div>
 </template>

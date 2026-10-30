@@ -1,4 +1,4 @@
-import type { CategoriaEditavel, OpcaoFormulario, PerguntaEditavel, SecaoQuestionarioEditavel, VinculoEditavel } from '../../types';
+import type { PerguntaEditavel, SecaoQuestionarioEditavel, VinculoEditavel } from '../../types';
 
 /**
  * Partes comuns da aba Questionário do formulário do edital: regras de cada tipo de pergunta (espelho de
@@ -54,28 +54,6 @@ export const perguntasEmOrdem = (secoes: SecaoQuestionarioEditavel[]): PerguntaE
 
 /** Nem "todas as categorias" nem alguma categoria: impede a publicação. */
 export const semVinculo = (pergunta: VinculoEditavel): boolean => !pergunta.todas_categorias && pergunta.categorias.length === 0;
-
-/**
- * Naturezas que a pergunta pode restringir: com todas as categorias, as do edital; senão, a união das naturezas das
- * categorias escolhidas (categoria sem naturezas aceita as do edital). Edital sem naturezas marcadas oferece todas.
- */
-export const naturezasOferecidas = (
-    pergunta: VinculoEditavel,
-    categorias: CategoriaEditavel[],
-    naturezasDoEdital: string[],
-    opcoes: OpcaoFormulario[],
-): OpcaoFormulario[] => {
-    const doEdital = naturezasDoEdital.length > 0 ? naturezasDoEdital : opcoes.map((opcao) => opcao.valor);
-    const aceitas = pergunta.todas_categorias
-        ? new Set(doEdital)
-        : new Set(
-              categorias
-                  .filter((categoria) => pergunta.categorias.includes(categoria.chave))
-                  .flatMap((categoria) => (categoria.naturezas.length > 0 ? categoria.naturezas : doEdital)),
-          );
-
-    return opcoes.filter((opcao) => aceitas.has(opcao.valor));
-};
 
 /** Respostas que uma condição pode escolher na pergunta de origem (sim/não ou as opções dela). */
 export const respostasDaOrigem = (origem: PerguntaEditavel): { chave: string; rotulo: string }[] => {

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Questionario;
 
-use App\Enums\NaturezaProponente;
 use App\Enums\TipoPergunta;
 use App\Models\Edital;
 use App\Models\EditalCategoria;
@@ -83,28 +82,24 @@ class EstruturaDoQuestionarioTest extends TestCase
         $this->assertNull($dependente->fresh()->condicao_pergunta_id);
     }
 
-    public function test_vale_para_categoria_e_natureza(): void
+    public function test_vale_para_a_categoria(): void
     {
         $edital = Edital::factory()->create();
         $categoria = EditalCategoria::factory()->create(['edital_id' => $edital->id]);
         $outra = EditalCategoria::factory()->create(['edital_id' => $edital->id]);
 
         $todas = EditalPergunta::factory()->create(['edital_id' => $edital->id]);
-        $this->assertTrue($todas->valePara(null, NaturezaProponente::Mei));
-        $this->assertTrue($todas->valePara($categoria->id, NaturezaProponente::PessoaFisica));
+        $this->assertTrue($todas->valePara(null));
+        $this->assertTrue($todas->valePara($categoria->id));
 
-        $algumas = EditalPergunta::factory()->semVinculo()->create([
-            'edital_id' => $edital->id,
-            'naturezas' => [NaturezaProponente::PessoaFisica],
-        ]);
+        $algumas = EditalPergunta::factory()->semVinculo()->create(['edital_id' => $edital->id]);
         $algumas->categorias()->attach($categoria);
-        $this->assertTrue($algumas->valePara($categoria->id, NaturezaProponente::PessoaFisica));
-        $this->assertFalse($algumas->valePara($categoria->id, NaturezaProponente::Mei));
-        $this->assertFalse($algumas->valePara($outra->id, NaturezaProponente::PessoaFisica));
-        $this->assertFalse($algumas->valePara(null, NaturezaProponente::PessoaFisica));
+        $this->assertTrue($algumas->valePara($categoria->id));
+        $this->assertFalse($algumas->valePara($outra->id));
+        $this->assertFalse($algumas->valePara(null));
 
         $semVinculo = EditalPergunta::factory()->semVinculo()->create(['edital_id' => $edital->id]);
-        $this->assertFalse($semVinculo->valePara($categoria->id, NaturezaProponente::PessoaFisica));
+        $this->assertFalse($semVinculo->valePara($categoria->id));
     }
 
     public function test_chaves_das_opcoes_por_tipo(): void

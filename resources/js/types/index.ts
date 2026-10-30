@@ -796,8 +796,6 @@ export interface PerguntaFormulario {
     todas_categorias: boolean;
     /** Posições das categorias. */
     categorias: number[];
-    /** Vazia = todas as naturezas oferecidas. */
-    naturezas: string[];
     /** Posição global (índice na ordem do questionário) da pergunta de origem. */
     condicao_pergunta: number | null;
     condicao_opcoes: string[];
@@ -874,13 +872,11 @@ export interface DocumentoEditavel extends ItemEditavel {
     modeloNome: string | null;
 }
 
-/** Para quais categorias e naturezas a pergunta vale (sem "todas" e sem categoria = sem vínculo). */
+/** Para quais categorias a pergunta vale (sem "todas" e sem categoria = sem vínculo); a natureza vem da categoria. */
 export interface VinculoEditavel {
     todas_categorias: boolean;
     /** Chaves das categorias. */
     categorias: string[];
-    /** Vazia = todas as naturezas oferecidas. */
-    naturezas: string[];
 }
 
 export interface PerguntaEditavel extends ItemEditavel, VinculoEditavel {

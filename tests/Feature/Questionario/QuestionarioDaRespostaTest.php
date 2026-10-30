@@ -167,13 +167,13 @@ class QuestionarioDaRespostaTest extends TestCase
 
     public function test_sem_categorias_fica_sem_vinculo(): void
     {
-        $montado = $this->montar($this->comPerguntas([['categorias' => [], 'naturezas' => ['pessoa_fisica', 'sociedade']]]));
+        $montado = $this->montar($this->comPerguntas([['categorias' => []]]));
 
         $pergunta = self::perguntas($montado)[0];
         $this->assertSame([], $pergunta['categorias']);
         $this->assertFalse($pergunta['todas_categorias']);
-        $this->assertSame(['pessoa_fisica'], $pergunta['naturezas']);
-        $this->assertSame(['A pergunta "Pergunta" cita a natureza desconhecida "sociedade", que foi ignorada.'], self::avisos($montado));
+        $this->assertArrayNotHasKey('naturezas', $pergunta);
+        $this->assertSame([], self::avisos($montado));
     }
 
     public function test_condicao_resolve_origem_e_respostas_em_chaves(): void

@@ -29,8 +29,6 @@ return new class extends Migration
             // JSON: lista de {chave, texto, outro}.
             $table->longText('opcoes')->nullable();
             $table->boolean('todas_categorias')->default(false);
-            // Nulo = todas as naturezas do edital.
-            $table->string('naturezas', 200)->nullable();
             $table->foreignId('condicao_pergunta_id')->nullable()->constrained('edital_perguntas')->nullOnDelete();
             // JSON: lista de chaves da pergunta de origem.
             $table->string('condicao_opcoes', 2000)->nullable();

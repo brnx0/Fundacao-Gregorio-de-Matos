@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
- * O questionário do edital visto por uma inscrição: as perguntas que valem para a categoria e a natureza dela (na
- * ordem global: seções por ordem e id, perguntas por ordem e id), as que estão visíveis com as respostas dadas
+ * O questionário do edital visto por uma inscrição: as perguntas que valem para a categoria dela, cuja natureza já é
+ * uma que a categoria aceita (na ordem global: seções por ordem e id, perguntas por ordem e id), as que estão visíveis com as respostas dadas
  * (condições em cadeia), o que falta responder e a limpeza das respostas que deixaram de valer.
  *
  * Valor de uma resposta: array{texto: ?string, opcoes: list<string>, outro: ?string}.
@@ -42,7 +42,7 @@ class QuestionarioDaInscricao
     public function __construct(private Inscricao $inscricao) {}
 
     /**
-     * As perguntas que valem para a categoria e a natureza da inscrição, na ordem global.
+     * As perguntas que valem para a categoria da inscrição, na ordem global.
      *
      * @return Collection<int, EditalPergunta>
      */
@@ -56,7 +56,7 @@ class QuestionarioDaInscricao
 
         return $this->perguntas = $this->secoes()
             ->flatMap(fn (EditalQuestionarioSecao $secao): Collection => $secao->perguntas)
-            ->filter(fn (EditalPergunta $pergunta): bool => $pergunta->valePara($categoriaId, $this->inscricao->natureza))
+            ->filter(fn (EditalPergunta $pergunta): bool => $pergunta->valePara($categoriaId))
             ->values();
     }
 

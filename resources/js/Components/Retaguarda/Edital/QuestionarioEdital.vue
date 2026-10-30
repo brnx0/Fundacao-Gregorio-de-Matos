@@ -18,9 +18,6 @@ const props = defineProps<{
     erros: Partial<Record<string, string>>;
     /** Categorias atuais da aba Categorias, na ordem em que estão. */
     categorias: CategoriaEditavel[];
-    /** Naturezas aceitas pelo edital (aba Participação). */
-    naturezasDoEdital: string[];
-    naturezas: OpcaoFormulario[];
     tiposPergunta: OpcaoFormulario[];
     travado: boolean;
     avisoTravado: string;
@@ -75,7 +72,6 @@ const novaPergunta = (): PerguntaEditavel => ({
     opcoes: [],
     todas_categorias: true,
     categorias: [],
-    naturezas: [],
     condicao_pergunta: null,
     condicao_opcoes: [],
 });
@@ -118,10 +114,9 @@ const aplicarEmLote = (chaves: string[], vinculo: VinculoEditavel): void => {
         if (!escolhidas.has(pergunta.chave)) continue;
         pergunta.todas_categorias = vinculo.todas_categorias;
         pergunta.categorias = [...vinculo.categorias];
-        pergunta.naturezas = [...vinculo.naturezas];
     }
 
-    emit('limparErros', errosDoQuestionario((chave) => /\.perguntas\.\d+\.(todas_categorias|categorias|naturezas)(\.\d+)?$/.test(chave)));
+    emit('limparErros', errosDoQuestionario((chave) => /\.perguntas\.\d+\.(todas_categorias|categorias)(\.\d+)?$/.test(chave)));
     anuncio.value = `Vínculo aplicado a ${plural(chaves.length, 'pergunta', 'perguntas')}. Salve o edital para gravar.`;
 };
 </script>
@@ -153,8 +148,6 @@ const aplicarEmLote = (chaves: string[], vinculo: VinculoEditavel): void => {
                 <VincularEmLote
                     :secoes="secoes"
                     :categorias="categorias"
-                    :naturezas-do-edital="naturezasDoEdital"
-                    :naturezas="naturezas"
                     :desabilitado="travado || todas.length === 0"
                     @aplicar="aplicarEmLote"
                 />
@@ -249,8 +242,6 @@ const aplicarEmLote = (chaves: string[], vinculo: VinculoEditavel): void => {
                                     :secoes="secoes"
                                     :secao="secao.chave"
                                     :categorias="categorias"
-                                    :naturezas-do-edital="naturezasDoEdital"
-                                    :naturezas="naturezas"
                                     :tipos-pergunta="tiposPergunta"
                                     :id-campo="idDaPergunta"
                                     :erro="erroDaPergunta"

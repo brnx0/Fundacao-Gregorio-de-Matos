@@ -17,7 +17,7 @@ use App\Models\EditalQuestionarioSecao;
  *
  * Formato: {secoes: list<{id?, titulo, descricao?, perguntas?: list<{id?, enunciado, ajuda?, tipo, obrigatoria?,
  * limite_caracteres?, opcoes?: list<{chave, texto, outro?}>, todas_categorias?, categorias?: list<posição>,
- * naturezas?: list<string>, condicao_pergunta?: posição global, condicao_opcoes?: list<chave>}>}>}.
+ * condicao_pergunta?: posição global, condicao_opcoes?: list<chave>}>}>}.
  */
 class SincronizadorDoQuestionario
 {
@@ -155,7 +155,6 @@ class SincronizadorDoQuestionario
             'limite_caracteres' => $tipo->temLimite() && is_numeric($item['limite_caracteres'] ?? null) ? (int) $item['limite_caracteres'] : null,
             'opcoes' => $tipo->temOpcoes() ? $this->opcoes($item['opcoes'] ?? []) : null,
             'todas_categorias' => filter_var($item['todas_categorias'] ?? false, FILTER_VALIDATE_BOOLEAN),
-            'naturezas' => SincronizadorDoEdital::naturezas((array) ($item['naturezas'] ?? [])),
         ];
     }
 

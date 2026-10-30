@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Retaguarda;
 
-use App\Enums\NaturezaProponente;
 use App\Enums\TipoPergunta;
 use App\Models\Edital;
 use App\Models\EditalCategoria;
@@ -187,7 +186,7 @@ class QuestionarioDoEditalTest extends TestCase
         $this->enviar($this->edital, ['secoes' => [
             $this->secao([
                 $this->pergunta(['enunciado' => 'Todas', 'todas_categorias' => true, 'categorias' => [0]]),
-                $this->pergunta(['enunciado' => 'Só dança', 'todas_categorias' => false, 'categorias' => [1], 'naturezas' => ['mei', 'pessoa_fisica']]),
+                $this->pergunta(['enunciado' => 'Só dança', 'todas_categorias' => false, 'categorias' => [1]]),
                 $this->pergunta(['enunciado' => 'Sem vínculo', 'todas_categorias' => false, 'categorias' => []]),
             ]),
         ]])->assertSessionHasNoErrors();
@@ -197,41 +196,47 @@ class QuestionarioDoEditalTest extends TestCase
 
         $this->assertTrue($todas->todas_categorias);
         $this->assertSame(0, $todas->categorias()->count());
-        $this->assertNull($todas->naturezas);
 
         $this->assertFalse($algumas->todas_categorias);
         $this->assertSame([$danca->id], $algumas->categorias()->pluck('edital_categorias.id')->map(fn ($id): int => (int) $id)->all());
-        $this->assertEquals([NaturezaProponente::Mei, NaturezaProponente::PessoaFisica], $algumas->naturezas->all());
 
         $this->assertFalse($semVinculo->todas_categorias);
         $this->assertSame(0, $semVinculo->categorias()->count());
         $this->assertTrue($semVinculo->semVinculo());
     }
 
-    public function test_perguntas_diferentes_podem_ter_a_mesma_categoria_e_a_mesma_natureza(): void
+    public function test_perguntas_diferentes_podem_ter_a_mesma_categoria(): void
     {
         $this->enviar($this->edital, ['secoes' => [
             $this->secao([
-                $this->pergunta(['enunciado' => 'Primeira', 'todas_categorias' => false, 'categorias' => [1], 'naturezas' => ['mei']]),
-                $this->pergunta(['enunciado' => 'Segunda', 'todas_categorias' => false, 'categorias' => [1], 'naturezas' => ['mei']]),
+                $this->pergunta(['enunciado' => 'Primeira', 'todas_categorias' => false, 'categorias' => [1]]),
+                $this->pergunta(['enunciado' => 'Segunda', 'todas_categorias' => false, 'categorias' => [1]]),
             ]),
             $this->secao([
-                $this->pergunta(['enunciado' => 'Terceira', 'todas_categorias' => false, 'categorias' => [0, 1], 'naturezas' => ['mei', 'pessoa_fisica']]),
+                $this->pergunta(['enunciado' => 'Terceira', 'todas_categorias' => false, 'categorias' => [0, 1]]),
             ], 'Outra seção'),
         ]])->assertSessionHasNoErrors();
 
         $this->assertCount(3, $this->perguntasGravadas());
     }
 
-    public function test_categoria_e_natureza_repetidas_na_mesma_pergunta_sao_gravadas_uma_vez(): void
+    public function test_categoria_repetida_na_mesma_pergunta_e_gravada_uma_vez(): void
     {
         $this->enviar($this->edital, ['secoes' => [
-            $this->secao([$this->pergunta(['todas_categorias' => false, 'categorias' => [1, 1], 'naturezas' => ['mei', 'mei']])]),
+            $this->secao([$this->pergunta(['todas_categorias' => false, 'categorias' => [1, 1]])]),
         ]])->assertSessionHasNoErrors();
 
         [$pergunta] = $this->perguntasGravadas();
         $this->assertSame(1, $pergunta->categorias()->count());
-        $this->assertEquals([NaturezaProponente::Mei], $pergunta->naturezas->all());
+    }
+
+    public function test_natureza_enviada_na_pergunta_e_ignorada(): void
+    {
+        $this->enviar($this->edital, ['secoes' => [
+            $this->secao([$this->pergunta(['naturezas' => ['mei', 'sociedade']])]),
+        ]])->assertSessionHasNoErrors();
+
+        $this->assertArrayNotHasKey('naturezas', $this->perguntasGravadas()[0]->getAttributes());
     }
 
     public function test_condicao_guarda_a_origem_e_as_chaves(): void
@@ -555,7 +560,7 @@ class QuestionarioDoEditalTest extends TestCase
         $dependente = EditalPergunta::factory()
             ->semVinculo()
             ->condicionadaA($origem, ['o2'])
-            ->create(['edital_id' => $this->edital->id, 'edital_questionario_secao_id' => $secao->id, 'ordem' => 2, 'naturezas' => [NaturezaProponente::Mei]]);
+            ->create(['edital_id' => $this->edital->id, 'edital_questionario_secao_id' => $secao->id, 'ordem' => 2]);
         $dependente->categorias()->attach($danca->id);
 
         $this->get("/retaguarda/editais/{$this->edital->slug}/edit")
@@ -572,7 +577,7 @@ class QuestionarioDoEditalTest extends TestCase
                 ->where('edital.questionario.secoes.0.perguntas.1.condicao_opcoes', ['o2'])
                 ->where('edital.questionario.secoes.0.perguntas.1.categorias', [1])
                 ->where('edital.questionario.secoes.0.perguntas.1.todas_categorias', false)
-                ->where('edital.questionario.secoes.0.perguntas.1.naturezas', ['mei']));
+                ->missing('edital.questionario.secoes.0.perguntas.1.naturezas'));
 
         Inscricao::factory()->finalizada()->create(['edital_id' => $this->edital->id]);
 

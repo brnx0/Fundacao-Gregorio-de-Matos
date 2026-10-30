@@ -2,7 +2,6 @@
 
 namespace App\Support\EditalIa;
 
-use App\Enums\NaturezaProponente;
 use App\Enums\TipoPergunta;
 use App\Http\Requests\Retaguarda\RegrasDoQuestionario;
 use App\Http\Requests\Retaguarda\SalvarEditalRequest;
@@ -204,7 +203,6 @@ class QuestionarioDaResposta
             'opcoes' => $opcoes,
             'todas_categorias' => false,
             'categorias' => $this->categorias($recebida['categorias'] ?? null, $posicaoDaCategoria, $citado),
-            'naturezas' => $this->naturezas($recebida['naturezas'] ?? null, $citado),
             ...$this->condicao($recebida['condicao'] ?? null, $citado),
         ];
 
@@ -297,25 +295,6 @@ class QuestionarioDaResposta
         }
 
         return $semPar ? [] : $posicoes;
-    }
-
-    /**
-     * @return list<string>|null Nula quando não há natureza conhecida (todas).
-     */
-    private function naturezas(mixed $valores, string $citado): ?array
-    {
-        $naturezas = [];
-
-        foreach (is_array($valores) ? $valores : [] as $valor) {
-            $natureza = NaturezaProponente::tryFrom((string) (is_scalar($valor) ? $valor : ''));
-            if ($natureza === null) {
-                $this->avisar("A pergunta \"{$citado}\" cita a natureza desconhecida \"".self::descrever($valor).'", que foi ignorada.');
-            } elseif (! in_array($natureza->value, $naturezas, true)) {
-                $naturezas[] = $natureza->value;
-            }
-        }
-
-        return $naturezas === [] ? null : $naturezas;
     }
 
     /**

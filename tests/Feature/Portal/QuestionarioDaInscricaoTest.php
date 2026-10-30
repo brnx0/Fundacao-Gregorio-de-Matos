@@ -61,14 +61,13 @@ class QuestionarioDaInscricaoTest extends TestCase
         ]);
     }
 
-    public function test_vale_so_o_que_o_vinculo_inclui_para_a_categoria_e_a_natureza(): void
+    public function test_vale_so_o_que_o_vinculo_inclui_para_a_categoria(): void
     {
         $equipe = $this->secao('Equipe', 2);
         $daEquipe = $this->pergunta([], $equipe);
         $todas = $this->pergunta(['ordem' => 2]);
         $doTeatro = $this->pergunta(['ordem' => 1], categorias: [$this->teatro]);
         $this->pergunta(['ordem' => 3], categorias: [$this->danca]);
-        $this->pergunta(['ordem' => 4, 'naturezas' => [NaturezaProponente::ComFins]]);
         $this->pergunta(['ordem' => 5], fabrica: EditalPergunta::factory()->semVinculo());
 
         $ids = $this->questionario()->perguntasQueValem()->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
