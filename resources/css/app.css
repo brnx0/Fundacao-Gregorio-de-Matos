@@ -72,8 +72,38 @@
     --color-situacao-em-breve: #d48a12;
     --color-situacao-encerrado: #8a93a3;
 
+    /* Ícone do questionário na lista de editais: cinza sem categoria, âmbar sem perguntas, verde com perguntas
+       (≥ 3:1 sobre o cartão). */
+    --color-icone-neutro: #6b7280;
+    --color-icone-atencao: #b45309;
+    --color-icone-sucesso: #1f9d57;
+
     /* Texto da home sobre fundo claro (seção de editais e rodapé): azul-marinho no lugar de tinta. */
     --color-home-tinta: #06244a;
+
+    /* Gráficos do Painel da retaguarda. As séries dão identidade e seguem esta ordem fixa (nunca reciclar cor):
+       validadas para daltonismo no branco e no azul do modo noturno; as mais claras ficam abaixo de 3:1, por isso todo
+       gráfico mostra os rótulos e a tabela para leitor de tela. "Neutra" é o "não informado". O trilho é o fundo de
+       barras e anéis. A escala "calor" é sequencial, do pouco (1) ao muito (6), com a cor do texto que vai por cima. */
+    --color-serie-1: #2a78d6;
+    --color-serie-2: #eb6834;
+    --color-serie-3: #1baf7a;
+    --color-serie-4: #eda100;
+    --color-serie-5: #e87ba4;
+    --color-serie-6: #008300;
+    --color-serie-7: #6250d6;
+    --color-serie-8: #e34948;
+    --color-serie-neutra: #9aa3b2;
+    --color-trilho: #e8eef6;
+    --color-calor-0: #eef2f7;
+    --color-calor-1: #cde2fb;
+    --color-calor-2: #9ec5f4;
+    --color-calor-3: #6da7ec;
+    --color-calor-4: #256abf;
+    --color-calor-5: #184f95;
+    --color-calor-6: #104281;
+    --color-sobre-calor-baixo: #06244a;
+    --color-sobre-calor-alto: #ffffff;
 
     --radius-sm: 8px;
     --radius-card: 18px;
@@ -100,6 +130,9 @@
    redefine os mesmos tokens e por isso sempre vence quando as duas classes estão ativas. */
 html.escuro {
     color-scheme: dark;
+    --color-icone-neutro: #94a3b8;
+    --color-icone-atencao: #fcd34d;
+    --color-icone-sucesso: #86efac;
     --color-fundo: #0b1526;
     --color-superficie: #13233d;
     --color-parchment: #0f1d33;
@@ -129,11 +162,34 @@ html.escuro {
     --color-pilula-texto: #06244a;
     --color-texto-verde: #86efac;
     --color-texto-amarelo: #fcd34d;
+    /* Gráficos: as mesmas séries, um passo ajustado ao fundo escuro; no calor, o muito fica claro. */
+    --color-serie-1: #3987e5;
+    --color-serie-2: #d95926;
+    --color-serie-3: #199e70;
+    --color-serie-4: #c98500;
+    --color-serie-5: #d55181;
+    --color-serie-6: #008300;
+    --color-serie-7: #9085e9;
+    --color-serie-8: #e66767;
+    --color-serie-neutra: #6b7a90;
+    --color-trilho: rgba(255, 255, 255, 0.1);
+    --color-calor-0: rgba(255, 255, 255, 0.06);
+    --color-calor-1: #16365c;
+    --color-calor-2: #1c5cab;
+    --color-calor-3: #256abf;
+    --color-calor-4: #86b6ef;
+    --color-calor-5: #b7d3f6;
+    --color-calor-6: #e8f2fd;
+    --color-sobre-calor-baixo: #ffffff;
+    --color-sobre-calor-alto: #06244a;
 }
 
 /* Modo de acessibilidade: a regra "nada de preto" não se aplica aqui. */
 html.alto-contraste {
     color-scheme: dark;
+    --color-icone-neutro: #d1d5db;
+    --color-icone-atencao: #ffb347;
+    --color-icone-sucesso: #7ee2a8;
     --color-superficie: #000000;
     --color-sobre-govbr: #000000;
     --color-erro-fundo: #fdecec;
@@ -163,6 +219,26 @@ html.alto-contraste {
     --color-profundo: #000000;
     --color-parchment: #000000;
     --color-nevoa: #000000;
+    /* Gráficos: as séries do modo noturno (todas acima de 3:1 no preto) e o calor em amarelo, do escuro ao vivo. */
+    --color-serie-1: #3987e5;
+    --color-serie-2: #d95926;
+    --color-serie-3: #199e70;
+    --color-serie-4: #c98500;
+    --color-serie-5: #d55181;
+    --color-serie-6: #008300;
+    --color-serie-7: #9085e9;
+    --color-serie-8: #e66767;
+    --color-serie-neutra: #9aa3b2;
+    --color-trilho: #333333;
+    --color-calor-0: #000000;
+    --color-calor-1: #3a3300;
+    --color-calor-2: #6b5e00;
+    --color-calor-3: #7a6a00;
+    --color-calor-4: #d4b800;
+    --color-calor-5: #ffe100;
+    --color-calor-6: #fff3a0;
+    --color-sobre-calor-baixo: #ffffff;
+    --color-sobre-calor-alto: #000000;
 }
 
 html.alto-contraste a {
@@ -648,6 +724,22 @@ html.alto-contraste .campo-invalido {
         stroke: none;
     }
 
+    /* Nome do bairro sobre o mapa do Painel (MapaDeBairros.vue, "Mostrar nomes"): centrado no bairro, com halo para
+       ler sobre qualquer tom. O Leaflet posiciona o marcador com transform; quem centra é o texto dentro dele. */
+    .rotulo-bairro > span {
+        display: block;
+        width: max-content;
+        transform: translate(-50%, -50%);
+        font: 600 0.625rem/1.1 var(--font-montserrat);
+        color: #06244a;
+        text-shadow:
+            0 0 2px #fff,
+            0 0 2px #fff,
+            0 0 3px #fff;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
     /* Íris do anexo: ao ir para o login (e ao sair, com a despedida), um círculo azul abre a partir do clique e
        cobre a tela; na página seguinte ele se desfaz e o conteúdo sobe. data-fase vem de TransicaoIris.vue. */
     .iris {
@@ -1128,4 +1220,412 @@ html.alto-contraste .conteudo-rico [style*='color'] {
 html.alto-contraste .conteudo-rico mark {
     background: var(--color-acao);
     color: var(--color-sobre-acao);
+}
+
+/* Retaguarda (painel administrativo): mesma identidade do portal do proponente (azul-marinho, Montserrat, Barlow nos
+   títulos e vidro), em estrutura de sistema interno: menu lateral, faixa de título por página, painéis e barra de ações.
+   Só classes próprias da retaguarda; nada aqui muda o portal. */
+@layer components {
+    /* Painel: cartão claro que sobe sobre a faixa azul-marinho da página (PaginaRetaguarda). */
+    .painel-retaguarda {
+        border: 1px solid var(--color-hairline);
+        border-radius: 20px;
+        background: var(--color-superficie);
+        box-shadow: 0 24px 60px -34px rgb(6 36 74 / 0.45);
+    }
+
+    .botao-primario,
+    .botao-secundario,
+    .botao-faixa {
+        display: inline-flex;
+        min-height: 2.75rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border-radius: 9999px;
+        padding: 0 1.375rem;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        text-decoration: none;
+        cursor: pointer;
+        transition:
+            background-color 0.15s ease,
+            border-color 0.15s ease,
+            color 0.15s ease,
+            transform 0.12s cubic-bezier(0.23, 1, 0.32, 1);
+
+        &:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        &:disabled {
+            cursor: wait;
+            opacity: 0.7;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            transition: none;
+        }
+    }
+
+    .botao-primario {
+        background: var(--color-acao);
+        color: var(--color-sobre-acao);
+        box-shadow: 0 10px 24px -14px rgb(0 77 159 / 0.8);
+
+        &:hover {
+            background: var(--color-acao-escuro);
+        }
+    }
+
+    .botao-secundario {
+        border: 1px solid color-mix(in srgb, var(--color-tinta-suave) 55%, transparent);
+        background: var(--color-superficie);
+        color: var(--color-home-tinta);
+
+        &:hover {
+            border-color: var(--color-acao);
+            color: var(--color-acao);
+        }
+    }
+
+    /* Ação principal sobre a faixa azul-marinho: o botão branco do portal. */
+    .botao-faixa {
+        background: #ffffff;
+        color: var(--color-home-azul);
+        box-shadow: 0 14px 30px -16px rgb(0 0 0 / 0.6);
+
+        &:hover {
+            background: #ecf6ff;
+        }
+    }
+
+    /* Ação das listas só com ícone (Editar, Desativar, Excluir...): o nome aparece na dica (DicaRetaguarda) e fica no
+       texto para o leitor de tela. Alvo de toque de 44px. */
+    .acao-icone {
+        display: inline-flex;
+        width: 2.75rem;
+        height: 2.75rem;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        color: var(--color-acao);
+        cursor: pointer;
+        transition:
+            background-color 0.15s ease,
+            color 0.15s ease,
+            transform 0.12s cubic-bezier(0.23, 1, 0.32, 1);
+
+        &:hover:not(:disabled) {
+            background: var(--color-nevoa);
+        }
+
+        /* A mesma escala .95 dos outros botões: num alvo de 44px, .9 pula demais nas ações repetidas das listas. */
+        &:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.4;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            transition: none;
+        }
+    }
+
+    .acao-icone-perigo {
+        color: var(--color-erro-texto);
+
+        &:hover:not(:disabled) {
+            background: var(--color-erro-fundo);
+        }
+    }
+
+    /* Ação ainda indisponível (cinza), que pede atenção (âmbar) ou que já foi feita (verde): o ícone do questionário
+       na lista de editais. */
+    .acao-icone-neutro {
+        color: var(--color-icone-neutro);
+
+        &:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--color-icone-neutro) 12%, transparent);
+        }
+    }
+
+    .acao-icone-atencao {
+        color: var(--color-icone-atencao);
+
+        &:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--color-icone-atencao) 12%, transparent);
+        }
+    }
+
+    .acao-icone-sucesso {
+        color: var(--color-icone-sucesso);
+
+        &:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--color-icone-sucesso) 12%, transparent);
+        }
+    }
+
+    /* Dica dos botões só com ícone (DicaRetaguarda.vue): a pílula dos avisos, azul-marinho no claro e invertida no
+       noturno, com um contorno claro para não sumir sobre a faixa e o menu azul-marinho. Fica no topo da tela
+       (popover); top e left vêm do script. */
+    .dica-retaguarda {
+        position: fixed;
+        inset: auto;
+        z-index: 100;
+        margin: 0;
+        max-width: min(18rem, calc(100vw - 1rem));
+        overflow: visible;
+        border: 1px solid rgb(255 255 255 / 0.24);
+        border-radius: 10px;
+        background: var(--color-pilula-fundo);
+        color: var(--color-pilula-texto);
+        padding: 0.3125rem 0.75rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        line-height: 1.4;
+        text-align: center;
+        pointer-events: none;
+        box-shadow:
+            0 8px 24px rgb(6 36 74 / 0.28),
+            0 2px 6px rgb(6 36 74 / 0.12);
+
+        &:not([data-visivel]) {
+            display: none;
+        }
+
+        /* Só a primeira dica, depois da espera do mouse, surge; as emendadas e as do teclado aparecem na hora. A origem
+           (transform-origin) vem do script: o lado do botão. */
+        @media (prefers-reduced-motion: no-preference) {
+            &[data-surgir] {
+                animation: dica-surge 0.14s cubic-bezier(0.23, 1, 0.32, 1);
+            }
+        }
+    }
+
+    @keyframes dica-surge {
+        from {
+            opacity: 0;
+            transform: scale(0.96);
+        }
+    }
+
+    /* Janela de confirmação (<dialog> com showModal()): surge levemente da escala .96 e sai mais rápido e mais discreta.
+       display e overlay em allow-discrete seguram a janela na tela até o fim da saída; sem suporte, ela só não anima. */
+    .dialogo-retaguarda {
+        opacity: 0;
+        transform: scale(0.98);
+        transition:
+            opacity 0.12s cubic-bezier(0.4, 0, 1, 1),
+            transform 0.12s cubic-bezier(0.4, 0, 1, 1),
+            overlay 0.12s allow-discrete,
+            display 0.12s allow-discrete;
+
+        &[open] {
+            opacity: 1;
+            transform: none;
+            transition-duration: 0.18s;
+            transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+
+            @starting-style {
+                opacity: 0;
+                transform: scale(0.96);
+            }
+        }
+
+        &::backdrop {
+            opacity: 0;
+            transition:
+                opacity 0.12s ease-in,
+                overlay 0.12s allow-discrete,
+                display 0.12s allow-discrete;
+        }
+
+        &[open]::backdrop {
+            opacity: 1;
+            transition-duration: 0.18s;
+            transition-timing-function: ease-out;
+
+            @starting-style {
+                opacity: 0;
+            }
+        }
+
+        /* Movimento reduzido: só o esmaecer, sem escala (nem a do @starting-style). */
+        @media (prefers-reduced-motion: reduce) {
+            &,
+            &[open] {
+                transform: none;
+                transition-property: opacity, overlay, display;
+            }
+        }
+    }
+
+    .campo-retaguarda {
+        height: 2.75rem;
+        width: 100%;
+        border: 1px solid color-mix(in srgb, var(--color-tinta-suave) 45%, transparent);
+        border-radius: 12px;
+        background: var(--color-superficie);
+        padding: 0 0.875rem;
+        font-size: 1rem;
+        color: var(--color-home-tinta);
+        transition:
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
+
+        &::placeholder {
+            color: var(--color-tinta-suave);
+        }
+
+        &:hover {
+            border-color: var(--color-tinta-suave);
+        }
+
+        &:focus-visible {
+            border-color: var(--color-acao);
+            outline: none;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-acao) 28%, transparent);
+        }
+    }
+
+    .rotulo-retaguarda {
+        font-size: 0.8125rem;
+        font-weight: 700;
+    }
+
+    /* Selo de situação (Ativo, Publicado...): um ponto colorido e o texto. */
+    .selo {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4375rem;
+        border-radius: 9999px;
+        padding: 0.1875rem 0.6875rem 0.1875rem 0.5625rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        white-space: nowrap;
+        border: 1px solid var(--color-hairline);
+        color: var(--color-tinta-suave);
+
+        &::before {
+            content: '';
+            width: 0.5rem;
+            height: 0.5rem;
+            flex: none;
+            border-radius: 9999px;
+            background: var(--color-situacao-encerrado);
+        }
+    }
+
+    .selo-positivo {
+        border-color: transparent;
+        background: var(--color-nevoa);
+        color: var(--color-acao);
+
+        &::before {
+            background: var(--color-situacao-aberto);
+        }
+    }
+
+    .selo-atencao::before {
+        background: var(--color-situacao-em-breve);
+    }
+
+    /* Selo sem ponto (tipo de cadastro, papel). */
+    .selo-etiqueta {
+        border-color: transparent;
+        background: var(--color-nevoa);
+        color: var(--color-acao);
+
+        &::before {
+            display: none;
+        }
+    }
+
+    /* Item do menu lateral, sobre o azul-marinho: a página atual vira a pílula branca do portal. */
+    .item-menu-retaguarda {
+        position: relative;
+        display: flex;
+        min-height: 2.75rem;
+        align-items: center;
+        gap: 0.75rem;
+        border-radius: 12px;
+        padding: 0 0.75rem;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: rgb(255 255 255 / 0.78);
+        text-decoration: none;
+        transition:
+            background-color 0.15s ease,
+            color 0.15s ease;
+
+        &:hover {
+            background: rgb(255 255 255 / 0.1);
+            color: #ffffff;
+        }
+
+        &[aria-current='page'] {
+            background: #ffffff;
+            color: var(--color-home-azul);
+            box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.7);
+        }
+    }
+}
+
+/* Alto contraste na retaguarda: sem sombras; a página atual e os botões claros ficam no amarelo de ação. */
+html.alto-contraste :is(.painel-retaguarda, .botao-primario, .botao-faixa, .item-menu-retaguarda) {
+    box-shadow: none;
+}
+
+html.alto-contraste .painel-retaguarda,
+html.alto-contraste .menu-retaguarda {
+    border: 1px solid var(--color-hairline);
+}
+
+html.alto-contraste :is(.botao-faixa, .item-menu-retaguarda[aria-current='page']) {
+    background: var(--color-acao);
+    color: var(--color-sobre-acao);
+}
+
+html.alto-contraste .item-menu-retaguarda {
+    color: var(--color-tinta);
+}
+
+/* Botão-ícone no alto contraste: o vermelho do excluir clareia, e o passar do mouse vira contorno (o fundo é preto). */
+html.alto-contraste .acao-icone-perigo {
+    color: var(--color-invalido-texto);
+}
+
+html.alto-contraste .acao-icone:hover:not(:disabled) {
+    background: transparent;
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
+}
+
+html.alto-contraste .dica-retaguarda {
+    border: 2px solid var(--color-pilula-borda);
+    box-shadow: none;
+}
+
+/* Selo sobre a faixa azul-marinho da página (situação do registro, ao lado do título). */
+@layer components {
+    .selo-faixa {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4375rem;
+        border: 1px solid rgb(255 255 255 / 0.22);
+        border-radius: 9999px;
+        background: rgb(255 255 255 / 0.1);
+        padding: 0.25rem 0.75rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #ffffff;
+    }
 }

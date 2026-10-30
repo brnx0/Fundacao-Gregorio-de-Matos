@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="T extends ItemEditavel">
-import { computed } from 'vue';
-import { MAXIMO_ITENS, classeBotaoCartao, useListaEditavel } from '../listaEditavel';
+import { computed, inject } from 'vue';
+import IconeAcao from '../IconeAcao.vue';
+import { MAXIMO_ITENS, SOMENTE_LEITURA, useListaEditavel } from '../listaEditavel';
 import type { ItemEditavel } from '../../../types';
 
 /**
@@ -97,6 +98,12 @@ const {
     contaNoSelo: props.contaNoSelo,
 });
 
+// No formulário só para ler (Visualizar), o fieldset bloqueia até o botão de abrir e recolher: os cartões ficam todos
+// abertos, e o cabeçalho é só o título.
+const formularioSomenteLeitura = inject(SOMENTE_LEITURA, false);
+const semEdicao = computed<boolean>(() => props.somenteLeitura || formularioSomenteLeitura);
+const aberto = (item: T): boolean => formularioSomenteLeitura || estaAberto(item);
+
 const nomeNaPosicao = (indice: number): string => {
     const item = lista.value[indice];
 
@@ -115,7 +122,7 @@ const tituloDoCartao = computed<string>(() => `h${props.nivel}`);
             {{ vazio }}
         </p>
 
-        <div v-if="lista.length >= 2" class="-mb-2">
+        <div v-if="lista.length >= 2 && !formularioSomenteLeitura" class="-mb-2">
             <button type="button" class="pressionavel inline-flex min-h-11 items-center rounded-pill px-3 text-[0.8125rem] font-bold text-acao hover:bg-nevoa" @click="alternarTodos">
                 {{ todosAbertos() ? `Recolher ${todos}` : `Expandir ${todos}` }}<span class="sr-only">{{ ` ${todos === 'todas' ? 'as' : 'os'} ${plural}` }}</span>
             </button>
@@ -131,7 +138,15 @@ const tituloDoCartao = computed<string>(() => `h${props.nivel}`);
                 >
                     <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                         <component :is="tituloDoCartao" :id="idCampo(item, 'titulo')" class="min-w-0 flex-1 basis-60 text-[1.0625rem] font-bold">
+                            <span v-if="formularioSomenteLeitura" class="flex min-h-11 w-full items-center gap-3 py-1">
+                                <span class="flex min-w-0 flex-col">
+                                    <span class="truncate">{{ Singular }} {{ indice + 1 }}<span class="font-semibold"> · {{ nome(item).trim() || 'Sem nome' }}</span></span>
+                                    <span v-if="resumo" class="truncate text-[0.875rem] font-normal text-tinta-suave tabular-nums">{{ resumo(item) }}</span>
+                                </span>
+                                <slot name="selo" :item="item" />
+                            </span>
                             <button
+                                v-else
                                 :id="idCampo(item, 'alternar')"
                                 type="button"
                                 :aria-expanded="estaAberto(item)"
@@ -163,34 +178,29 @@ const tituloDoCartao = computed<string>(() => `h${props.nivel}`);
                             </button>
                         </component>
 
-                        <div v-if="!somenteLeitura" class="-mx-3 flex flex-wrap items-center">
-                            <button :id="idCampo(item, 'subir')" type="button" :disabled="indice === 0" :class="classeBotaoCartao" @click="mover(indice, -1, 'subir')">
-                                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 19V5M6 11l6-6 6 6" />
-                                </svg>
-                                Subir<span class="sr-only">{{ ` ${singular} ${indice + 1}` }}</span>
+                        <div v-if="!semEdicao" class="-mx-3 flex flex-wrap items-center">
+                            <button :id="idCampo(item, 'subir')" type="button" :disabled="indice === 0" class="acao-icone" data-dica="Subir" @click="mover(indice, -1, 'subir')">
+                                <IconeAcao nome="subir" />
+                                <span class="sr-only">Subir{{ ` ${singular} ${indice + 1}` }}</span>
                             </button>
-                            <button :id="idCampo(item, 'descer')" type="button" :disabled="indice === lista.length - 1" :class="classeBotaoCartao" @click="mover(indice, 1, 'descer')">
-                                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 5v14M6 13l6 6 6-6" />
-                                </svg>
-                                Descer<span class="sr-only">{{ ` ${singular} ${indice + 1}` }}</span>
+                            <button :id="idCampo(item, 'descer')" type="button" :disabled="indice === lista.length - 1" class="acao-icone" data-dica="Descer" @click="mover(indice, 1, 'descer')">
+                                <IconeAcao nome="descer" />
+                                <span class="sr-only">Descer{{ ` ${singular} ${indice + 1}` }}</span>
                             </button>
                             <button
                                 type="button"
-                                class="pressionavel inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 text-[0.8125rem] font-bold text-erro-texto hover:bg-erro-fundo"
+                                class="acao-icone acao-icone-perigo"
+                                data-dica="Remover"
                                 @click="pedirRemocao(indice)"
                             >
-                                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
-                                </svg>
-                                Remover<span class="sr-only">{{ ` ${singular} ${indice + 1}` }}</span>
+                                <IconeAcao nome="remover" />
+                                <span class="sr-only">Remover{{ ` ${singular} ${indice + 1}` }}</span>
                             </button>
                         </div>
                     </div>
 
                     <!-- Consultas de contêiner: a largura do cartão depende das abas laterais, não só da tela. -->
-                    <div :id="idCampo(item, 'corpo')" v-show="estaAberto(item)" class="@container mt-4 grid gap-x-6 gap-y-5">
+                    <div :id="idCampo(item, 'corpo')" v-show="aberto(item)" class="@container mt-4 grid gap-x-6 gap-y-5">
                         <slot
                             :item="item"
                             :indice="indice"
@@ -205,7 +215,7 @@ const tituloDoCartao = computed<string>(() => `h${props.nivel}`);
             </li>
         </ol>
 
-        <div v-if="!somenteLeitura" class="flex flex-col items-start gap-2">
+        <div v-if="!semEdicao" class="flex flex-col items-start gap-2">
             <button
                 ref="botaoAdicionar"
                 type="button"
@@ -226,7 +236,7 @@ const tituloDoCartao = computed<string>(() => `h${props.nivel}`);
         <dialog
             ref="dialogo"
             :aria-labelledby="idTituloDialogo"
-            class="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
+            class="dialogo-retaguarda m-auto w-[min(28rem,calc(100vw-2rem))] rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
             @cancel="aRemover = null"
         >
             <h2 :id="idTituloDialogo" class="text-[1.25rem] leading-tight font-bold">Remover “{{ aRemover === null ? '' : nomeNaPosicao(aRemover) }}”?</h2>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { inject, reactive, ref } from 'vue';
 import CampoArquivo from '../../CampoArquivo.vue';
 import CampoCadastro from '../../CampoCadastro.vue';
 import ListaEditavel from './ListaEditavel.vue';
-import { classeCaixa, classeCampo, classeDica, classeMarcacao, classeTexto, novaChave } from '../listaEditavel';
+import { SOMENTE_LEITURA, classeCaixa, classeCampo, classeDica, classeMarcacao, classeTexto, novaChave } from '../listaEditavel';
 import type { CategoriaEditavel, DocumentoEditavel, OpcaoFormulario } from '../../../types';
 
 const props = defineProps<{
@@ -219,13 +219,16 @@ const gerarTodos = async (): Promise<void> => {
     );
 };
 
+// Só para ler (Visualizar): sem gerar com IA nem enviar ou remover o arquivo-modelo; o arquivo atual continua no link.
+const somenteLeitura = inject(SOMENTE_LEITURA, false);
+
 const classeBotaoIa =
     'pressionavel inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-pill border border-acao bg-superficie px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-acao uppercase hover:bg-nevoa disabled:cursor-wait disabled:opacity-70';
 </script>
 
 <template>
     <div class="flex flex-col gap-5">
-        <div v-if="documentos.length > 0" class="flex flex-col gap-2">
+        <div v-if="documentos.length > 0 && !somenteLeitura" class="flex flex-col gap-2">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
                 <p class="text-[0.9375rem] leading-[1.6] text-tinta-suave">
                     A IA escreve a instrução de cada documento a partir do nome, da orientação, da etapa e dos dados do edital. Só os documentos sem instrução são preenchidos.
@@ -433,7 +436,7 @@ const classeBotaoIa =
                             @input="limpar('instrucao_ia')"
                         />
                     </CampoCadastro>
-                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <div v-if="!somenteLeitura" class="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <button type="button" :disabled="gerando !== null" :class="classeBotaoIa" @click="gerarDoDocumento(documento)">
                             <svg
                                 v-if="gerando === documento.chave"
@@ -463,7 +466,7 @@ const classeBotaoIa =
                 </div>
 
                 <div class="flex min-w-0 flex-col gap-3">
-                    <CampoCadastro :id="idCampo('modelo')" rotulo="Arquivo-modelo" :erro="erro('modelo')" v-slot="{ descricao, invalido }">
+                    <CampoCadastro v-if="!somenteLeitura" :id="idCampo('modelo')" rotulo="Arquivo-modelo" :erro="erro('modelo')" v-slot="{ descricao, invalido }">
                         <CampoArquivo
                             :id="idCampo('modelo')"
                             :accept="ACEITOS_MODELO"
@@ -477,14 +480,15 @@ const classeBotaoIa =
                     </CampoCadastro>
                     <div v-if="documento.modeloUrl && !documento.modelo" class="flex flex-wrap items-center gap-x-6 gap-y-1">
                         <p class="min-w-0 text-[0.9375rem]" :class="{ 'line-through opacity-60': documento.remover_modelo }">
-                            Arquivo atual:
+                            {{ somenteLeitura ? 'Arquivo-modelo:' : 'Arquivo atual:' }}
                             <a :href="documento.modeloUrl" class="font-semibold break-all text-acao underline">{{ documento.modeloNome ?? 'baixar' }}</a>
                         </p>
-                        <label :class="classeMarcacao">
+                        <label v-if="!somenteLeitura" :class="classeMarcacao">
                             <input v-model="documento.remover_modelo" type="checkbox" :class="classeCaixa" />
                             Remover arquivo
                         </label>
                     </div>
+                    <p v-else-if="somenteLeitura" :class="classeDica">Sem arquivo-modelo.</p>
                 </div>
             </template>
         </ListaEditavel>

@@ -12,9 +12,11 @@ use App\Http\Controllers\Retaguarda\IntegracaoIaController;
 use App\Http\Controllers\Retaguarda\LocalizacaoEventoController;
 use App\Http\Controllers\Retaguarda\LoginController;
 use App\Http\Controllers\Retaguarda\MinhaSenhaController;
+use App\Http\Controllers\Retaguarda\PainelController;
 use App\Http\Controllers\Retaguarda\PerfilController;
 use App\Http\Controllers\Retaguarda\PrefeituraBairroController;
 use App\Http\Controllers\Retaguarda\ProponenteController;
+use App\Http\Controllers\Retaguarda\QuestionarioDoEditalController;
 use App\Http\Controllers\Retaguarda\UsuarioController;
 use App\Http\Controllers\Retaguarda\VLibrasController;
 use App\Models\PessoaFisica;
@@ -39,8 +41,11 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
             // Mantém avisos (ex.: limite de tentativas, vindo do login) através deste redirecionamento.
             session()->reflash();
 
-            return to_route('retaguarda.editais.index');
+            return to_route('retaguarda.painel');
         })->name('inicio');
+
+        // Tela inicial: números agregados dos cadastros, editais e inscrições, com filtros na query string.
+        Route::get('/painel', PainelController::class)->name('painel');
 
         // Importação do edital do PDF com IA (análise em segundo plano). Antes do resource, para não cair em editais/{edital}.
         Route::controller(ImportacaoEditalController::class)->prefix('/editais/importacoes')->name('editais.importacoes.')->group(function () {
@@ -56,14 +61,19 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
             Route::get('/editais/questionario/importacoes/{importacao}', 'show')->whereNumber('importacao')->name('importacoes.show');
             Route::post('/editais/{edital}/questionario/importacao/conferida', 'conferida')->name('importacao.conferida');
         });
+        // Questionário do edital na sua própria tela, aberta pelo ícone da lista. Antes do resource.
+        Route::controller(QuestionarioDoEditalController::class)->name('editais.questionario.')->group(function () {
+            Route::get('/editais/{edital}/questionario', 'edit')->name('edit');
+            Route::put('/editais/{edital}/questionario', 'update')->name('update');
+        });
         // Instruções da IA para os documentos, do formulário (edital salvo ou não); responde JSON. Cada chamada pode
         // custar: limite próprio (o prefixo separa esta contagem da importação e dos outros limites por usuário).
         Route::post('/editais/instrucoes-ia', InstrucaoDocumentoController::class)
             ->middleware('throttle:10,1,instrucoes-ia')
             ->name('editais.instrucoes-ia');
 
+        // show abre o formulário só para ler (ícone Visualizar da lista).
         Route::resource('editais', EditalController::class)
-            ->except('show')
             ->parameters(['editais' => 'edital']);
         Route::patch('/editais/{edital}/publicacao', [EditalController::class, 'publicacao'])->name('editais.publicacao');
         Route::get('/editais/{edital}/pdf', [EditalController::class, 'pdf'])->name('editais.pdf');

@@ -5,6 +5,8 @@ import AvisoCamposObrigatorios from '../../Components/AvisoCamposObrigatorios.vu
 import CampoCadastro from '../../Components/CampoCadastro.vue';
 import { focarPrimeiroErro } from '../../Components/focarPrimeiroErro';
 import SecaoCadastro from '../../Components/SecaoCadastro.vue';
+import BarraAcoes from '../../Components/Retaguarda/BarraAcoes.vue';
+import PaginaRetaguarda from '../../Components/Retaguarda/PaginaRetaguarda.vue';
 import RetaguardaLayout from '../../Layouts/RetaguardaLayout.vue';
 import type { RetaguardaPerfilProps } from '../../types';
 
@@ -52,24 +54,14 @@ const salvar = (): void => {
     });
 };
 
-const classeCampo =
-    'h-12 w-full rounded-[12px] border border-tinta-suave/70 bg-superficie px-4 text-base text-home-tinta placeholder:text-tinta-suave';
 const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-hairline bg-nevoa px-4 text-base text-home-tinta';
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-8 lg:px-6">
+    <PaginaRetaguarda largura="estreita" titulo="Meu perfil" grupo="Minha conta" descricao="Seus dados de acesso à retaguarda.">
         <Head title="Meu perfil · Retaguarda" />
 
-        <div>
-            <p class="text-[0.75rem] font-bold tracking-[0.12em] text-acao uppercase">Retaguarda</p>
-            <h1 class="mt-1 text-[1.75rem] leading-tight font-bold">Meu perfil</h1>
-            <p class="mt-1 text-[0.9375rem] text-tinta-suave">Seus dados de acesso à retaguarda.</p>
-        </div>
-
         <form id="formulario-perfil" novalidate class="flex flex-col gap-6" @submit.prevent="salvar">
-            <AvisoCamposObrigatorios />
-
             <SecaoCadastro id="secao-dados" :numero="1" titulo="Seus dados">
                 <template #icone>
                     <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -77,6 +69,8 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
                         <path d="M4 21a8 8 0 0 1 16 0" />
                     </svg>
                 </template>
+
+                <AvisoCamposObrigatorios class="mb-5" />
 
                 <div class="grid gap-x-6 gap-y-5 md:grid-cols-2">
                     <CampoCadastro id="name" class="md:col-span-2" rotulo="Nome" obrigatorio :erro="form.errors.name" v-slot="{ descricao, invalido }">
@@ -86,7 +80,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
                             type="text"
                             autocomplete="name"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('name')"
@@ -100,7 +94,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
                             type="email"
                             autocomplete="email"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('email', 'senha_atual')"
@@ -115,7 +109,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
                             inputmode="tel"
                             autocomplete="tel"
                             placeholder="(71) 99999-9999"
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="mascararTelefone"
@@ -138,7 +132,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
                             type="password"
                             autocomplete="current-password"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('senha_atual')"
@@ -170,17 +164,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
                     <Link :href="URL_SENHA" class="font-semibold text-acao underline">Trocar senha</Link>.
                 </p>
             </SecaoCadastro>
-
-            <div class="flex flex-col gap-2 sm:items-end">
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-acao px-8 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro disabled:cursor-wait disabled:opacity-70"
-                >
-                    {{ form.processing ? 'Salvando…' : 'Salvar perfil' }}
-                </button>
-                <p v-if="form.hasErrors" role="alert" class="text-[0.9375rem] font-semibold text-invalido-texto">Confira os campos destacados acima.</p>
-            </div>
+            <BarraAcoes :salvar="form.processing ? 'Salvando…' : 'Salvar perfil'" :processando="form.processing" :com-erros="form.hasErrors" />
         </form>
-    </div>
+    </PaginaRetaguarda>
 </template>

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import AvisoCamposObrigatorios from '../../../Components/AvisoCamposObrigatorios.vue';
 import CampoCadastro from '../../../Components/CampoCadastro.vue';
 import { focarPrimeiroErro } from '../../../Components/focarPrimeiroErro';
 import SecaoCadastro from '../../../Components/SecaoCadastro.vue';
 import { classeCampo, classeCampoBase, inteiro } from '../../../Components/Retaguarda/listaEditavel';
+import BarraAcoes from '../../../Components/Retaguarda/BarraAcoes.vue';
+import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
 import type { RetaguardaPrefeiturasBairroFormProps } from '../../../types';
 
@@ -70,31 +72,23 @@ const classeBotaoLinha =
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-4xl flex-col gap-6 px-4 pt-8 lg:px-6">
+    <PaginaRetaguarda
+        largura="estreita"
+        :titulo="salva?.nome ?? 'Nova Prefeitura-Bairro'"
+        :trilha="[{ texto: editando ? 'Editar' : 'Nova' }]"
+        :descricao="salva && !salva.ativo ? 'Esta Prefeitura-Bairro está desativada e não aparece no cadastro do proponente.' : undefined"
+    >
         <Head :title="editando ? 'Editar Prefeitura-Bairro · Retaguarda' : 'Nova Prefeitura-Bairro · Retaguarda'" />
 
-        <div>
-            <Link :href="BASE" class="inline-flex min-h-11 items-center gap-1.5 text-[0.9375rem] font-semibold text-acao hover:underline">
-                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 12H5M11 6l-6 6 6 6" />
-                </svg>
-                Prefeituras-Bairro
-            </Link>
-            <h1 class="mt-1 text-[1.75rem] leading-tight font-bold break-words">{{ salva?.nome ?? 'Nova Prefeitura-Bairro' }}</h1>
-            <p v-if="salva && !salva.ativo" class="mt-1 text-[0.9375rem] text-tinta-suave">
-                Esta Prefeitura-Bairro está desativada e não aparece no cadastro do proponente.
-            </p>
-        </div>
-
         <form id="formulario-prefeitura" novalidate class="flex flex-col gap-6" @submit.prevent="salvar">
-            <AvisoCamposObrigatorios />
-
             <SecaoCadastro id="secao-prefeitura-dados" :numero="1" titulo="Prefeitura-Bairro">
                 <template #icone>
                     <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6" />
                     </svg>
                 </template>
+
+                <AvisoCamposObrigatorios class="mb-5" />
 
                 <div class="grid gap-x-6 gap-y-5 md:grid-cols-[10rem_1fr]">
                     <CampoCadastro
@@ -113,7 +107,7 @@ const classeBotaoLinha =
                             maxlength="2"
                             autocomplete="off"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="
@@ -138,7 +132,7 @@ const classeBotaoLinha =
                             maxlength="60"
                             autocomplete="off"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('nome')"
@@ -177,7 +171,7 @@ const classeBotaoLinha =
                                     :aria-describedby="erroDoBairro(indice) ? `bairro-${bairro.chave}-erro` : undefined"
                                     @input="form.clearErrors(`bairros.${indice}.nome` as keyof typeof form.errors)"
                                 />
-                                <button type="button" :class="classeBotaoLinha" @click="removerBairro(indice)">
+                                <button type="button" :class="classeBotaoLinha" data-dica="Remover" @click="removerBairro(indice)">
                                     <svg aria-hidden="true" viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                                         <path d="M6 6l12 12M18 6L6 18" />
                                     </svg>
@@ -206,26 +200,7 @@ const classeBotaoLinha =
                     </div>
                 </div>
             </SecaoCadastro>
-
-            <div class="flex flex-col-reverse gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <Link
-                    :href="BASE"
-                    class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-tinta-suave/70 bg-superficie px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-home-tinta uppercase no-underline hover:border-acao hover:text-acao"
-                >
-                    Cancelar
-                </Link>
-
-                <div class="flex flex-col gap-2 sm:items-end">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-acao px-8 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro disabled:cursor-wait disabled:opacity-70"
-                    >
-                        {{ form.processing ? 'Salvando…' : 'Salvar Prefeitura-Bairro' }}
-                    </button>
-                    <p v-if="form.hasErrors" role="alert" class="text-[0.9375rem] font-semibold text-invalido-texto">Confira os campos destacados acima.</p>
-                </div>
-            </div>
+            <BarraAcoes :cancelar="BASE" :salvar="form.processing ? 'Salvando…' : 'Salvar Prefeitura-Bairro'" :processando="form.processing" :com-erros="form.hasErrors" />
         </form>
-    </div>
+    </PaginaRetaguarda>
 </template>

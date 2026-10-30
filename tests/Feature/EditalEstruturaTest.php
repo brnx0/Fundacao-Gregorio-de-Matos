@@ -94,6 +94,19 @@ class EditalEstruturaTest extends TestCase
         ], $rascunho->pendenciasParaPublicar());
     }
 
+    public function test_pendencias_por_campo_apontam_o_campo_que_resolve_cada_uma(): void
+    {
+        $rascunho = Edital::factory()->rascunho()->create();
+
+        $this->assertSame([
+            'titulo' => 'Informe o título do edital.',
+            'pdf' => 'Envie o PDF do edital.',
+            'chamadas' => 'Cadastre ao menos uma chamada com início e fim das inscrições.',
+            'naturezas' => 'Marque ao menos uma natureza que pode se inscrever.',
+            'categorias' => 'Cadastre ao menos uma categoria.',
+        ], $rascunho->pendenciasPorCampo());
+    }
+
     public function test_pendencias_para_publicar_vazias_quando_completo(): void
     {
         $edital = Edital::factory()->create(['naturezas' => [NaturezaProponente::PessoaFisica]]);

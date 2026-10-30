@@ -11,23 +11,23 @@ const props = withDefaults(
         erros: Partial<Record<string, string>>;
         /** "lateral": coluna à esquerda a partir de lg; abaixo disso, faixa no topo como em "topo". */
         variante?: 'topo' | 'lateral';
+        /** Só para ler: os campos dos painéis ficam bloqueados; as abas continuam trocando. */
+        somenteLeitura?: boolean;
     }>(),
-    { variante: 'topo' },
+    { variante: 'topo', somenteLeitura: false },
 );
 
 const ativa = defineModel<string>({ required: true });
 
 const botoes = ref<HTMLButtonElement[]>([]);
 
-const errosDa = (aba: AbaFormulario): number => aba.campos.filter((campo) => Boolean(props.erros[campo])).length + (aba.pendencias ?? 0);
+const errosDa = (aba: AbaFormulario): number => aba.campos.filter((campo) => Boolean(props.erros[campo])).length;
 
-/** Texto do marcador para leitores de tela: separa erros de pendências quando a aba tem pendências. */
+/** Texto do marcador para leitores de tela. */
 const textoDoMarcador = (aba: AbaFormulario): string => {
-    const pendencias = aba.pendencias ?? 0;
-    const erros = errosDa(aba) - pendencias;
-    const partes = [erros > 0 ? `${erros} ${erros === 1 ? 'erro' : 'erros'}` : '', pendencias > 0 ? `${pendencias} ${pendencias === 1 ? 'pendência' : 'pendências'}` : ''];
+    const erros = errosDa(aba);
 
-    return partes.filter(Boolean).join(' e ');
+    return `${erros} ${erros === 1 ? 'erro' : 'erros'}`;
 };
 
 const idAba = (aba: AbaFormulario): string => `${props.id}-aba-${aba.id}`;
@@ -74,7 +74,7 @@ const tecla = (evento: KeyboardEvent, indice: number): void => {
 
 const classeLista = computed<string>(() =>
     lateral.value
-        ? 'sticky top-6 flex flex-col gap-1 self-start rounded-[20px] border border-hairline bg-superficie p-2'
+        ? 'painel-retaguarda sticky top-6 flex flex-col gap-1 self-start p-2'
         : '-mx-4 flex gap-1 overflow-x-auto border-b border-hairline px-4 [scrollbar-width:none] lg:mx-0 lg:px-0',
 );
 
@@ -127,7 +127,11 @@ const classeAba = computed<string>(() =>
                 tabindex="0"
                 class="focus-visible:rounded-[24px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-acao"
             >
-                <slot :name="aba.id" />
+                <!-- Só para ler, o fieldset bloqueia todos os campos do painel; o texto longo cresce até aparecer inteiro. -->
+                <fieldset v-if="somenteLeitura" disabled class="min-w-0 [&_textarea]:field-sizing-content">
+                    <slot :name="aba.id" />
+                </fieldset>
+                <slot v-else :name="aba.id" />
             </div>
         </div>
     </div>

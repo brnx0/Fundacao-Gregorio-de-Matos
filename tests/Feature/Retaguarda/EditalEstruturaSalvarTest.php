@@ -518,7 +518,11 @@ class EditalEstruturaSalvarTest extends TestCase
         $pdf = $this->modelo('edital.pdf');
 
         $this->post('/retaguarda/editais', ['titulo' => 'Incompleto', 'resumo' => 'R', 'categoria' => 'C', 'publicado' => '1', 'pdf' => $pdf])
-            ->assertSessionHasErrors(['publicado' => 'Cadastre ao menos uma chamada com início e fim das inscrições. Marque ao menos uma natureza que pode se inscrever. Cadastre ao menos uma categoria.']);
+            ->assertSessionHasErrors([
+                'chamadas' => 'Cadastre ao menos uma chamada com início e fim das inscrições.',
+                'naturezas' => 'Marque ao menos uma natureza que pode se inscrever.',
+                'categorias' => 'Cadastre ao menos uma categoria.',
+            ]);
         $this->assertSame(0, Edital::count());
         $this->assertSame([], Storage::disk('local')->allFiles());
 
@@ -527,14 +531,69 @@ class EditalEstruturaSalvarTest extends TestCase
         $this->assertTrue(Edital::sole()->publicado);
     }
 
-    public function test_edital_ja_publicado_continua_editavel_sem_os_blocos_novos(): void
+    public function test_publicar_vazio_devolve_de_uma_vez_as_pendencias_de_todas_as_abas(): void
     {
-        $antigo = Edital::factory()->create(['publicado' => true]);
+        $this->post('/retaguarda/editais', ['com_listas' => '1', 'publicado' => '1'])
+            ->assertSessionHasErrors([
+                'titulo' => 'Este campo é obrigatório.',
+                'resumo' => 'Este campo é obrigatório.',
+                'categoria' => 'Este campo é obrigatório.',
+                'pdf' => 'Envie o PDF do edital para publicar.',
+                'chamadas' => 'Cadastre ao menos uma chamada com início e fim das inscrições.',
+                'naturezas' => 'Marque ao menos uma natureza que pode se inscrever.',
+                'categorias' => 'Cadastre ao menos uma categoria.',
+            ]);
+
+        $this->assertSame(0, Edital::count());
+    }
+
+    public function test_rascunho_que_passa_a_publicar_sem_as_listas_confere_as_ja_gravadas(): void
+    {
+        $rascunho = Edital::factory()->rascunho()->create(['titulo' => 'Rascunho', 'resumo' => 'R', 'categoria' => 'C', 'pdf' => 'editais/r.pdf']);
+        EditalChamada::factory()->for($rascunho)->create();
+        EditalCategoria::factory()->for($rascunho)->create();
+
+        $this->put("/retaguarda/editais/{$rascunho->slug}", ['titulo' => 'Rascunho', 'resumo' => 'R', 'categoria' => 'C', 'publicado' => '1'])
+            ->assertSessionHasErrors(['naturezas' => 'Marque ao menos uma natureza que pode se inscrever.'])
+            ->assertSessionDoesntHaveErrors(['chamadas', 'categorias']);
+
+        $this->assertFalse($rascunho->refresh()->publicado);
+    }
+
+    public function test_edital_ja_publicado_e_incompleto_nao_salva_e_aponta_o_que_falta(): void
+    {
+        $antigo = Edital::factory()->create(['titulo' => 'Antigo', 'publicado' => true]);
 
         $this->put("/retaguarda/editais/{$antigo->slug}", ['titulo' => 'Antigo editado', 'resumo' => 'R', 'categoria' => 'C', 'publicado' => '1'])
-            ->assertSessionHasNoErrors();
+            ->assertSessionHasErrors([
+                'chamadas' => 'Cadastre ao menos uma chamada com início e fim das inscrições.',
+                'naturezas' => 'Marque ao menos uma natureza que pode se inscrever.',
+                'categorias' => 'Cadastre ao menos uma categoria.',
+            ]);
 
-        $this->assertTrue($antigo->refresh()->publicado);
+        $antigo->refresh();
+        $this->assertSame('Antigo', $antigo->titulo);
+        $this->assertTrue($antigo->publicado);
+    }
+
+    public function test_rascunho_incompleto_salva_e_avisa_o_que_falta_para_publicar(): void
+    {
+        $this->post('/retaguarda/editais', ['com_listas' => '1', 'titulo' => 'Rascunho', 'publicado' => '0'])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/retaguarda/editais')
+            ->assertSessionHas('aviso', 'Rascunho salvo. Para publicar, ainda falta: Envie o PDF do edital. Cadastre ao menos uma chamada com início e fim das inscrições. Marque ao menos uma natureza que pode se inscrever. Cadastre ao menos uma categoria.');
+
+        $this->assertFalse(Edital::sole()->publicado);
+    }
+
+    public function test_rascunho_completo_salva_sem_aviso(): void
+    {
+        $this->post('/retaguarda/editais', $this->dadosCompletos(['pdf' => $this->modelo('edital.pdf')]))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('sucesso', 'Edital salvo.')
+            ->assertSessionMissing('aviso');
+
+        $this->assertFalse(Edital::sole()->publicado);
     }
 
     public function test_arquivo_modelo_enviar_manter_trocar_e_remover(): void

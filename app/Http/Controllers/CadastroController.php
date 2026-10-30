@@ -11,6 +11,7 @@ use App\Enums\TipoCadastro;
 use App\Enums\TipoDeficiencia;
 use App\Http\Requests\SalvarPessoaFisicaRequest;
 use App\Http\Requests\SalvarTipoCadastroRequest;
+use App\Models\AreaAtuacao;
 use App\Models\Organizacao;
 use App\Models\PessoaFisica;
 use App\Models\PrefeituraBairro;
@@ -20,6 +21,7 @@ use App\Support\Paises;
 use BackedEnum;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,6 +38,7 @@ class CadastroController extends Controller
     {
         $user = $request->user();
         $salvo = $user->pessoaFisica;
+        $areasMarcadas = $salvo?->idsDasAreas() ?? [];
 
         return Inertia::render('Cadastro/Completar', [
             'govbr' => [
@@ -46,6 +49,9 @@ class CadastroController extends Controller
             ],
             'cadastro' => $salvo ? [
                 ...$salvo->only(array_diff($salvo->getFillable(), PessoaFisica::ARQUIVOS)),
+                // No formato do campo de data; o cast viraria data e hora em UTC.
+                'data_nascimento' => $salvo->data_nascimento?->toDateString(),
+                'areas_atuacao' => $areasMarcadas,
                 // Dos arquivos, a tela só precisa saber se já foram enviados.
                 'arquivos' => collect(PessoaFisica::ARQUIVOS)->mapWithKeys(fn (string $campo): array => [$campo => $salvo->{$campo} !== null]),
             ] : null,
@@ -59,6 +65,8 @@ class CadastroController extends Controller
                 'faixasDeRenda' => self::opcoes(FaixaDeRenda::cases()),
                 'povosTradicionais' => self::opcoes(PovoTradicional::cases()),
                 'territorios' => PrefeituraBairro::opcoesDoPortal($salvo?->territorio),
+                'areasAtuacao' => AreaAtuacao::opcoesDoPortal($areasMarcadas),
+                'nascimentoMaximo' => PessoaFisica::nascimentoMaximo(),
             ],
         ]);
     }
@@ -69,7 +77,7 @@ class CadastroController extends Controller
         $cadastro = $user->pessoaFisica ?? $user->pessoaFisica()->make();
 
         $cadastro->fill([
-            ...$request->safe()->except([...PessoaFisica::ARQUIVOS, 'telefone', 'email']),
+            ...$request->safe()->except([...PessoaFisica::ARQUIVOS, 'telefone', 'email', 'areas_atuacao']),
             ...collect(self::MARCACOES)->mapWithKeys(fn (string $campo): array => [$campo => $request->boolean($campo)]),
             // Quando o gov.br informa e-mail e telefone, valem esses, e não o que veio no formulário.
             'telefone' => $user->phone !== null ? preg_replace('/\D/', '', $user->phone) : $request->validated('telefone'),
@@ -92,7 +100,10 @@ class CadastroController extends Controller
             }
         }
 
-        $cadastro->save();
+        DB::transaction(function () use ($cadastro, $request): void {
+            $cadastro->save();
+            $cadastro->areasAtuacao()->sync($request->validated('areas_atuacao'));
+        });
         Storage::disk('local')->delete(array_filter($substituidos));
 
         $user->profile_completed_at ??= now();

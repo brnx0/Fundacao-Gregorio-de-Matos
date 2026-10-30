@@ -156,6 +156,26 @@ class ProponentesTest extends TestCase
             ->assertInertia(fn (Assert $p) => $p->where('secoes.5.campos.7', ['rotulo' => 'Território', 'valor' => 'Fora de Salvador']));
     }
 
+    public function test_detalhe_mostra_a_data_de_nascimento_e_as_areas_na_ordem_das_listas(): void
+    {
+        $maria = User::factory()->proponente()->create();
+        PessoaFisica::factory()->for($maria)->comAreas('Teatro', 'Outros', 'Música')->create(['data_nascimento' => '1985-04-12']);
+
+        $this->get("/retaguarda/proponentes/{$maria->id}")->assertInertia(fn (Assert $p) => $p
+            ->where('secoes.0.campos.3', ['rotulo' => 'Data de nascimento', 'valor' => '12/04/1985'])
+            ->where('secoes.2.campos.1', ['rotulo' => 'Áreas de atuação', 'valor' => 'Música, Teatro, Outros']));
+    }
+
+    public function test_detalhe_de_cadastro_antigo_mostra_data_de_nascimento_e_areas_nao_informadas(): void
+    {
+        $joao = User::factory()->proponente()->create();
+        PessoaFisica::factory()->for($joao)->semDataDeNascimento()->create();
+
+        $this->get("/retaguarda/proponentes/{$joao->id}")->assertInertia(fn (Assert $p) => $p
+            ->where('secoes.0.campos.3', ['rotulo' => 'Data de nascimento', 'valor' => null])
+            ->where('secoes.2.campos.1', ['rotulo' => 'Áreas de atuação', 'valor' => null]));
+    }
+
     public function test_detalhe_da_404_para_usuario_da_retaguarda_e_para_quem_nao_enviou_os_dados(): void
     {
         $gestor = $this->comDados(User::factory()->gestor()->create());
@@ -205,7 +225,7 @@ class ProponentesTest extends TestCase
 
     public function test_menu_tem_o_grupo_cadastro_com_proponentes(): void
     {
-        $menu = file_get_contents(resource_path('js/Components/Retaguarda/MenuRetaguarda.vue'));
+        $menu = file_get_contents(resource_path('js/Components/Retaguarda/menuRetaguarda.ts'));
 
         $this->assertStringContainsString(route('retaguarda.proponentes.index', absolute: false), $menu);
         $this->assertStringContainsString("'Cadastro'", $menu);

@@ -31,6 +31,13 @@ class Edital extends Model
 
     public const string AVISO_QUESTIONARIO_TRAVADO = 'O questionário está travado porque o edital já tem inscrição finalizada: mudar as perguntas deixaria respostas enviadas sem pergunta.';
 
+    /** Pendências para publicar que o formulário também confere no envio (SalvarEditalRequest). */
+    public const string PENDENCIA_CHAMADA = 'Cadastre ao menos uma chamada com início e fim das inscrições.';
+
+    public const string PENDENCIA_NATUREZA = 'Marque ao menos uma natureza que pode se inscrever.';
+
+    public const string PENDENCIA_CATEGORIA = 'Cadastre ao menos uma categoria.';
+
     /** Seções de texto informativas (coluna `informacoes`), na ordem de exibição: chave => rótulo. */
     public const array SECOES_INFORMATIVAS = [
         'recursos_pagamento' => 'Recursos e pagamento',
@@ -155,13 +162,15 @@ class Edital extends Model
             ->whereDoesntHave('categorias')
             ->count();
 
-        if ($semVinculo === 0) {
-            return [];
-        }
+        return $semVinculo === 0 ? [] : [self::avisoSemVinculo($semVinculo)];
+    }
 
-        return [$semVinculo === 1
+    /** Pergunta sem vínculo não aparece a ninguém: nem é de todas as categorias, nem de alguma. */
+    public static function avisoSemVinculo(int $perguntas): string
+    {
+        return $perguntas === 1
             ? 'Vincule às categorias 1 pergunta do questionário.'
-            : "Vincule às categorias {$semVinculo} perguntas do questionário."];
+            : "Vincule às categorias {$perguntas} perguntas do questionário.";
     }
 
     /** Nula enquanto o edital não tem as duas datas de inscrição (rascunho). */
@@ -192,25 +201,38 @@ class Edital extends Model
      */
     public function pendenciasParaPublicar(): array
     {
+        return array_values($this->pendenciasPorCampo());
+    }
+
+    /**
+     * As mesmas pendências, cada uma no campo do formulário que a resolve (a tela marca a aba dele).
+     *
+     * @return array<string, string>
+     */
+    public function pendenciasPorCampo(): array
+    {
         $pendencias = [];
 
         if (blank($this->titulo)) {
-            $pendencias[] = 'Informe o título do edital.';
+            $pendencias['titulo'] = 'Informe o título do edital.';
         }
         if (blank($this->pdf)) {
-            $pendencias[] = 'Envie o PDF do edital.';
+            $pendencias['pdf'] = 'Envie o PDF do edital.';
         }
         if (! $this->chamadas()->whereNotNull('inicio')->whereNotNull('fim')->exists()) {
-            $pendencias[] = 'Cadastre ao menos uma chamada com início e fim das inscrições.';
+            $pendencias['chamadas'] = self::PENDENCIA_CHAMADA;
         }
         if (blank($this->naturezas)) {
-            $pendencias[] = 'Marque ao menos uma natureza que pode se inscrever.';
+            $pendencias['naturezas'] = self::PENDENCIA_NATUREZA;
         }
         if (! $this->categorias()->exists()) {
-            $pendencias[] = 'Cadastre ao menos uma categoria.';
+            $pendencias['categorias'] = self::PENDENCIA_CATEGORIA;
+        }
+        foreach ($this->pendenciasDoQuestionario() as $pendencia) {
+            $pendencias['questionario'] = $pendencia;
         }
 
-        return [...$pendencias, ...$this->pendenciasDoQuestionario()];
+        return $pendencias;
     }
 
     /** URL da rota que entrega o PDF; nula enquanto o edital não tem arquivo. */

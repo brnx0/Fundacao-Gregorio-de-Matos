@@ -2,6 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
+defineProps<{
+    /** Menu lateral recolhido: o botão mostra só o avatar. */
+    recolhido?: boolean;
+}>();
+
 // Caminhos das rotas retaguarda.perfil.edit, retaguarda.senha.edit e retaguarda.sair (o front não tem helper de rotas nomeadas).
 const URL_PERFIL = '/retaguarda/perfil';
 const URL_SENHA = '/retaguarda/minha-senha';
@@ -116,40 +121,47 @@ const classeItem =
 
 <template>
     <div v-if="usuario" ref="raiz" class="relative">
+        <!-- No pé do menu lateral (azul-marinho): avatar, nome e CPF; a lista abre para cima. -->
         <button
             ref="botao"
             type="button"
-            class="pressionavel group inline-flex min-h-9 items-center gap-2 rounded-pill py-0.5 pr-2 pl-0.5 text-white hover:bg-white/15 focus-visible:outline-white aria-expanded:bg-white/15"
+            class="pressionavel group flex min-h-14 w-full items-center gap-3 rounded-[14px] p-2 text-left text-white hover:bg-white/10 focus-visible:outline-white aria-expanded:bg-white/10"
+            :class="recolhido ? 'justify-center' : ''"
             aria-haspopup="menu"
             :aria-expanded="aberto ? 'true' : 'false'"
             aria-controls="menu-usuario"
+            :data-dica="recolhido ? usuario.nome : undefined"
+            data-dica-lado="direita"
             @click="alternar"
             @keydown="teclaNoBotao"
         >
-            <span aria-hidden="true" class="inline-flex size-8 items-center justify-center rounded-full bg-white/15 text-[0.75rem] font-bold">
+            <span aria-hidden="true" class="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-[0.8125rem] font-bold text-home-azul">
                 {{ iniciais }}
             </span>
-            <span class="sr-only lg:not-sr-only lg:max-w-48 lg:truncate lg:text-[0.875rem] lg:font-semibold">{{ usuario.nome }}</span>
-            <span class="sr-only lg:hidden">, menu do usuário</span>
+            <span class="min-w-0 flex-1" :class="recolhido ? 'sr-only' : ''">
+                <span class="block truncate text-[0.875rem] font-semibold">{{ usuario.nome }}</span>
+                <span class="block text-[0.75rem] text-white/60">Meu acesso<span class="sr-only">, menu do usuário</span></span>
+            </span>
             <svg
+                v-if="!recolhido"
                 aria-hidden="true"
                 viewBox="0 0 24 24"
-                class="size-4 shrink-0 transition-transform group-aria-expanded:rotate-180 motion-reduce:transition-none"
+                class="size-4 shrink-0 text-white/70 transition-transform group-aria-expanded:rotate-180 motion-reduce:transition-none"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2.2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
             >
-                <path d="m6 9 6 6 6-6" />
+                <path d="m18 15-6-6-6 6" />
             </svg>
         </button>
 
         <Transition
             enter-active-class="transition duration-150 ease-out motion-reduce:transition-none"
-            enter-from-class="-translate-y-1 scale-[0.98] opacity-0"
+            enter-from-class="translate-y-1 scale-[0.98] opacity-0"
             leave-active-class="transition duration-100 ease-in motion-reduce:transition-none"
-            leave-to-class="-translate-y-1 scale-[0.98] opacity-0"
+            leave-to-class="translate-y-1 scale-[0.98] opacity-0"
         >
             <div
                 v-show="aberto"
@@ -157,7 +169,7 @@ const classeItem =
                 ref="lista"
                 role="menu"
                 aria-label="Menu do usuário"
-                class="absolute top-full right-0 z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right rounded-[16px] border border-hairline bg-superficie p-1.5 text-home-tinta shadow-[0_24px_60px_-24px_rgba(6,36,74,0.55)]"
+                class="absolute bottom-full left-0 z-40 mb-2 w-64 max-w-[calc(100vw-2rem)] origin-bottom-left rounded-[16px] border border-hairline bg-superficie p-1.5 text-home-tinta shadow-[0_24px_60px_-24px_rgba(6,36,74,0.55)]"
                 @keydown="teclaNaLista"
             >
                 <div class="px-3 pt-2 pb-2.5" role="none">

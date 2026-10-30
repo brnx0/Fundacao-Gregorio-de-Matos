@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
+import IconeAcao from '../../../Components/Retaguarda/IconeAcao.vue';
+import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
 import SecaoCadastro from '../../../Components/SecaoCadastro.vue';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
 import type { RetaguardaProponenteShowProps } from '../../../types';
@@ -7,9 +9,6 @@ import type { RetaguardaProponenteShowProps } from '../../../types';
 defineOptions({ layout: RetaguardaLayout });
 
 defineProps<RetaguardaProponenteShowProps>();
-
-// Caminho da rota retaguarda.proponentes.index (o front não tem helper de rotas nomeadas).
-const BASE = '/retaguarda/proponentes';
 
 // Ícone de cada bloco do cadastro (os mesmos blocos do formulário do portal).
 const ICONES: Record<string, string> = {
@@ -22,37 +21,32 @@ const ICONES: Record<string, string> = {
 };
 
 const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-hairline bg-nevoa px-4 text-base text-home-tinta';
-const classeAcao = 'pressionavel inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 text-[0.8125rem] font-bold text-acao hover:bg-nevoa';
-const classeSelo = 'inline-flex rounded-pill px-2.5 py-0.5 text-[0.8125rem] font-semibold';
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-4xl flex-col gap-6 px-4 pt-8 pb-16 lg:px-6">
+    <PaginaRetaguarda largura="estreita" :titulo="proponente.nome" :trilha="[{ texto: 'Detalhes' }]">
         <Head :title="`${proponente.nome} · Proponentes · Retaguarda`" />
 
-        <div>
-            <Link :href="BASE" class="inline-flex min-h-11 items-center gap-1.5 text-[0.9375rem] font-semibold text-acao hover:underline">
-                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 12H5M11 6l-6 6 6 6" />
-                </svg>
-                Proponentes
-            </Link>
-            <h1 class="mt-1 text-[1.75rem] leading-tight font-bold break-words">{{ proponente.nome }}</h1>
-            <div class="mt-2 flex flex-wrap gap-1.5">
-                <span v-for="tipo in proponente.tipos" :key="tipo" :class="[classeSelo, 'bg-nevoa text-acao']">{{ tipo }}</span>
-                <span v-if="!proponente.finalizado" :class="[classeSelo, 'border border-hairline text-tinta-suave']">Cadastro em andamento</span>
-            </div>
-            <dl class="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-[0.9375rem] text-tinta-suave">
-                <div class="flex gap-1.5">
-                    <dt>Cadastrado em</dt>
-                    <dd class="font-semibold text-home-tinta tabular-nums">{{ proponente.cadastradoEm ?? '—' }}</dd>
+        <template #detalhe>
+            <span v-for="tipo in proponente.tipos" :key="tipo" class="selo-faixa">{{ tipo }}</span>
+            <span v-if="!proponente.finalizado" class="selo-faixa">
+                <span aria-hidden="true" class="size-2 rounded-full bg-situacao-em-breve" />
+                Cadastro em andamento
+            </span>
+        </template>
+
+        <template #acoes>
+            <dl class="vidro grid grid-cols-2 gap-x-6 rounded-[18px] px-5 py-3 text-[0.8125rem]">
+                <div>
+                    <dt class="text-white/70">Cadastrado em</dt>
+                    <dd class="font-semibold tabular-nums">{{ proponente.cadastradoEm ?? '—' }}</dd>
                 </div>
-                <div class="flex gap-1.5">
-                    <dt>Último acesso</dt>
-                    <dd class="font-semibold text-home-tinta tabular-nums">{{ proponente.ultimoAcesso ?? '—' }}</dd>
+                <div>
+                    <dt class="text-white/70">Último acesso</dt>
+                    <dd class="font-semibold tabular-nums">{{ proponente.ultimoAcesso ?? '—' }}</dd>
                 </div>
             </dl>
-        </div>
+        </template>
 
         <SecaoCadastro v-for="(secao, indice) in secoes" :id="`secao-${secao.id}`" :key="secao.id" :numero="indice + 1" :titulo="secao.titulo">
             <template #icone>
@@ -87,12 +81,14 @@ const classeSelo = 'inline-flex rounded-pill px-2.5 py-0.5 text-[0.8125rem] font
                     <div class="min-w-0 flex-1">
                         <p class="font-semibold">{{ anexo.rotulo }}</p>
                         <p v-if="!anexo.enviado || !anexo.url" class="text-[0.9375rem] text-tinta-suave">Não enviado</p>
-                        <div v-else class="-ml-3 flex flex-wrap">
-                            <a :href="anexo.url" target="_blank" rel="noopener" :class="classeAcao">
-                                Abrir<span class="sr-only"> {{ anexo.rotulo }} (em nova aba)</span>
+                        <div v-else class="-ml-3 flex">
+                            <a :href="anexo.url" target="_blank" rel="noopener" class="acao-icone" data-dica="Abrir em nova aba">
+                                <IconeAcao nome="abrir" />
+                                <span class="sr-only">Abrir em nova aba: {{ anexo.rotulo }}</span>
                             </a>
-                            <a :href="anexo.url" :download="anexo.nome ?? ''" :class="classeAcao">
-                                Baixar<span class="sr-only"> {{ anexo.rotulo }}</span>
+                            <a :href="anexo.url" :download="anexo.nome ?? ''" class="acao-icone" data-dica="Baixar">
+                                <IconeAcao nome="baixar" />
+                                <span class="sr-only">Baixar {{ anexo.rotulo }}</span>
                             </a>
                         </div>
                     </div>
@@ -115,7 +111,7 @@ const classeSelo = 'inline-flex rounded-pill px-2.5 py-0.5 text-[0.8125rem] font
                             <h3 class="text-[1.0625rem] font-bold break-words">{{ organizacao.razaoSocial }}</h3>
                             <p v-if="organizacao.nomeFantasia" class="text-[0.9375rem] text-tinta-suave">{{ organizacao.nomeFantasia }}</p>
                         </div>
-                        <span v-if="organizacao.responsavel" :class="[classeSelo, 'bg-nevoa text-acao']">Responsável</span>
+                        <span v-if="organizacao.responsavel" class="selo selo-etiqueta">Responsável</span>
                     </div>
                     <dl class="mt-4 grid gap-x-6 gap-y-3 text-[0.9375rem] sm:grid-cols-3">
                         <div>
@@ -143,5 +139,5 @@ const classeSelo = 'inline-flex rounded-pill px-2.5 py-0.5 text-[0.8125rem] font
                 </li>
             </ul>
         </SecaoCadastro>
-    </div>
+    </PaginaRetaguarda>
 </template>

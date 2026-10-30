@@ -338,7 +338,7 @@ class IntegracaoIaTest extends TestCase
 
     public function test_menu_aponta_para_a_integracao_com_ia(): void
     {
-        $menu = file_get_contents(resource_path('js/Components/Retaguarda/MenuRetaguarda.vue'));
+        $menu = file_get_contents(resource_path('js/Components/Retaguarda/menuRetaguarda.ts'));
 
         $this->assertStringContainsString(route('retaguarda.integracao-ia.edit', absolute: false), $menu);
         $this->assertStringContainsString("'Integração com IA'", $menu);

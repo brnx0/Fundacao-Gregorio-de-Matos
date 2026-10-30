@@ -187,9 +187,13 @@ export type ArquivoCadastro =
 export interface CadastroPessoaFisica {
     nome_social: string | null;
     nome_artistico: string | null;
+    /** AAAA-MM-DD; nulo nos cadastros feitos antes de o formulário pedir. */
+    data_nascimento: string | null;
     pais_origem: string;
     rg: string;
     drt: string | null;
+    /** Ids das áreas marcadas. */
+    areas_atuacao: number[];
     cultura_principal_renda: boolean;
     ja_foi_avaliador: boolean;
     interesse_avaliador: boolean;
@@ -231,6 +235,10 @@ export interface CadastroCompletarProps {
         faixasDeRenda: OpcaoCadastro[];
         povosTradicionais: OpcaoCadastro[];
         territorios: OpcaoCadastro[];
+        /** As ativas e as que a pessoa já marcou; o valor é o id. */
+        areasAtuacao: { valor: number; rotulo: string }[];
+        /** Último dia de nascimento aceito (AAAA-MM-DD): a idade mínima é de 18 anos. */
+        nascimentoMaximo: string;
     };
 }
 
@@ -411,6 +419,10 @@ export interface EditalRetaguarda {
     situacaoRotulo: string | null;
     publicado: boolean;
     temPdf: boolean;
+    /** O ícone do questionário só aparece com categoria (as perguntas se vinculam a categorias). */
+    temCategorias: boolean;
+    /** Perguntas do questionário: âmbar sem nenhuma, verde com alguma. */
+    perguntas: number;
 }
 
 /** Etapa 4 do cadastro (CadastroController@tipo). */
@@ -852,6 +864,9 @@ export interface CategoriaEditavel extends ItemEditavel {
     itens: CategoriaItemEditavel[];
 }
 
+/** Categoria como o questionário a usa: a chave (as perguntas guardam as chaves) e o nome. */
+export type CategoriaDoQuestionario = Pick<CategoriaEditavel, 'chave' | 'nome'>;
+
 export interface DocumentoEditavel extends ItemEditavel {
     id: number | null;
     nome: string;
@@ -972,28 +987,16 @@ export interface EditalFormulario {
     categorias: CategoriaFormulario[];
     documentos: DocumentoFormulario[];
     criterios: CriterioFormulario[];
-    questionario: QuestionarioFormulario;
 }
 
 export interface RetaguardaEditaisFormProps {
     edital: EditalFormulario | null;
     /** O que falta para publicar (vazia na criação). */
     pendencias: string[];
-    /** O edital já tem inscrição finalizada: o questionário não muda mais. */
-    questionarioTravado: boolean;
-    /** Motivo da trava, mostrado na aba Questionário. */
-    avisoQuestionarioTravado: string;
-    tiposPergunta: OpcaoFormulario[];
-    /** Importação por IA que gerou o edital, enquanto não foi conferida. */
+    /** Importação por IA que gerou o edital, enquanto não foi conferida (só para ler, nunca vem). */
     importacao: ImportacaoDoEdital | null;
-    /** Última importação do questionário por IA (a mais recente do edital). */
-    importacaoQuestionario: ImportacaoDoQuestionario | null;
-    /** Quadro "Importado pela IA" da aba Questionário, enquanto a última importação concluída não foi conferida. */
-    quadroQuestionario: ImportacaoDoEdital | null;
-    /** Id da última importação concluída do questionário (versão que a página abriu); o envio devolve para o servidor conferir. */
-    questionarioVersao: number | null;
-    importacaoQuestionarioConfigurada: boolean;
-    tamanhoMaximoArquivoMb: number;
+    /** Aberto pelo ícone Visualizar da lista: o mesmo formulário, só para ler (nada se edita nem se salva). */
+    somenteLeitura: boolean;
     naturezas: OpcaoFormulario[];
     etapas: OpcaoFormulario[];
     modalidadesCota: OpcaoFormulario[];
@@ -1002,6 +1005,30 @@ export interface RetaguardaEditaisFormProps {
     alcancesCota: OpcaoFormulario[];
     tiposEdital: OpcaoFormulario[];
     secoesInformativas: OpcaoFormulario[];
+}
+
+/** Tela do questionário do edital (Retaguarda\QuestionarioDoEditalController@edit). */
+export interface RetaguardaEditalQuestionarioProps {
+    edital: {
+        slug: string;
+        titulo: string | null;
+        publicado: boolean;
+        /** Categorias gravadas, na ordem: as perguntas se referem a elas pela posição. */
+        categorias: { id: number; nome: string }[];
+        questionario: QuestionarioFormulario;
+    };
+    /** O edital já tem inscrição finalizada: o questionário não muda mais. */
+    questionarioTravado: boolean;
+    avisoQuestionarioTravado: string;
+    /** Id da última importação concluída do questionário (versão que a tela abriu); o envio devolve para o servidor conferir. */
+    questionarioVersao: number | null;
+    /** Última importação do questionário por IA (a mais recente do edital). */
+    importacaoQuestionario: ImportacaoDoQuestionario | null;
+    /** Quadro "Importado pela IA", enquanto a última importação concluída não foi conferida. */
+    quadroQuestionario: ImportacaoDoEdital | null;
+    importacaoQuestionarioConfigurada: boolean;
+    tamanhoMaximoArquivoMb: number;
+    tiposPergunta: OpcaoFormulario[];
 }
 
 /** Linha da lista de eventos na retaguarda (Retaguarda\EventoController@index). */
@@ -1224,8 +1251,6 @@ export interface AbaFormulario {
     rotulo: string;
     /** Campos do formulário desta aba: os erros deles contam no marcador da aba. */
     campos: string[];
-    /** Pendências da aba (ex.: perguntas sem vínculo), somadas aos erros no marcador. */
-    pendencias?: number;
 }
 
 export interface RetaguardaMinhaSenhaProps {
@@ -1276,4 +1301,189 @@ export interface ProvedorIaRetaguarda {
 export interface RetaguardaIntegracaoIaProps {
     configuracao: { ativo: boolean; principal: ProvedorIa | null; redundancia: ProvedorIa | null };
     provedores: ProvedorIaRetaguarda[];
+}
+
+/** Fatia de uma distribuição do Painel: total e percentual (uma casa) sobre a base da distribuição. */
+export interface FatiaPainel {
+    valor: string;
+    rotulo: string;
+    total: number;
+    percentual: number;
+}
+
+/** Distribuição pelos casos de um enum, na ordem do enum; o percentual é sobre quem respondeu. */
+export interface DistribuicaoPainel {
+    itens: FatiaPainel[];
+    respostas: number;
+    semResposta: number;
+}
+
+/** Faixa de um número (anos de atuação, idade) com o total e o percentual sobre o que coube nas faixas. */
+export interface FaixaPainel {
+    rotulo: string;
+    total: number;
+    percentual: number;
+}
+
+/** Hora (HH:MM) em que a seção foi calculada; o painel guarda cada seção em cache por alguns minutos. */
+interface SecaoPainel {
+    atualizadoEm: string;
+}
+
+/** Total com a série mensal dos últimos 12 meses (do mais antigo ao mês atual). */
+export interface IndicadorPainel {
+    total: number;
+    serie: number[];
+}
+
+export interface PainelVisaoGeral extends SecaoPainel {
+    /** Os 12 meses das séries, em AAAA-MM. */
+    meses: string[];
+    indicadores: Record<'pessoas' | 'proponentes' | 'patrocinadores' | 'organizacoes' | 'inscricoes', IndicadorPainel>;
+    editais: { abertos: number; emBreve: number };
+    investimento: { centavos: number; vagas: number };
+    avaliadores: { ativos: number; total: number };
+    funil: FaixaPainel[];
+}
+
+export interface PainelTerritorio extends SecaoPainel {
+    total: number;
+    prefeituras: { codigo: string; rotulo: string; total: number; percentual: number }[];
+    /** Bairros oficiais com cadastro, do que tem mais para o que tem menos; a chave casa com o mapa. */
+    bairros: { chave: string; nome: string; total: number }[];
+    emSalvador: number;
+    mapeadas: number;
+    naoReconhecidas: number;
+    textosNaoReconhecidos: { texto: string; total: number }[];
+    totalDeBairros: number;
+}
+
+export interface PainelPessoas extends SecaoPainel {
+    total: number;
+    genero: DistribuicaoPainel;
+    gruposDeGenero: FatiaPainel[];
+    racaCor: DistribuicaoPainel;
+    negras: { total: number; percentual: number };
+    /** Faixas pela data de nascimento; quem não a informou (cadastro antigo) conta em semResposta. */
+    idade: { faixas: FaixaPainel[]; respostas: number; semResposta: number };
+    escolaridade: DistribuicaoPainel;
+    renda: DistribuicaoPainel;
+    deficiencia: { total: number; percentual: number; tipos: DistribuicaoPainel };
+    povos: { total: number; percentual: number; itens: FatiaPainel[] };
+    atuacao: FaixaPainel[];
+    /** Da área mais marcada para a menos, com as ativas que ninguém marcou; o percentual é sobre quem marcou alguma. */
+    areas: DistribuicaoPainel;
+    indicadores: FatiaPainel[];
+    moradia: { salvador: number; percentual: number; cidades: FaixaPainel[] };
+}
+
+export interface PainelOrganizacoes extends SecaoPainel {
+    total: number;
+    naturezas: FatiaPainel[];
+    grupos: FatiaPainel[];
+    porte: DistribuicaoPainel;
+    idade: FaixaPainel[];
+    municipios: { salvador: number; percentual: number; itens: FaixaPainel[] };
+}
+
+/** Procura de um edital: inscrições enviadas e em rascunho, por vaga, e o valor oferecido em centavos. */
+export interface DemandaEditalPainel {
+    id: number;
+    titulo: string;
+    publicado: boolean;
+    situacao: SituacaoEdital | 'sem_periodo';
+    situacaoRotulo: string;
+    vagas: number;
+    enviadas: number;
+    rascunhos: number;
+    porVaga: number | null;
+    centavos: number;
+    /** Percentual das enviadas que pediram alguma cota. */
+    cotistas: number;
+}
+
+export interface PainelEditais extends SecaoPainel {
+    total: number;
+    publicados: number;
+    situacoes: FatiaPainel[];
+    centavos: number;
+    vagas: number;
+    /** Categorias ou itens sem valor ou sem vagas, que ficam fora do valor oferecido. */
+    semValor: number;
+    porCategoria: { rotulo: string; centavos: number; editais: number }[];
+    tipos: FatiaPainel[];
+    cotas: FatiaPainel[];
+    naturezas: FatiaPainel[];
+    coletivos: { total: number; percentual: number };
+    demanda: DemandaEditalPainel[];
+}
+
+export interface PainelCapacidade extends SecaoPainel {
+    avaliadores: { ativos: number; inativos: number; idades: FaixaPainel[]; interessadas: number; experientes: number };
+    eventos: { publicados: number; proximos: number; realizados: number; porMes: { mes: string; total: number }[] };
+}
+
+export interface PainelInscricoes extends SecaoPainel {
+    enviadas: number;
+    rascunhos: number;
+    reabertas: number;
+    conclusao: number;
+    natureza: DistribuicaoPainel;
+    cotas: FatiaPainel[];
+    /** Percentual de cada recorte entre quem se cadastrou e entre quem enviou inscrição. */
+    comparacao: { valor: string; rotulo: string; cadastro: number; inscricao: number }[];
+    territorios: { codigo: string; rotulo: string; total: number; percentual: number }[];
+    documentos: DistribuicaoPainel;
+}
+
+/** Novos cadastros de um mês (AAAA-MM), pelo tipo escolhido, com o acumulado até ele. */
+export interface MesDeCadastrosPainel {
+    mes: string;
+    proponentes: number;
+    patrocinadores: number;
+    ambos: number;
+    semTipo: number;
+    total: number;
+    acumulado: number;
+}
+
+export interface PainelEvolucao extends SecaoPainel {
+    meses: MesDeCadastrosPainel[];
+    /** Inscrições enviadas por dia (AAAA-MM-DD), só os dias com envio; o PHP manda [] quando não há nenhum. */
+    ritmo: { inicio: string; fim: string; dias: Record<string, number> | []; total: number; maximo: number };
+    territorios: {
+        colunas: { valor: string; rotulo: string }[];
+        /** Percentual de cada coluna, ou nulo quando o território tem poucas pessoas para mostrar. */
+        linhas: { codigo: string; rotulo: string; base: number; valores: (number | null)[] }[];
+    };
+}
+
+/** Filtros do Painel ('' é "sem filtro"); datas em AAAA-MM-DD. */
+export interface FiltrosPainel {
+    publico: string;
+    territorio: string;
+    edital: string;
+    de: string;
+    ate: string;
+}
+
+/** Painel (Retaguarda\PainelController): os filtros chegam na hora; cada seção chega depois (deferred). */
+export interface RetaguardaPainelProps {
+    filtros: FiltrosPainel;
+    opcoes: {
+        publicos: { valor: string; rotulo: string }[];
+        territorios: { valor: string; rotulo: string }[];
+        editais: { valor: string; rotulo: string }[];
+    };
+    minutosNoCache: number;
+    /** Mínimo de pessoas para um território mostrar percentuais (abaixo disso, "—"). */
+    baseMinima: number;
+    visao?: PainelVisaoGeral;
+    territorio?: PainelTerritorio;
+    pessoas?: PainelPessoas;
+    organizacoes?: PainelOrganizacoes;
+    editais?: PainelEditais;
+    capacidade?: PainelCapacidade;
+    inscricoes?: PainelInscricoes;
+    evolucao?: PainelEvolucao;
 }

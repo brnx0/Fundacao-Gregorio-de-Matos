@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import AvisoCamposObrigatorios from '../../../Components/AvisoCamposObrigatorios.vue';
 import CampoCadastro from '../../../Components/CampoCadastro.vue';
 import { focarPrimeiroErro } from '../../../Components/focarPrimeiroErro';
 import SecaoCadastro from '../../../Components/SecaoCadastro.vue';
+import BarraAcoes from '../../../Components/Retaguarda/BarraAcoes.vue';
+import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
 import type { RetaguardaUsuariosFormProps } from '../../../types';
 
@@ -73,30 +75,20 @@ const salvar = (): void => {
     }
 };
 
-const classeCampo =
-    'h-12 w-full rounded-[12px] border border-tinta-suave/70 bg-superficie px-4 text-base text-home-tinta placeholder:text-tinta-suave';
 const classeMarcacao = 'flex min-h-11 cursor-pointer items-start gap-3 py-2 text-[0.9375rem] leading-[1.5]';
 const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-4xl flex-col gap-6 px-4 pt-8 lg:px-6">
+    <PaginaRetaguarda
+        largura="estreita"
+        :titulo="salvo?.name ?? 'Novo usuário'"
+        :trilha="[{ texto: editando ? 'Editar' : 'Novo' }]"
+        :descricao="salvo && !salvo.ativo ? 'Este usuário está desativado e não entra na retaguarda.' : undefined"
+    >
         <Head :title="editando ? 'Editar usuário · Retaguarda' : 'Novo usuário · Retaguarda'" />
 
-        <div>
-            <Link :href="BASE" class="inline-flex min-h-11 items-center gap-1.5 text-[0.9375rem] font-semibold text-acao hover:underline">
-                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 12H5M11 6l-6 6 6 6" />
-                </svg>
-                Usuários
-            </Link>
-            <h1 class="mt-1 text-[1.75rem] leading-tight font-bold break-words">{{ salvo?.name ?? 'Novo usuário' }}</h1>
-            <p v-if="salvo && !salvo.ativo" class="mt-1 text-[0.9375rem] text-tinta-suave">Este usuário está desativado e não entra na retaguarda.</p>
-        </div>
-
         <form id="formulario-usuario" novalidate class="flex flex-col gap-6" @submit.prevent="salvar">
-            <AvisoCamposObrigatorios />
-
             <SecaoCadastro id="secao-usuario-dados" :numero="1" titulo="Dados do usuário">
                 <template #icone>
                     <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -104,6 +96,8 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                         <path d="M4 21a8 8 0 0 1 16 0" />
                     </svg>
                 </template>
+
+                <AvisoCamposObrigatorios class="mb-5" />
 
                 <div class="grid gap-x-6 gap-y-5 md:grid-cols-2">
                     <CampoCadastro id="name" class="md:col-span-2" rotulo="Nome" obrigatorio :erro="form.errors.name" v-slot="{ descricao, invalido }">
@@ -114,7 +108,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             maxlength="255"
                             autocomplete="off"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('name')"
@@ -137,7 +131,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             maxlength="14"
                             autocomplete="off"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="digitarCpf"
@@ -172,7 +166,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             maxlength="255"
                             autocomplete="off"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('email')"
@@ -204,7 +198,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             type="password"
                             autocomplete="new-password"
                             :required="!editando"
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('senha')"
@@ -218,7 +212,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             type="password"
                             autocomplete="new-password"
                             :required="!editando"
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-describedby="descricao"
                         />
                     </CampoCadastro>
@@ -241,26 +235,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                     </fieldset>
                 </div>
             </SecaoCadastro>
-
-            <div class="flex flex-col-reverse gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <Link
-                    :href="BASE"
-                    class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-tinta-suave/70 bg-superficie px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-home-tinta uppercase no-underline hover:border-acao hover:text-acao"
-                >
-                    Cancelar
-                </Link>
-
-                <div class="flex flex-col gap-2 sm:items-end">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-acao px-8 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro disabled:cursor-wait disabled:opacity-70"
-                    >
-                        {{ form.processing ? 'Salvando…' : 'Salvar usuário' }}
-                    </button>
-                    <p v-if="form.hasErrors" role="alert" class="text-[0.9375rem] font-semibold text-invalido-texto">Confira os campos destacados acima.</p>
-                </div>
-            </div>
+            <BarraAcoes :cancelar="BASE" :salvar="form.processing ? 'Salvando…' : 'Salvar usuário'" :processando="form.processing" :com-erros="form.hasErrors" />
         </form>
-    </div>
+    </PaginaRetaguarda>
 </template>

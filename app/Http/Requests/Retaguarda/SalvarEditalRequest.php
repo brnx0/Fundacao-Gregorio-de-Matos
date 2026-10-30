@@ -9,46 +9,33 @@ use App\Enums\EtapaDocumento;
 use App\Enums\ModalidadeCota;
 use App\Enums\NaturezaProponente;
 use App\Enums\TipoEdital;
+use App\Http\Requests\Retaguarda\Concerns\MensagensDosCampos;
 use App\Models\Edital;
-use App\Models\ImportacaoQuestionario;
 use App\Rules\TamanhoEmBytes;
 use App\Support\Edital\SincronizadorDoEdital;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Validator;
 
 /**
- * Criação e edição de edital na retaguarda. Tudo é opcional no rascunho; publicado exige título, resumo e categoria
- * (e, ao passar a publicado, o edital completo — ver EditalController).
+ * Criação e edição de edital na retaguarda. Tudo é opcional no rascunho; publicado (também o que já estava) exige
+ * título, resumo, categoria, PDF e o edital completo (Edital::pendenciasPorCampo()). Tudo é conferido de uma vez, cada
+ * pendência no campo da sua aba, para a tela marcar juntas todas as abas que faltam.
  * Sem novo upload, o PDF, a imagem e os arquivos-modelo atuais ficam.
  * As listas (chamadas, categorias, documentos, critérios) só são tocadas com o marcador `com_listas`;
  * com ele, lista ausente = apagar todas. Referências entre listas vão por posição (índice na lista enviada).
- * O questionário só é tocado com o marcador `com_questionario`; vai num campo só (`questionario`, texto JSON) porque
- * o formulário envia multipart e o questionário passa de mil campos (ver RegrasDoQuestionario).
+ * O questionário tem a sua própria tela e o seu pedido (SalvarQuestionarioDoEditalRequest).
  */
 class SalvarEditalRequest extends FormRequest
 {
+    use MensagensDosCampos;
+
     public const int MAXIMO_ITENS = 50;
 
     public function authorize(): bool
     {
         return true;
-    }
-
-    /** JSON inválido fica como texto e cai na regra `array` do campo. */
-    protected function prepareForValidation(): void
-    {
-        $questionario = $this->input('questionario');
-
-        if ($this->boolean('com_questionario') && is_string($questionario)) {
-            $decodificado = json_decode($questionario, true);
-
-            if (is_array($decodificado)) {
-                $this->merge(['questionario' => $decodificado]);
-            }
-        }
     }
 
     /**
@@ -63,8 +50,6 @@ class SalvarEditalRequest extends FormRequest
 
         return [
             'com_listas' => ['boolean'],
-            'com_questionario' => ['boolean'],
-            'questionario_versao' => ['nullable', 'integer'],
 
             'titulo' => ['required_if_accepted:publicado', 'nullable', 'string', 'max:255', new TamanhoEmBytes(255)],
             'resumo' => ['required_if_accepted:publicado', 'nullable', 'string'],
@@ -143,7 +128,6 @@ class SalvarEditalRequest extends FormRequest
             'criterios.*.categorias.*' => $posicaoDeCategoria,
 
             ...$this->regrasDasCotas(),
-            ...($this->comQuestionario() ? RegrasDoQuestionario::regras($this->posicoesDeCategorias()) : []),
 
             'pontuacao_extra' => ['nullable', 'array'],
             'pontuacao_extra.grupos' => $lista,
@@ -182,22 +166,6 @@ class SalvarEditalRequest extends FormRequest
     }
 
     /**
-     * Posições das categorias a que o questionário pode se referir: as enviadas ou, sem as listas, as do edital.
-     *
-     * @return list<int>
-     */
-    private function posicoesDeCategorias(): array
-    {
-        if ($this->comListas()) {
-            return $this->posicoes('categorias');
-        }
-
-        $edital = $this->route('edital');
-
-        return $edital instanceof Edital ? array_keys($edital->categorias()->get()->all()) : [];
-    }
-
-    /**
      * Posições válidas de uma lista enviada (para as referências entre listas).
      *
      * @return list<int>
@@ -210,34 +178,13 @@ class SalvarEditalRequest extends FormRequest
     }
 
     /**
-     * O app tem poucas traduções do Laravel; as mensagens aparecem embaixo de cada campo, sem o nome dele.
-     *
      * @return array<string, mixed>
      */
     public function messages(): array
     {
         return [
-            'required' => 'Este campo é obrigatório.',
+            ...$this->mensagensDosCampos(),
             'required_if_accepted' => 'Este campo é obrigatório.',
-            'string' => 'Digite um texto.',
-            'max' => [
-                'string' => 'Use no máximo :max caracteres.',
-                'numeric' => 'Informe um valor de no máximo :max.',
-                'array' => 'Cadastre no máximo :max itens.',
-                'file' => 'O arquivo deve ter no máximo :max KB.',
-            ],
-            'min' => [
-                'numeric' => 'Informe um valor de no mínimo :min.',
-            ],
-            'integer' => 'Informe um número inteiro.',
-            'numeric' => 'Informe um número.',
-            'in' => 'Selecione uma opção da lista.',
-            Enum::class => 'Selecione uma opção da lista.',
-            'distinct' => 'Esta opção foi escolhida mais de uma vez.',
-            'boolean' => 'Valor inválido.',
-            'array' => 'Valor inválido.',
-            'list' => 'Valor inválido.',
-            'date' => 'Digite uma data válida.',
             'pdf.file' => 'O arquivo precisa ser um PDF.',
             'pdf.mimes' => 'O arquivo precisa ser um PDF.',
             'pdf.mimetypes' => 'O arquivo precisa ser um PDF.',
@@ -260,7 +207,6 @@ class SalvarEditalRequest extends FormRequest
             'documentos.*.modelo.mimes' => 'Envie um arquivo PDF, DOC, DOCX, XLS, XLSX, ODT ou ODS.',
             'documentos.*.modelo.max' => 'O arquivo-modelo deve ter no máximo 10 MB.',
             'informacoes.array' => 'Valor inválido.',
-            ...RegrasDoQuestionario::mensagens(),
         ];
     }
 
@@ -305,7 +251,8 @@ class SalvarEditalRequest extends FormRequest
     }
 
     /**
-     * Edital publicado precisa de PDF: o enviado agora ou o já salvo.
+     * Edital publicado precisa de PDF (o enviado agora ou o já salvo) e do edital completo, também o que já estava
+     * publicado: ele está no portal, e sem chamada, natureza ou categoria ninguém consegue se inscrever.
      *
      * @return array<int, callable(Validator): void>
      */
@@ -321,53 +268,61 @@ class SalvarEditalRequest extends FormRequest
                 }
             },
             function (Validator $validator): void {
-                if (! $this->comQuestionario()) {
+                if (! $this->boolean('publicado')) {
                     return;
                 }
 
                 $edital = $this->route('edital');
-                if ($edital instanceof Edital && $edital->questionarioTravado()) {
-                    $validator->errors()->add('questionario', Edital::AVISO_QUESTIONARIO_TRAVADO);
 
-                    return;
+                foreach ($this->pendenciasParaPublicar($edital instanceof Edital ? $edital : null) as $campo => $mensagem) {
+                    $validator->errors()->add($campo, $mensagem);
                 }
-
-                $versao = $this->input('questionario_versao');
-                if ($edital instanceof Edital && ImportacaoQuestionario::versaoDoQuestionario($edital) !== ($versao === null || $versao === '' ? null : (int) $versao)) {
-                    $validator->errors()->add('questionario', ImportacaoQuestionario::ERRO_VERSAO);
-
-                    return;
-                }
-
-                RegrasDoQuestionario::conferir($validator, $this->input('questionario'));
             },
         ];
+    }
+
+    /**
+     * O que falta para publicar o edital completo, pelo envio: as listas enviadas ou, sem o marcador, as já gravadas.
+     * Título e PDF têm as suas regras; chamada enviada sem as datas cai na regra dos campos dela. O questionário tem a
+     * sua tela, então vale o gravado (pergunta que fica sem vínculo por uma categoria apagada neste envio só aparece
+     * depois de gravar, no EditalController). Com o questionário travado a equipe não teria como vincular: não barra.
+     *
+     * @return array<string, string>
+     */
+    private function pendenciasParaPublicar(?Edital $edital): array
+    {
+        $pendencias = [];
+
+        $temChamada = $this->comListas()
+            ? filled($this->input('chamadas'))
+            : (bool) $edital?->chamadas()->whereNotNull('inicio')->whereNotNull('fim')->exists();
+        if (! $temChamada) {
+            $pendencias['chamadas'] = Edital::PENDENCIA_CHAMADA;
+        }
+
+        $naturezas = $this->comListas() || $this->has('naturezas') ? $this->input('naturezas') : $edital?->naturezas;
+        if (blank($naturezas)) {
+            $pendencias['naturezas'] = Edital::PENDENCIA_NATUREZA;
+        }
+
+        $temCategoria = $this->comListas() ? filled($this->input('categorias')) : (bool) $edital?->categorias()->exists();
+        if (! $temCategoria) {
+            $pendencias['categorias'] = Edital::PENDENCIA_CATEGORIA;
+        }
+
+        if ($edital !== null && ! $edital->questionarioTravado()) {
+            foreach ($edital->pendenciasDoQuestionario() as $pendencia) {
+                $pendencias['questionario'] = $pendencia;
+            }
+        }
+
+        return $pendencias;
     }
 
     /** As listas vieram no envio (o formulário completo manda o marcador). */
     public function comListas(): bool
     {
         return $this->boolean('com_listas');
-    }
-
-    /** O questionário veio no envio (o formulário completo manda o marcador). */
-    public function comQuestionario(): bool
-    {
-        return $this->boolean('com_questionario');
-    }
-
-    /**
-     * Questionário validado, no formato de SincronizadorDoQuestionario; nulo sem o marcador.
-     *
-     * @return array{secoes: list<array<string, mixed>>}|null
-     */
-    public function questionarioDoEdital(): ?array
-    {
-        if (! $this->comQuestionario()) {
-            return null;
-        }
-
-        return ['secoes' => array_values($this->validated('questionario.secoes') ?? [])];
     }
 
     /**

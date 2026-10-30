@@ -2,7 +2,9 @@
 import { reactive } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ConfirmarExclusao from '../../../Components/Retaguarda/ConfirmarExclusao.vue';
-import TabelaPaginada from '../../../Components/Retaguarda/TabelaPaginada.vue';
+import IconeAcao from '../../../Components/Retaguarda/IconeAcao.vue';
+import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
+import PainelLista from '../../../Components/Retaguarda/PainelLista.vue';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
 import type { RetaguardaEventosIndexProps } from '../../../types';
 
@@ -26,64 +28,22 @@ const limpar = (): void => {
     filtrar();
 };
 
-const classeCampo =
-    'h-12 w-full rounded-[12px] border border-tinta-suave/70 bg-superficie px-4 text-base text-home-tinta placeholder:text-tinta-suave';
-const classeRotulo = 'text-[0.9375rem] font-semibold';
-const classeAcao = 'pressionavel inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 text-[0.8125rem] font-bold text-acao hover:bg-nevoa';
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-8 lg:px-6">
+    <PaginaRetaguarda titulo="Eventos" descricao="A agenda cultural exibida no portal. Só os publicados aparecem para o público.">
         <Head title="Eventos · Retaguarda" />
 
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <p class="text-[0.75rem] font-bold tracking-[0.12em] text-acao uppercase">Retaguarda</p>
-                <h1 class="mt-1 text-[1.75rem] leading-tight font-bold">Eventos</h1>
-            </div>
-            <Link
-                :href="`${BASE}/create`"
-                class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-acao px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro"
-            >
+        <template #acoes>
+            <Link :href="`${BASE}/create`" class="botao-faixa">
                 <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                     <path d="M12 5v14M5 12h14" />
                 </svg>
                 Novo evento
             </Link>
-        </div>
+        </template>
 
-        <form role="search" aria-label="Filtrar eventos" class="grid gap-4 rounded-card border border-hairline bg-superficie p-4 md:grid-cols-[1fr_12rem_auto] md:items-end" @submit.prevent="filtrar">
-            <div class="flex flex-col gap-1.5">
-                <label for="busca" :class="classeRotulo">Buscar pelo título</label>
-                <input id="busca" v-model="filtros.busca" type="search" maxlength="255" placeholder="Parte do título" :class="classeCampo" />
-            </div>
-            <div class="flex flex-col gap-1.5">
-                <label for="publicado" :class="classeRotulo">Publicação</label>
-                <select id="publicado" v-model="filtros.publicado" :class="classeCampo" @change="filtrar">
-                    <option value="">Todos</option>
-                    <option value="sim">Publicados</option>
-                    <option value="nao">Não publicados</option>
-                </select>
-            </div>
-            <div class="flex gap-2">
-                <button
-                    type="submit"
-                    class="pressionavel inline-flex min-h-12 flex-1 items-center justify-center rounded-pill bg-acao px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro md:flex-none"
-                >
-                    Filtrar
-                </button>
-                <button
-                    v-if="filtros.busca || filtros.publicado"
-                    type="button"
-                    class="pressionavel inline-flex min-h-12 flex-1 items-center justify-center rounded-pill border border-tinta-suave/70 bg-superficie px-5 text-[0.8125rem] font-bold tracking-[0.12em] uppercase hover:border-acao hover:text-acao md:flex-none"
-                    @click="limpar"
-                >
-                    Limpar
-                </button>
-            </div>
-        </form>
-
-        <TabelaPaginada
+        <PainelLista
             legenda="Eventos"
             :links="eventos.links"
             :total="eventos.total"
@@ -91,56 +51,76 @@ const classeAcao = 'pressionavel inline-flex min-h-11 items-center gap-1.5 round
             :ate="eventos.to"
             vazio="Nenhum evento encontrado."
         >
+            <template #filtros>
+            <form role="search" aria-label="Filtrar eventos" class="grid gap-3 @3xl:grid-cols-[1fr_12rem_auto] @3xl:items-end" @submit.prevent="filtrar">
+                    <div class="flex flex-col gap-1.5">
+                        <label for="busca" class="rotulo-retaguarda">Buscar pelo título</label>
+                        <input id="busca" v-model="filtros.busca" type="search" maxlength="255" placeholder="Parte do título" class="campo-retaguarda" />
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="publicado" class="rotulo-retaguarda">Publicação</label>
+                        <select id="publicado" v-model="filtros.publicado" class="campo-retaguarda" @change="filtrar">
+                            <option value="">Todos</option>
+                            <option value="sim">Publicados</option>
+                            <option value="nao">Não publicados</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="botao-primario flex-1 @3xl:flex-none">Filtrar</button>
+                        <button v-if="filtros.busca || filtros.publicado" type="button" class="botao-secundario flex-1 @3xl:flex-none" @click="limpar">Limpar</button>
+                    </div>
+                </form>
+            </template>
+
             <template #cabecalho>
                 <tr>
-                    <th scope="col" class="px-4 py-3">Título e local</th>
-                    <th scope="col" class="px-4 py-3">Data</th>
-                    <th scope="col" class="px-4 py-3">Publicado</th>
-                    <th scope="col" class="px-4 py-3">Imagem</th>
-                    <th scope="col" class="px-4 py-3"><span class="sr-only">Ações</span></th>
+                    <th scope="col">Título e local</th>
+                    <th scope="col">Data</th>
+                    <th scope="col">Publicado</th>
+                    <th scope="col">Imagem</th>
+                    <th scope="col"><span class="sr-only">Ações</span></th>
                 </tr>
             </template>
 
             <tr v-for="evento in eventos.data" :key="evento.slug" class="align-middle">
-                <th scope="row" class="min-w-56 px-4 py-3 text-left font-normal">
+                <th scope="row" class="min-w-56 text-left font-normal">
                     <span class="block font-semibold">{{ evento.titulo }}</span>
                     <span v-if="evento.local" class="block text-[0.8125rem] text-tinta-suave">{{ evento.local }}</span>
                 </th>
-                <td class="px-4 py-3 whitespace-nowrap tabular-nums">{{ evento.data }}</td>
-                <td class="px-4 py-3">
-                    <span
-                        class="inline-flex rounded-pill px-2.5 py-0.5 text-[0.8125rem] font-semibold"
-                        :class="evento.publicado ? 'bg-nevoa text-acao' : 'border border-hairline text-tinta-suave'"
-                    >
-                        {{ evento.publicado ? 'Sim' : 'Não' }}
-                    </span>
+                <td class="whitespace-nowrap tabular-nums">{{ evento.data }}</td>
+                <td>
+                    <span class="selo" :class="evento.publicado ? 'selo-positivo' : ''">{{ evento.publicado ? 'Publicado' : 'Não publicado' }}</span>
                 </td>
-                <td class="px-4 py-3">
+                <td>
                     <span v-if="evento.temImagem">Sim</span>
                     <span v-else class="text-tinta-suave">Não</span>
                 </td>
-                <td class="px-2 py-1">
-                    <div class="flex items-center justify-end gap-1 whitespace-nowrap">
-                        <Link :href="`${BASE}/${evento.slug}/edit`" :class="classeAcao">
-                            Editar<span class="sr-only"> {{ evento.titulo }}</span>
-                        </Link>
+                <td class="px-2! py-1!">
+                    <div class="flex items-center justify-end gap-1">
                         <Link
                             :href="`${BASE}/${evento.slug}/publicacao`"
                             method="patch"
                             as="button"
                             preserve-scroll
-                            :class="classeAcao"
+                            class="acao-icone"
+                            :data-dica="evento.publicado ? 'Ocultar publicação' : 'Publicar'"
                         >
-                            {{ evento.publicado ? 'Despublicar' : 'Publicar' }}<span class="sr-only"> {{ evento.titulo }}</span>
+                            <IconeAcao :nome="evento.publicado ? 'ocultar' : 'publicar'" />
+                            <span class="sr-only">{{ evento.publicado ? 'Ocultar publicação de' : 'Publicar' }} {{ evento.titulo }}</span>
+                        </Link>
+                        <Link :href="`${BASE}/${evento.slug}/edit`" class="acao-icone" data-dica="Editar">
+                            <IconeAcao nome="editar" />
+                            <span class="sr-only">Editar {{ evento.titulo }}</span>
                         </Link>
                         <ConfirmarExclusao
                             :url="`${BASE}/${evento.slug}`"
                             :nome="evento.titulo"
                             aviso="O evento sai do portal e da lista. A imagem continua guardada."
+                            icone
                         />
                     </div>
                 </td>
             </tr>
-        </TabelaPaginada>
-    </div>
+        </PainelLista>
+    </PaginaRetaguarda>
 </template>

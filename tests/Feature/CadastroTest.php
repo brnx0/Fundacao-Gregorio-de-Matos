@@ -9,6 +9,7 @@ use App\Enums\PovoTradicional;
 use App\Enums\RacaCor;
 use App\Enums\TipoCadastro;
 use App\Enums\TipoDeficiencia;
+use App\Models\AreaAtuacao;
 use App\Models\Organizacao;
 use App\Models\PessoaFisica;
 use App\Models\PrefeituraBairro;
@@ -16,6 +17,7 @@ use App\Models\User;
 use App\Support\Cnpj;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -172,10 +174,13 @@ class CadastroTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->actingAs($user)->post('/cadastro', [])->assertSessionHasErrors(array_fill_keys([
-            'pais_origem', 'rg', 'documento_cpf', 'documento_rg', 'identidade_genero', 'raca_cor',
-            'cep', 'logradouro', 'bairro', 'cidade', 'estado', 'territorio',
-        ], 'Este campo é obrigatório.'));
+        $this->actingAs($user)->post('/cadastro', [])->assertSessionHasErrors([
+            ...array_fill_keys([
+                'data_nascimento', 'pais_origem', 'rg', 'documento_cpf', 'documento_rg', 'identidade_genero', 'raca_cor',
+                'cep', 'logradouro', 'bairro', 'cidade', 'estado', 'territorio',
+            ], 'Este campo é obrigatório.'),
+            'areas_atuacao' => 'Marque ao menos uma área de atuação.',
+        ]);
 
         $this->assertDatabaseCount('pessoas_fisicas', 0);
         $this->assertNull($user->fresh()->profile_completed_at);
@@ -213,7 +218,111 @@ class CadastroTest extends TestCase
             'estado fora da lista' => [['estado' => 'XX'], 'estado', 'Selecione uma opção da lista.'],
             'CEP incompleto' => [['cep' => '40020-00'], 'cep', 'Digite os 8 números do CEP.'],
             'telefone adicional sem DDD' => [['telefone_adicional' => '9999-8888'], 'telefone_adicional', 'Digite o telefone com DDD.'],
+            'data de nascimento que não existe' => [['data_nascimento' => '1990-02-30'], 'data_nascimento', 'Digite uma data válida.'],
+            'data de nascimento antes de 1900' => [['data_nascimento' => '1899-12-31'], 'data_nascimento', 'Digite uma data válida.'],
+            'data de nascimento depois de hoje' => [['data_nascimento' => '2999-01-01'], 'data_nascimento', 'A data de nascimento precisa ser anterior a hoje.'],
         ];
+    }
+
+    public function test_aceita_quem_completa_dezoito_anos_hoje(): void
+    {
+        Storage::fake('local');
+        $this->travelTo(Carbon::parse('2026-06-15 10:00', 'America/Bahia'));
+        $user = User::factory()->create(['phone' => '71998765432']);
+
+        $this->actingAs($user)->post('/cadastro', $this->dadosValidos(['data_nascimento' => '2008-06-15']))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('2008-06-15', $user->pessoaFisica()->sole()->data_nascimento->toDateString());
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function menoresDeIdade(): array
+    {
+        return [
+            'completa 18 anos amanhã' => ['2026-06-15 10:00', '2008-06-16'],
+            'hoje é 29/02 e o aniversário é em 01/03' => ['2028-02-29 10:00', '2010-03-01'],
+        ];
+    }
+
+    #[DataProvider('menoresDeIdade')]
+    public function test_recusa_quem_ainda_nao_tem_dezoito_anos(string $agora, string $nascimento): void
+    {
+        Storage::fake('local');
+        $this->travelTo(Carbon::parse($agora, 'America/Bahia'));
+
+        $this->actingAs(User::factory()->create(['phone' => '71998765432']))
+            ->post('/cadastro', $this->dadosValidos(['data_nascimento' => $nascimento]))
+            ->assertSessionHasErrors(['data_nascimento' => 'É preciso ter 18 anos ou mais para se cadastrar.']);
+
+        $this->assertDatabaseCount('pessoas_fisicas', 0);
+    }
+
+    public function test_salva_a_data_de_nascimento_e_as_areas_marcadas_no_lugar_das_de_antes(): void
+    {
+        Storage::fake('local');
+        $cadastro = PessoaFisica::factory()->comAreas('Teatro', 'Música')->create();
+
+        $this->actingAs($cadastro->user)->post('/cadastro', $this->dadosValidos([
+            'data_nascimento' => '1985-04-12',
+            'areas_atuacao' => $this->idsDasAreas('Música', 'Dança e Coreografia'),
+            'telefone' => '(71) 99876-5432',
+        ]))->assertSessionHasNoErrors();
+
+        $cadastro->refresh();
+        $this->assertSame('1985-04-12', $cadastro->data_nascimento->toDateString());
+        $this->assertSame(['Dança e Coreografia', 'Música'], $cadastro->areasAtuacao()->orderBy('nome')->pluck('nome')->all());
+    }
+
+    public function test_formulario_traz_a_data_de_nascimento_no_formato_do_campo_de_data(): void
+    {
+        $cadastro = PessoaFisica::factory()->create(['data_nascimento' => '1985-04-12']);
+
+        $this->actingAs($cadastro->user)->get('/cadastro')->assertInertia(fn (Assert $page) => $page
+            ->where('cadastro.data_nascimento', '1985-04-12'));
+    }
+
+    public function test_areas_de_atuacao_sao_as_ativas_pelo_nome_com_outros_no_fim(): void
+    {
+        AreaAtuacao::where('nome', 'Cinema')->update(['ativo' => false]);
+
+        $this->actingAs(User::factory()->create())->get('/cadastro')->assertInertia(fn (Assert $page) => $page
+            ->has('opcoes.areasAtuacao', 30)
+            ->where('opcoes.areasAtuacao.0.rotulo', 'Arquitetura')
+            // Sem diferenciar acento: Mídias antes de Moda (comparando bytes, como no ORDER BY do Oracle, o í vem depois do o).
+            ->where('opcoes.areasAtuacao.17.rotulo', 'Mídias Interativas')
+            ->where('opcoes.areasAtuacao.18.rotulo', 'Moda e vestuário')
+            ->where('opcoes.areasAtuacao.29.rotulo', 'Outros'));
+    }
+
+    public function test_area_desativada_nao_pode_ser_marcada_por_quem_nao_a_tinha(): void
+    {
+        Storage::fake('local');
+        AreaAtuacao::where('nome', 'Cinema')->update(['ativo' => false]);
+
+        $this->actingAs(User::factory()->create(['phone' => '71998765432']))
+            ->post('/cadastro', $this->dadosValidos(['areas_atuacao' => $this->idsDasAreas('Música', 'Cinema')]))
+            ->assertSessionHasErrors(['areas_atuacao' => 'Uma das áreas marcadas saiu da lista. Confira as áreas e salve de novo.']);
+
+        $this->assertDatabaseCount('pessoas_fisicas', 0);
+    }
+
+    public function test_area_desativada_continua_valendo_para_quem_ja_a_marcou(): void
+    {
+        Storage::fake('local');
+        $cadastro = PessoaFisica::factory()->comAreas('Cinema')->create();
+        AreaAtuacao::where('nome', 'Cinema')->update(['ativo' => false]);
+        $cinema = $this->idsDasAreas('Cinema');
+
+        $this->actingAs($cadastro->user)->get('/cadastro')->assertInertia(fn (Assert $page) => $page
+            ->has('opcoes.areasAtuacao', 31)
+            ->where('opcoes.areasAtuacao.11', ['valor' => $cinema[0], 'rotulo' => 'Cinema'])
+            ->where('cadastro.areas_atuacao', $cinema));
+
+        $this->actingAs($cadastro->user)
+            ->post('/cadastro', $this->dadosValidos(['areas_atuacao' => $cinema, 'telefone' => '(71) 99876-5432']))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(['Cinema'], $cadastro->areasAtuacao()->pluck('nome')->all());
     }
 
     public function test_cadastro_salvo_nao_exige_reenviar_documentos_e_troca_o_arquivo_substituido(): void
@@ -247,6 +356,7 @@ class CadastroTest extends TestCase
     private function dadosValidos(array $alteracoes = []): array
     {
         return [
+            'data_nascimento' => '1985-04-12',
             'pais_origem' => 'Brasil',
             'rg' => '1234567',
             'documento_cpf' => UploadedFile::fake()->create('cpf.pdf', 100, 'application/pdf'),
@@ -257,6 +367,7 @@ class CadastroTest extends TestCase
             'renda' => 'de_1_a_3',
             'povo_tradicional' => 'nao_pertence',
             'anos_atuacao' => 12,
+            'areas_atuacao' => $this->idsDasAreas('Música'),
             'cep' => '40020-000',
             'logradouro' => 'Rua Chile',
             'numero' => '10',
@@ -266,6 +377,16 @@ class CadastroTest extends TestCase
             'territorio' => 'centro_brotas',
             ...$alteracoes,
         ];
+    }
+
+    /**
+     * Ids das áreas da migration, pelos nomes.
+     *
+     * @return list<int>
+     */
+    private function idsDasAreas(string ...$nomes): array
+    {
+        return AreaAtuacao::query()->whereIn('nome', $nomes)->orderBy('id')->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
     }
 
     public function test_salva_o_perfil_da_pessoa_fisica(): void

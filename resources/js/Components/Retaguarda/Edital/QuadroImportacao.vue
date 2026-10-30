@@ -9,6 +9,8 @@ const props = defineProps<{
     urlConferida: string;
     /** Ids das abas do formulário, na ordem; o bloco da confiabilidade tem o id da aba. */
     abas: string[];
+    /** Texto dos botões que levam ao bloco, quando não é uma aba (ex.: "Ir para as perguntas"); o padrão é "Ir para a aba …". */
+    destino?: string;
 }>();
 
 const emit = defineEmits<{ irParaAba: [aba: string] }>();
@@ -136,7 +138,7 @@ const classeAcao = 'pressionavel inline-flex min-h-11 items-center gap-1.5 round
                         </summary>
                         <div class="flex flex-col items-start gap-1 px-3 pt-1 pb-3 text-[0.875rem]">
                             <p>{{ bloco.justificativa || 'Sem justificativa.' }}</p>
-                            <button type="button" :class="classeAcao" class="-ml-3" @click="emit('irParaAba', bloco.bloco)">Ir para a aba {{ bloco.rotulo }}</button>
+                            <button type="button" :class="classeAcao" class="-ml-3" @click="emit('irParaAba', bloco.bloco)">{{ destino ?? `Ir para a aba ${bloco.rotulo}` }}</button>
                         </div>
                     </details>
                 </li>
@@ -153,7 +155,8 @@ const classeAcao = 'pressionavel inline-flex min-h-11 items-center gap-1.5 round
                 <div class="flex flex-wrap items-center justify-between gap-x-3">
                     <h4 class="text-[0.9375rem] font-semibold">{{ grupo.rotulo }}</h4>
                     <button v-if="grupo.bloco !== null" type="button" :class="classeAcao" @click="emit('irParaAba', grupo.bloco)">
-                        Ir para a aba<span class="sr-only"> {{ grupo.rotulo }}</span>
+                        <template v-if="destino">{{ destino }}</template>
+                        <template v-else>Ir para a aba<span class="sr-only"> {{ grupo.rotulo }}</span></template>
                         <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M5 12h14M13 6l6 6-6 6" />
                         </svg>

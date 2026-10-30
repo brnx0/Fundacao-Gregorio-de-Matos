@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
+import IconeAcao from '../../../Components/Retaguarda/IconeAcao.vue';
+import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
+import PainelLista from '../../../Components/Retaguarda/PainelLista.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import TabelaPaginada from '../../../Components/Retaguarda/TabelaPaginada.vue';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
 import type { RetaguardaUsuariosIndexProps } from '../../../types';
 
@@ -24,57 +26,22 @@ const limpar = (): void => {
     filtros.busca = '';
     filtrar();
 };
-
-const classeCampo =
-    'h-12 w-full rounded-[12px] border border-tinta-suave/70 bg-superficie px-4 text-base text-home-tinta placeholder:text-tinta-suave';
-const classeRotulo = 'text-[0.9375rem] font-semibold';
-const classeAcao = 'pressionavel inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 text-[0.8125rem] font-bold text-acao hover:bg-nevoa';
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-8 lg:px-6">
+    <PaginaRetaguarda titulo="Usuários" descricao="Quem entra na retaguarda e com quais papéis. Usuário não se exclui: desative o acesso.">
         <Head title="Usuários · Retaguarda" />
 
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <p class="text-[0.75rem] font-bold tracking-[0.12em] text-acao uppercase">Retaguarda</p>
-                <h1 class="mt-1 text-[1.75rem] leading-tight font-bold">Usuários</h1>
-            </div>
-            <Link
-                :href="`${BASE}/create`"
-                class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-acao px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro"
-            >
+        <template #acoes>
+            <Link :href="`${BASE}/create`" class="botao-faixa">
                 <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                     <path d="M12 5v14M5 12h14" />
                 </svg>
                 Novo usuário
             </Link>
-        </div>
+        </template>
 
-        <form role="search" aria-label="Buscar usuários" class="grid gap-4 rounded-card border border-hairline bg-superficie p-4 md:grid-cols-[1fr_auto] md:items-end" @submit.prevent="filtrar">
-            <div class="flex flex-col gap-1.5">
-                <label for="busca" :class="classeRotulo">Buscar pelo nome ou e-mail</label>
-                <input id="busca" v-model="filtros.busca" type="search" maxlength="255" placeholder="Parte do nome ou do e-mail" :class="classeCampo" />
-            </div>
-            <div class="flex gap-2">
-                <button
-                    type="submit"
-                    class="pressionavel inline-flex min-h-12 flex-1 items-center justify-center rounded-pill bg-acao px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro md:flex-none"
-                >
-                    Buscar
-                </button>
-                <button
-                    v-if="filtros.busca"
-                    type="button"
-                    class="pressionavel inline-flex min-h-12 flex-1 items-center justify-center rounded-pill border border-tinta-suave/70 bg-superficie px-5 text-[0.8125rem] font-bold tracking-[0.12em] uppercase hover:border-acao hover:text-acao md:flex-none"
-                    @click="limpar"
-                >
-                    Limpar
-                </button>
-            </div>
-        </form>
-
-        <TabelaPaginada
+        <PainelLista
             legenda="Usuários"
             :links="usuarios.links"
             :total="usuarios.total"
@@ -82,50 +49,61 @@ const classeAcao = 'pressionavel inline-flex min-h-11 items-center gap-1.5 round
             :ate="usuarios.to"
             vazio="Nenhum usuário encontrado."
         >
+            <template #filtros>
+                <form role="search" aria-label="Buscar usuários" class="grid gap-3 @3xl:grid-cols-[minmax(0,28rem)_auto] @3xl:items-end" @submit.prevent="filtrar">
+                    <div class="flex flex-col gap-1.5">
+                        <label for="busca" class="rotulo-retaguarda">Buscar pelo nome ou e-mail</label>
+                        <input id="busca" v-model="filtros.busca" type="search" maxlength="255" placeholder="Parte do nome ou do e-mail" class="campo-retaguarda" />
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="botao-primario flex-1 @3xl:flex-none">Buscar</button>
+                        <button v-if="filtros.busca" type="button" class="botao-secundario flex-1 @3xl:flex-none" @click="limpar">Limpar</button>
+                    </div>
+                </form>
+            </template>
+
             <template #cabecalho>
                 <tr>
-                    <th scope="col" class="px-4 py-3">Nome</th>
-                    <th scope="col" class="px-4 py-3">E-mail</th>
-                    <th scope="col" class="px-4 py-3">CPF</th>
-                    <th scope="col" class="px-4 py-3">Papéis</th>
-                    <th scope="col" class="px-4 py-3">Ativo</th>
-                    <th scope="col" class="px-4 py-3"><span class="sr-only">Ações</span></th>
+                    <th scope="col">Nome</th>
+                    <th scope="col">E-mail</th>
+                    <th scope="col">CPF</th>
+                    <th scope="col">Papéis</th>
+                    <th scope="col">Situação</th>
+                    <th scope="col"><span class="sr-only">Ações</span></th>
                 </tr>
             </template>
 
             <tr v-for="usuario in usuarios.data" :key="usuario.id" class="align-middle">
-                <th scope="row" class="min-w-48 px-4 py-3 text-left font-normal">
+                <th scope="row" class="min-w-48 text-left font-normal">
                     <span class="font-semibold">{{ usuario.nome }}</span>
-                    <span v-if="usuario.ehVoce" class="ml-2 text-[0.8125rem] text-tinta-suave">(você)</span>
+                    <span v-if="usuario.ehVoce" class="selo selo-etiqueta ml-2">você</span>
                 </th>
-                <td class="px-4 py-3 whitespace-nowrap">{{ usuario.email }}</td>
-                <td class="px-4 py-3 whitespace-nowrap tabular-nums">{{ usuario.cpf }}</td>
-                <td class="px-4 py-3">{{ usuario.papeis.join(', ') }}</td>
-                <td class="px-4 py-3">
-                    <span
-                        class="inline-flex rounded-pill px-2.5 py-0.5 text-[0.8125rem] font-semibold"
-                        :class="usuario.ativo ? 'bg-nevoa text-acao' : 'border border-hairline text-tinta-suave'"
-                    >
-                        {{ usuario.ativo ? 'Sim' : 'Não' }}
-                    </span>
+                <td class="whitespace-nowrap">{{ usuario.email }}</td>
+                <td class="whitespace-nowrap tabular-nums">{{ usuario.cpf }}</td>
+                <td>{{ usuario.papeis.join(', ') }}</td>
+                <td>
+                    <span class="selo" :class="usuario.ativo ? 'selo-positivo' : ''">{{ usuario.ativo ? 'Ativo' : 'Inativo' }}</span>
                 </td>
-                <td class="px-2 py-1">
-                    <div class="flex items-center justify-end gap-1 whitespace-nowrap">
-                        <Link :href="`${BASE}/${usuario.id}/edit`" :class="classeAcao">
-                            Editar<span class="sr-only"> {{ usuario.nome }}</span>
+                <td class="px-2! py-1!">
+                    <div class="flex items-center justify-end gap-1">
+                        <Link :href="`${BASE}/${usuario.id}/edit`" class="acao-icone" data-dica="Editar">
+                            <IconeAcao nome="editar" />
+                            <span class="sr-only">Editar {{ usuario.nome }}</span>
                         </Link>
                         <Link
                             :href="`${BASE}/${usuario.id}/ativo`"
                             method="patch"
                             as="button"
                             preserve-scroll
-                            :class="classeAcao"
+                            class="acao-icone"
+                            :data-dica="usuario.ativo ? 'Desativar' : 'Ativar'"
                         >
-                            {{ usuario.ativo ? 'Desativar' : 'Ativar' }}<span class="sr-only"> {{ usuario.nome }}</span>
+                            <IconeAcao :nome="usuario.ativo ? 'desativar' : 'ativar'" />
+                            <span class="sr-only">{{ usuario.ativo ? 'Desativar' : 'Ativar' }} {{ usuario.nome }}</span>
                         </Link>
                     </div>
                 </td>
             </tr>
-        </TabelaPaginada>
-    </div>
+        </PainelLista>
+    </PaginaRetaguarda>
 </template>

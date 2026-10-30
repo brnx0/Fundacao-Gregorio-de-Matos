@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import AvisoCamposObrigatorios from '../../../Components/AvisoCamposObrigatorios.vue';
 import CampoArquivo from '../../../Components/CampoArquivo.vue';
 import CampoCadastro from '../../../Components/CampoCadastro.vue';
@@ -8,6 +8,8 @@ import { focarPrimeiroErro } from '../../../Components/focarPrimeiroErro';
 import MapaLocal from '../../../Components/MapaLocal.vue';
 import { consultar } from '../../../Components/Organizacao/mascaras';
 import SecaoCadastro from '../../../Components/SecaoCadastro.vue';
+import BarraAcoes from '../../../Components/Retaguarda/BarraAcoes.vue';
+import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
 import type { RetaguardaEventosFormProps } from '../../../types';
 
@@ -153,29 +155,15 @@ const textoBotao = computed(() => {
     return form.progress?.percentage !== undefined ? `Enviando ${form.progress.percentage}%` : 'Salvando…';
 });
 
-const classeCampo =
-    'h-12 w-full rounded-[12px] border border-tinta-suave/70 bg-superficie px-4 text-base text-home-tinta placeholder:text-tinta-suave';
 const classeMarcacao = 'flex min-h-11 cursor-pointer items-start gap-3 py-2 text-[0.9375rem] leading-[1.5]';
 const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-4xl flex-col gap-6 px-4 pt-8 lg:px-6">
+    <PaginaRetaguarda largura="estreita" :titulo="salvo?.titulo ?? 'Novo evento'" :trilha="[{ texto: editando ? 'Editar' : 'Novo' }]">
         <Head :title="editando ? 'Editar evento · Retaguarda' : 'Novo evento · Retaguarda'" />
 
-        <div>
-            <Link :href="BASE" class="inline-flex min-h-11 items-center gap-1.5 text-[0.9375rem] font-semibold text-acao hover:underline">
-                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 12H5M11 6l-6 6 6 6" />
-                </svg>
-                Eventos
-            </Link>
-            <h1 class="mt-1 text-[1.75rem] leading-tight font-bold break-words">{{ salvo?.titulo ?? 'Novo evento' }}</h1>
-        </div>
-
         <form id="formulario-evento" novalidate class="flex flex-col gap-6" @submit.prevent="salvar">
-            <AvisoCamposObrigatorios />
-
             <SecaoCadastro id="secao-evento-dados" :numero="1" titulo="Dados do evento">
                 <template #icone>
                     <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -183,6 +171,8 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                         <path d="M3 10h18M8 3v4M16 3v4" />
                     </svg>
                 </template>
+
+                <AvisoCamposObrigatorios class="mb-5" />
 
                 <div class="grid gap-x-6 gap-y-5 md:grid-cols-2">
                     <CampoCadastro id="titulo" class="md:col-span-2" rotulo="Título" obrigatorio :erro="form.errors.titulo" v-slot="{ descricao, invalido }">
@@ -192,7 +182,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             type="text"
                             maxlength="255"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('titulo')"
@@ -205,7 +195,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             v-model="form.data_realizacao"
                             type="date"
                             required
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('data_realizacao')"
@@ -225,7 +215,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                                 v-model="form.hora_inicio"
                                 type="time"
                                 :required="exigeHoraInicio"
-                                :class="classeCampo"
+                                class="campo-retaguarda"
                                 :aria-invalid="invalido || undefined"
                                 :aria-describedby="descricao"
                                 @input="form.clearErrors('hora_inicio', 'hora_fim')"
@@ -236,7 +226,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                                 id="hora_fim"
                                 v-model="form.hora_fim"
                                 type="time"
-                                :class="classeCampo"
+                                class="campo-retaguarda"
                                 :aria-invalid="invalido || undefined"
                                 :aria-describedby="descricao"
                                 @input="form.clearErrors('hora_inicio', 'hora_fim')"
@@ -258,7 +248,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             v-model="form.resumo"
                             rows="3"
                             required
-                            :class="[classeCampo, 'h-auto py-3 leading-[1.6]']"
+                            class="campo-retaguarda h-auto py-3 leading-[1.6]"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('resumo')"
@@ -302,7 +292,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             type="text"
                             maxlength="255"
                             placeholder="Ex.: Teatro Gregório de Mattos"
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('local')"
@@ -316,7 +306,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             type="text"
                             maxlength="255"
                             placeholder="Ex.: Praça Castro Alves, s/n, Centro, Salvador/BA"
-                            :class="classeCampo"
+                            class="campo-retaguarda"
                             :aria-invalid="invalido || undefined"
                             :aria-describedby="descricao"
                             @input="form.clearErrors('endereco')"
@@ -378,7 +368,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                             inputmode="decimal"
                             autocomplete="off"
                             placeholder="Ex.: -12.977001, -38.514773"
-                            :class="[classeCampo, 'tabular-nums md:max-w-md']"
+                            class="campo-retaguarda tabular-nums md:max-w-md"
                             :aria-invalid="invalido || erroDoMapa ? true : undefined"
                             :aria-describedby="descricaoCoordenadas(descricao)"
                             @change="aplicarCoordenadas"
@@ -440,26 +430,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                     </span>
                 </label>
             </SecaoCadastro>
-
-            <div class="flex flex-col-reverse gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <Link
-                    :href="BASE"
-                    class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-tinta-suave/70 bg-superficie px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-home-tinta uppercase no-underline hover:border-acao hover:text-acao"
-                >
-                    Cancelar
-                </Link>
-
-                <div class="flex flex-col gap-2 sm:items-end">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="pressionavel inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-acao px-8 text-[0.8125rem] font-bold tracking-[0.12em] text-sobre-acao uppercase hover:bg-acao-escuro disabled:cursor-wait disabled:opacity-70"
-                    >
-                        {{ textoBotao }}
-                    </button>
-                    <p v-if="form.hasErrors" role="alert" class="text-[0.9375rem] font-semibold text-invalido-texto">Confira os campos destacados acima.</p>
-                </div>
-            </div>
+            <BarraAcoes :cancelar="BASE" :salvar="textoBotao" :processando="form.processing" :com-erros="form.hasErrors" />
         </form>
-    </div>
+    </PaginaRetaguarda>
 </template>
