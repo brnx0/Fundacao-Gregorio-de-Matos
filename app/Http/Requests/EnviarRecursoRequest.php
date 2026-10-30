@@ -30,6 +30,16 @@ class EnviarRecursoRequest extends FormRequest
         return true;
     }
 
+    /** Quebras de linha "\r\n" (o multipart do navegador manda assim) contam como uma só no limite de caracteres. */
+    protected function prepareForValidation(): void
+    {
+        $justificativa = $this->input('justificativa');
+
+        if (is_string($justificativa)) {
+            $this->merge(['justificativa' => str_replace("\r\n", "\n", $justificativa)]);
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */

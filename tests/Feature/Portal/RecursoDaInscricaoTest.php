@@ -106,6 +106,20 @@ class RecursoDaInscricaoTest extends TestCase
         $this->assertSame(SituacaoHomologacao::NaoHomologada, $inscricao->fresh()->homologacao);
     }
 
+    public function test_quebra_de_linha_da_justificativa_conta_uma_vez(): void
+    {
+        $inscricao = $this->naoHomologada();
+        // 4000 caracteres contando cada quebra uma vez, enviados com CRLF como no multipart do navegador.
+        $linhas = array_fill(0, 10, str_repeat('a', 390));
+        $texto = implode("\n", $linhas).str_repeat('b', 4000 - (10 * 390 + 9));
+
+        $this->enviar($inscricao, ['justificativa' => str_replace("\n", "\r\n", $texto)])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('sucesso', 'Recurso enviado.');
+
+        $this->assertSame($texto, $inscricao->recurso()->sole()->justificativa);
+    }
+
     public function test_arquivo_para_documento_sem_problema_e_recusado_sem_sobrar_arquivo(): void
     {
         $inscricao = $this->naoHomologada();
