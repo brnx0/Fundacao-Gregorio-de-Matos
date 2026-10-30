@@ -7,6 +7,7 @@ use App\Enums\ModalidadeCota;
 use App\Enums\NaturezaProponente;
 use App\Enums\SituacaoConferencia;
 use App\Enums\SituacaoEdital;
+use App\Enums\SituacaoHomologacao;
 use App\Enums\SituacaoInscricao;
 use App\Support\Inscricao\QuestionarioDaInscricao;
 use App\Support\Inscricao\RegrasDaInscricao;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Inscrição de um proponente (CPF ou CNPJ, só dígitos em documento_cadastro) num edital.
@@ -43,6 +45,7 @@ class Inscricao extends Model
     protected $fillable = [
         'edital_id', 'edital_chamada_id', 'user_id', 'organizacao_id', 'documento_cadastro', 'natureza',
         'edital_categoria_id', 'cotas', 'situacao', 'numero', 'finalizada_em', 'perfil',
+        'homologacao', 'homologacao_motivo', 'homologada_por', 'homologada_em',
     ];
 
     /**
@@ -56,6 +59,8 @@ class Inscricao extends Model
             'situacao' => SituacaoInscricao::class,
             'finalizada_em' => 'datetime',
             'perfil' => 'array',
+            'homologacao' => SituacaoHomologacao::class,
+            'homologada_em' => 'datetime',
         ];
     }
 
@@ -99,6 +104,24 @@ class Inscricao extends Model
     public function respostas(): HasMany
     {
         return $this->hasMany(InscricaoResposta::class);
+    }
+
+    /** @return HasMany<InscricaoConferencia, $this> */
+    public function conferencias(): HasMany
+    {
+        return $this->hasMany(InscricaoConferencia::class);
+    }
+
+    /** @return HasOne<InscricaoRecurso, $this> */
+    public function recurso(): HasOne
+    {
+        return $this->hasOne(InscricaoRecurso::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function homologador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'homologada_por');
     }
 
     /**
