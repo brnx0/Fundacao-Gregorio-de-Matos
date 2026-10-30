@@ -36,8 +36,10 @@ const props = withDefaults(
         nivel?: 3 | 4;
         /** Só leitura: sem adicionar, mover e remover; abrir e recolher os cartões continua valendo. */
         somenteLeitura?: boolean;
+        /** Só os itens ainda não salvos (sem id) têm "Remover"; adicionar e mover continuam valendo. */
+        removerSoNovos?: boolean;
     }>(),
-    { feminino: false, resumo: undefined, contaNoSelo: undefined, nivel: 3, somenteLeitura: false },
+    { feminino: false, resumo: undefined, contaNoSelo: undefined, nivel: 3, somenteLeitura: false, removerSoNovos: false },
 );
 
 const emit = defineEmits<{
@@ -105,6 +107,9 @@ const nomeNaPosicao = (indice: number): string => {
 
 const idTituloDialogo = computed<string>(() => `${props.id}-remover-titulo`);
 const tituloDoCartao = computed<string>(() => `h${props.nivel}`);
+
+/** Item já salvo (com id) num edital que só deixa remover o que é novo. */
+const removeBloqueado = (item: T): boolean => props.removerSoNovos && (item as { id?: number | null }).id != null;
 </script>
 
 <template>
@@ -177,6 +182,7 @@ const tituloDoCartao = computed<string>(() => `h${props.nivel}`);
                                 Descer<span class="sr-only">{{ ` ${singular} ${indice + 1}` }}</span>
                             </button>
                             <button
+                                v-if="!removeBloqueado(item)"
                                 type="button"
                                 class="pressionavel inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 text-[0.8125rem] font-bold text-erro-texto hover:bg-erro-fundo"
                                 @click="pedirRemocao(indice)"

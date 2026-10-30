@@ -321,6 +321,13 @@ class SalvarEditalRequest extends FormRequest
                 }
             },
             function (Validator $validator): void {
+                $edital = $this->route('edital');
+
+                if ($edital instanceof Edital && $edital->documentosTravados() && $this->removeDocumentoSalvo($edital)) {
+                    $validator->errors()->add('documentos', Edital::AVISO_DOCUMENTOS_TRAVADOS);
+                }
+            },
+            function (Validator $validator): void {
                 if (! $this->comQuestionario()) {
                     return;
                 }
@@ -348,6 +355,27 @@ class SalvarEditalRequest extends FormRequest
     public function comListas(): bool
     {
         return $this->boolean('com_listas');
+    }
+
+    /** Com as listas no envio, algum documento já salvo do edital ficou de fora de `documentos.*.id` (seria apagado). */
+    public function removeDocumentoSalvo(Edital $edital): bool
+    {
+        if (! $this->comListas()) {
+            return false;
+        }
+
+        $enviados = array_map(intval(...), array_filter(
+            (array) $this->input('documentos.*.id', []),
+            fn (mixed $id): bool => is_numeric($id),
+        ));
+
+        foreach ($edital->documentos()->pluck('id') as $id) {
+            if (! in_array((int) $id, $enviados, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** O questionário veio no envio (o formulário completo manda o marcador). */

@@ -120,6 +120,8 @@ class EditalController extends Controller
             'pendencias' => [],
             'questionarioTravado' => false,
             'avisoQuestionarioTravado' => Edital::AVISO_QUESTIONARIO_TRAVADO,
+            'documentosTravados' => false,
+            'avisoDocumentosTravados' => Edital::AVISO_DOCUMENTOS_TRAVADOS,
             'importacao' => null,
             'importacaoQuestionario' => null,
             'quadroQuestionario' => null,
@@ -233,6 +235,8 @@ class EditalController extends Controller
             'pendencias' => $edital->pendenciasParaPublicar(),
             'questionarioTravado' => $edital->questionarioTravado(),
             'avisoQuestionarioTravado' => Edital::AVISO_QUESTIONARIO_TRAVADO,
+            'documentosTravados' => $edital->documentosTravados(),
+            'avisoDocumentosTravados' => Edital::AVISO_DOCUMENTOS_TRAVADOS,
             'importacao' => $this->importacaoNaoConferida($edital),
             'importacaoQuestionario' => $this->ultimaImportacaoDoQuestionario($edital),
             'quadroQuestionario' => $this->quadroDoQuestionario($edital),
@@ -334,7 +338,13 @@ class EditalController extends Controller
                     }
                 }
 
+                // Uma inscrição pode ter sido decidida depois da validação do envio: confere de novo, com o edital travado.
                 if ($request->comListas()) {
+                    Edital::query()->whereKey($edital->getKey())->lockForUpdate()->first();
+                    if ($edital->documentosTravados() && $request->removeDocumentoSalvo($edital)) {
+                        throw ValidationException::withMessages(['documentos' => Edital::AVISO_DOCUMENTOS_TRAVADOS]);
+                    }
+
                     $sincronizador->sincronizar($edital, $request->listasDoEdital(), $questionario);
                 } elseif ($questionario !== null) {
                     (new SincronizadorDoQuestionario)->sincronizar($edital, $questionario, $edital->categorias()->get()->all());

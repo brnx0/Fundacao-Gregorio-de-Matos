@@ -12,6 +12,7 @@ use App\Models\EditalCategoria;
 use App\Models\EditalCategoriaItem;
 use App\Models\EditalChamada;
 use App\Models\EditalDocumento;
+use App\Models\Inscricao;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -543,6 +544,95 @@ class EditalEstruturaSalvarTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertTrue($antigo->refresh()->publicado);
+    }
+
+    /**
+     * @param  list<EditalDocumento>  $documentos
+     * @return array<string, mixed>
+     */
+    private function envioDeDocumentos(Edital $edital, array $documentos): array
+    {
+        return [
+            'com_listas' => '1',
+            'titulo' => $edital->titulo,
+            'documentos' => array_map(fn (EditalDocumento $documento): array => [
+                'id' => $documento->id, 'nome' => $documento->nome, 'etapa' => 'inscricao', 'checagem' => 'nenhuma', 'todas_categorias' => '1',
+            ], $documentos),
+        ];
+    }
+
+    public function test_com_inscricao_decidida_nao_remove_documento_exigido(): void
+    {
+        $edital = Edital::factory()->create();
+        [$primeiro] = EditalDocumento::factory()->count(2)->for($edital)->create()->all();
+        Inscricao::factory()->homologada()->create(['edital_id' => $edital->id]);
+
+        $this->put("/retaguarda/editais/{$edital->slug}", $this->envioDeDocumentos($edital, [$primeiro]))
+            ->assertSessionHasErrors(['documentos' => Edital::AVISO_DOCUMENTOS_TRAVADOS]);
+
+        $this->assertSame(2, $edital->documentos()->count());
+    }
+
+    public function test_com_inscricao_decidida_acrescenta_e_edita_documento(): void
+    {
+        $edital = Edital::factory()->create();
+        [$primeiro, $segundo] = EditalDocumento::factory()->count(2)->for($edital)->create()->all();
+        Inscricao::factory()->naoHomologada()->create(['edital_id' => $edital->id]);
+
+        $dados = $this->envioDeDocumentos($edital, [$primeiro, $segundo]);
+        $dados['documentos'][0]['nome'] = 'Nome trocado';
+        $dados['documentos'][] = ['nome' => 'Documento novo', 'etapa' => 'inscricao', 'checagem' => 'nenhuma', 'todas_categorias' => '1'];
+
+        $this->put("/retaguarda/editais/{$edital->slug}", $dados)->assertSessionHasNoErrors();
+
+        $this->assertSame(3, $edital->documentos()->count());
+        $this->assertSame('Nome trocado', $primeiro->refresh()->nome);
+        $this->assertTrue($edital->documentos()->where('nome', 'Documento novo')->exists());
+    }
+
+    public function test_sem_decisao_remove_documento_normalmente(): void
+    {
+        $edital = Edital::factory()->create();
+        [$primeiro] = EditalDocumento::factory()->count(2)->for($edital)->create()->all();
+        Inscricao::factory()->finalizada()->create(['edital_id' => $edital->id]);
+
+        $this->put("/retaguarda/editais/{$edital->slug}", $this->envioDeDocumentos($edital, [$primeiro]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(1, $edital->documentos()->count());
+    }
+
+    public function test_decisao_durante_o_salvamento_trava_a_remocao(): void
+    {
+        $edital = Edital::factory()->create();
+        [$primeiro] = EditalDocumento::factory()->count(2)->for($edital)->create()->all();
+
+        $ativo = true;
+        Edital::saving(function (Edital $salvando) use (&$ativo): void {
+            if ($ativo && $salvando->exists) {
+                $ativo = false;
+                Inscricao::factory()->homologada()->create(['edital_id' => $salvando->id]);
+            }
+        });
+
+        $this->put("/retaguarda/editais/{$edital->slug}", $this->envioDeDocumentos($edital, [$primeiro]))
+            ->assertSessionHasErrors(['documentos' => Edital::AVISO_DOCUMENTOS_TRAVADOS]);
+
+        $this->assertFalse($ativo);
+        $this->assertSame(2, $edital->documentos()->count());
+    }
+
+    public function test_tela_de_edicao_avisa_a_trava_dos_documentos(): void
+    {
+        $edital = Edital::factory()->create();
+
+        $this->get("/retaguarda/editais/{$edital->slug}/edit")
+            ->assertInertia(fn (Assert $p) => $p->where('documentosTravados', false)->where('avisoDocumentosTravados', Edital::AVISO_DOCUMENTOS_TRAVADOS));
+
+        Inscricao::factory()->homologada()->create(['edital_id' => $edital->id]);
+
+        $this->get("/retaguarda/editais/{$edital->slug}/edit")
+            ->assertInertia(fn (Assert $p) => $p->where('documentosTravados', true));
     }
 
     public function test_arquivo_modelo_enviar_manter_trocar_e_remover(): void

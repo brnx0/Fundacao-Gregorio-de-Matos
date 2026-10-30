@@ -31,6 +31,9 @@ class Edital extends Model
 
     public const string AVISO_QUESTIONARIO_TRAVADO = 'O questionário está travado porque o edital já tem inscrição finalizada: mudar as perguntas deixaria respostas enviadas sem pergunta.';
 
+    /** Aviso da trava dos documentos exigidos (ver documentosTravados()). */
+    public const string AVISO_DOCUMENTOS_TRAVADOS = 'Os documentos exigidos não podem ser removidos porque o edital já tem inscrição com resultado da homologação: a remoção apagaria os arquivos em que a decisão se apoiou.';
+
     /** Seções de texto informativas (coluna `informacoes`), na ordem de exibição: chave => rótulo. */
     public const array SECOES_INFORMATIVAS = [
         'recursos_pagamento' => 'Recursos e pagamento',
@@ -143,6 +146,12 @@ class Edital extends Model
     public function questionarioTravado(): bool
     {
         return $this->inscricoes()->whereNotNull('numero')->exists();
+    }
+
+    /** Com resultado da homologação em alguma inscrição, os documentos exigidos não saem mais (só entram ou mudam). */
+    public function documentosTravados(): bool
+    {
+        return $this->inscricoes()->whereNotNull('homologacao')->exists();
     }
 
     /**

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import CampoArquivo from '../../CampoArquivo.vue';
 import CampoCadastro from '../../CampoCadastro.vue';
 import ListaEditavel from './ListaEditavel.vue';
@@ -17,6 +17,10 @@ const props = defineProps<{
     categorias: CategoriaEditavel[];
     /** Dados do edital como estão no formulário (salvo ou não), para a IA gerar as instruções. */
     contextoEdital: { titulo: string; objeto: string; naturezas: string[] };
+    /** Edital com inscrição decidida na homologação: documento salvo não pode ser removido. */
+    travados: boolean;
+    /** Motivo da trava, mostrado acima da lista. */
+    avisoTravados: string;
 }>();
 
 const emit = defineEmits<{
@@ -26,6 +30,9 @@ const emit = defineEmits<{
 }>();
 
 const documentos = defineModel<DocumentoEditavel[]>({ required: true });
+
+// O aviso da trava já aparece acima da lista; a lista só mostra outro erro geral.
+const errosDaLista = computed<Partial<Record<string, string>>>(() => (props.travados && props.erros.documentos === props.avisoTravados ? { ...props.erros, documentos: undefined } : props.erros));
 
 /** Mesmo limite do SalvarEditalRequest (max:10240 KB): o arquivo grande nem sai do navegador. */
 const LIMITE_MODELO = 10 * 1024 * 1024;
@@ -225,6 +232,14 @@ const classeBotaoIa =
 
 <template>
     <div class="flex flex-col gap-5">
+        <div v-if="travados" role="note" class="flex items-start gap-3 rounded-[16px] border border-aviso-texto/30 bg-aviso-fundo p-4 text-aviso-texto">
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="mt-0.5 size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="11" width="14" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+            <p class="text-[0.9375rem] leading-[1.6] font-semibold">{{ avisoTravados }}</p>
+        </div>
+
         <div v-if="documentos.length > 0" class="flex flex-col gap-2">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
                 <p class="text-[0.9375rem] leading-[1.6] text-tinta-suave">
@@ -256,7 +271,7 @@ const classeBotaoIa =
             v-model="documentos"
             id="documento"
             prefixo="documentos"
-            :erros="erros"
+            :erros="errosDaLista"
             singular="documento"
             plural="documentos"
             vazio="Nenhum documento exigido."
@@ -265,6 +280,7 @@ const classeBotaoIa =
             :nome="(documento) => documento.nome"
             :resumo="resumo"
             :conta-no-selo="(campo) => CAMPOS_VISIVEIS.test(campo)"
+            :remover-so-novos="travados"
             @limpar-erros="emit('limparErros', $event)"
         >
             <template #default="{ item: documento, indice, idCampo, erro, erroDaLista, limpar, limparLista }">

@@ -983,6 +983,10 @@ export interface RetaguardaEditaisFormProps {
     questionarioTravado: boolean;
     /** Motivo da trava, mostrado na aba Questionário. */
     avisoQuestionarioTravado: string;
+    /** O edital já tem inscrição com resultado da homologação: documento salvo não é mais removido. */
+    documentosTravados: boolean;
+    /** Motivo da trava, mostrado na aba Documentos. */
+    avisoDocumentosTravados: string;
     tiposPergunta: OpcaoFormulario[];
     /** Importação por IA que gerou o edital, enquanto não foi conferida. */
     importacao: ImportacaoDoEdital | null;
