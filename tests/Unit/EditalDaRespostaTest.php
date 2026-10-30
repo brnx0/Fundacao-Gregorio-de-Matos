@@ -5,6 +5,8 @@ namespace Tests\Unit;
 use App\Models\Edital;
 use App\Models\ImportacaoEdital;
 use App\Support\EditalIa\EditalDaResposta;
+use App\Support\EditalIa\EsquemaDaResposta;
+use App\Support\EditalIa\PromptModelo;
 use App\Support\EditalIa\RespostaInvalida;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -174,9 +176,18 @@ class EditalDaRespostaTest extends TestCase
         $this->assertSame(['Chamada 1', 'Chamada 2'], $edital->chamadas->pluck('nome')->all());
         $this->assertSame([null, null, null, null], $this->fasesDaChamada($edital, 'Chamada 1'));
         $this->assertSame([
-            'A chamada "Chamada 1" trouxe uma data impossível na validação; a fase ficou vazia.',
             'A chamada "Chamada 1" trouxe o fim da homologação antes do início; a fase ficou vazia.',
+            'A chamada "Chamada 1" trouxe uma data impossível na avaliação; a fase ficou vazia.',
         ], $this->avisos());
+    }
+
+    public function test_esquema_e_prompt_falam_em_avaliacao(): void
+    {
+        $esquema = json_encode(EsquemaDaResposta::esquema(), JSON_UNESCAPED_UNICODE);
+
+        $this->assertStringContainsString('Início da avaliação dos projetos', $esquema);
+        $this->assertStringNotContainsString('validação das inscrições', $esquema);
+        $this->assertStringContainsString('inscrição, homologação e avaliação', PromptModelo::editavel());
     }
 
     public function test_campos_avulsos_invalidos_ficam_vazios_com_ponto_de_atencao(): void

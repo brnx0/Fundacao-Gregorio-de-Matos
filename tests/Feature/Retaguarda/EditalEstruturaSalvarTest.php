@@ -352,8 +352,8 @@ class EditalEstruturaSalvarTest extends TestCase
     public static function fasesComSoUmaData(): array
     {
         return [
-            'só início da validação' => ['validacao_inicio', 'validacao_fim'],
-            'só fim da validação' => ['validacao_fim', 'validacao_inicio'],
+            'só início da avaliação' => ['validacao_inicio', 'validacao_fim'],
+            'só fim da avaliação' => ['validacao_fim', 'validacao_inicio'],
             'só início da homologação' => ['homologacao_inicio', 'homologacao_fim'],
             'só fim da homologação' => ['homologacao_fim', 'homologacao_inicio'],
         ];
@@ -363,10 +363,10 @@ class EditalEstruturaSalvarTest extends TestCase
     public function test_fase_com_so_uma_data_e_recusada(string $enviada, string $faltante): void
     {
         $mensagens = [
-            'validacao_inicio' => 'Preencha também o início da validação.',
-            'validacao_fim' => 'Preencha também o fim da validação.',
             'homologacao_inicio' => 'Preencha também o início da homologação.',
             'homologacao_fim' => 'Preencha também o fim da homologação.',
+            'validacao_inicio' => 'Preencha também o início da avaliação.',
+            'validacao_fim' => 'Preencha também o fim da avaliação.',
         ];
 
         $this->post('/retaguarda/editais', [
@@ -387,6 +387,14 @@ class EditalEstruturaSalvarTest extends TestCase
             'com_listas' => '1',
             'chamadas' => [['nome' => 'C', 'inicio' => '2026-11-01', 'fim' => '2026-11-30', 'validacao_inicio' => '2026-12-10', 'validacao_fim' => '2026-12-01']],
         ])->assertSessionHasErrors(['chamadas.0.validacao_fim' => 'O fim deve ser igual ou posterior ao início.']);
+    }
+
+    public function test_periodos_mostram_homologacao_antes_da_avaliacao(): void
+    {
+        $vue = file_get_contents(resource_path('js/Components/Retaguarda/Edital/ChamadasEdital.vue'));
+
+        $this->assertStringNotContainsString('>Validação<', $vue);
+        $this->assertLessThan(strpos($vue, '>Avaliação</legend>'), strpos($vue, '>Homologação</legend>'));
     }
 
     public function test_publica_sem_validacao_e_homologacao(): void

@@ -24,7 +24,7 @@ final class PromptModelo
             6. Converta datas para o formato AAAA-MM-DD, horários para HH:MM e valores em reais para número com ponto decimal (R$ 1.500,00 vira 1500.00).
             7. Nas seções informativas (recursos e pagamento, vedações, etapas e prazos, contrapartida, prestação de contas, base legal, anexos, contatos e outras regras), escreva um resumo fiel e objetivo do edital, em português, sem acrescentar interpretação.
             8. Dê a cada bloco uma nota de confiabilidade de 0 a 100, com uma justificativa curta, conforme a clareza e a completude do que encontrou.
-            9. Em cada chamada, registre as fases de inscrição, validação e homologação com as datas de início e fim que o edital trouxer. Se uma fase só tiver prazo relativo (por exemplo, "5 dias úteis após o resultado"), deixe as datas dela vazias e registre um ponto de atenção do tipo "não encontrado" no bloco "inscricao" (e não no bloco da fase), citando o item do edital.
+            9. Em cada chamada, registre as fases de inscrição, homologação e avaliação com as datas de início e fim que o edital trouxer. Se uma fase só tiver prazo relativo (por exemplo, "5 dias úteis após o resultado"), deixe as datas dela vazias e registre um ponto de atenção do tipo "não encontrado" no bloco "inscricao" (e não no bloco da fase), citando o item do edital.
             TEXTO;
     }
 

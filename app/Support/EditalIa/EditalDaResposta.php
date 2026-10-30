@@ -264,17 +264,17 @@ class EditalDaResposta
         }
 
         $nome = self::texto($item['nome'] ?? null, self::BYTES_NOME_CHAMADA) ?? 'Chamada '.($posicao + 1);
-        $validacao = $this->fase($item, 'validacao', 'validação', $nome);
         $homologacao = $this->fase($item, 'homologacao', 'homologação', $nome);
+        $validacao = $this->fase($item, 'validacao', 'avaliação', $nome);
 
         return [
             'nome' => $nome,
             'inicio' => $inicio,
             'fim' => $fim,
-            'validacao_inicio' => $validacao[0],
-            'validacao_fim' => $validacao[1],
             'homologacao_inicio' => $homologacao[0],
             'homologacao_fim' => $homologacao[1],
+            'validacao_inicio' => $validacao[0],
+            'validacao_fim' => $validacao[1],
         ];
     }
 
@@ -283,7 +283,7 @@ class EditalDaResposta
      * fica vazia, com ponto de atenção, sem descartar a chamada.
      *
      * @param  array<mixed>  $item
-     * @param  string  $prefixo  Prefixo das chaves no item: 'validacao' ou 'homologacao'.
+     * @param  string  $prefixo  Prefixo das chaves no item: 'homologacao' ou 'validacao' (avaliação).
      * @param  string  $rotulo  Nome da fase na frase do aviso.
      * @return array{0: string|null, 1: string|null}
      */

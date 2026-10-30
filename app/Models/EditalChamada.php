@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Chamada do edital (o edital comum tem uma, alguns têm várias): a Inscrição (`inicio`/`fim`), a Validação e a Homologação. */
+/** Chamada do edital (o edital comum tem uma, alguns têm várias): a Inscrição (`inicio`/`fim`), a Homologação e a Avaliação (colunas `validacao_*`). */
 #[Fillable(['nome', 'inicio', 'fim', 'validacao_inicio', 'validacao_fim', 'homologacao_inicio', 'homologacao_fim', 'ordem'])]
 class EditalChamada extends Model
 {

@@ -28,7 +28,7 @@ use Illuminate\Http\UploadedFile;
  * substituídos ou de documentos removidos em arquivosSubstituidos() (apagar depois do commit).
  *
  * Formato de entrada (chaves opcionais podem faltar):
- *  - chamadas: list<{id?, nome, inicio?: Y-m-d, fim?: Y-m-d, validacao_inicio?: Y-m-d, validacao_fim?: Y-m-d, homologacao_inicio?: Y-m-d, homologacao_fim?: Y-m-d}>
+ *  - chamadas: list<{id?, nome, inicio?: Y-m-d, fim?: Y-m-d, homologacao_inicio?: Y-m-d, homologacao_fim?: Y-m-d, validacao_inicio?: Y-m-d, validacao_fim?: Y-m-d}>
  *  - categorias: list<{id?, nome, descricao?, valor?, vagas?, naturezas?: list<string>, chamada?: posição, itens?: list<{id?, nome, valor?, vagas?, suplentes?}>}>
  *  - documentos: list<{id?, nome, orientacao?, etapa, obrigatorio?, naturezas?, todas_categorias?, categorias?: list<posição>, modalidade_cota?, checagem?, instrucao_ia?, modelo?: UploadedFile, remover_modelo?}>
  *  - criterios: list<{id?, nome, descricao?, peso?, pontos_maximos?, todas_categorias?, categorias?: list<posição>}>
