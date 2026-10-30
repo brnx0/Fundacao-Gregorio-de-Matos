@@ -1113,6 +1113,30 @@ export interface RetaguardaProponentesIndexProps {
     tiposCadastro: { valor: string; rotulo: string }[];
 }
 
+/** App\Enums\SituacaoHomologacao. */
+export type SituacaoHomologacao = 'homologada' | 'nao_homologada' | 'em_recurso' | 'recurso_negado';
+
+/** Linha da lista da homologação (Retaguarda\HomologacaoController@index); documento com CPF mascarado ou CNPJ formatado. */
+export interface LinhaDaHomologacao {
+    id: number;
+    numero: string;
+    proponente: string;
+    documento: string;
+    edital: string;
+    categoria: string | null;
+    finalizadaEm: string;
+    homologacao: SituacaoHomologacao | null;
+    /** "Sem decisão" ou o rótulo da situação. */
+    situacaoRotulo: string;
+}
+
+export interface RetaguardaHomologacaoIndexProps {
+    inscricoes: Paginado<LinhaDaHomologacao>;
+    filtros: { edital?: string; situacao?: string; busca?: string };
+    editais: { valor: string; rotulo: string }[];
+    situacoes: { valor: string; rotulo: string }[];
+}
+
 /** Bloco do detalhe do proponente, com os valores já formatados (nulo quando não informado). */
 export interface SecaoProponente {
     id: string;

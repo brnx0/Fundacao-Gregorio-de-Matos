@@ -5,6 +5,7 @@ use App\Http\Controllers\Retaguarda\AvaliadorController;
 use App\Http\Controllers\Retaguarda\ConexaoIaController;
 use App\Http\Controllers\Retaguarda\EditalController;
 use App\Http\Controllers\Retaguarda\EventoController;
+use App\Http\Controllers\Retaguarda\HomologacaoController;
 use App\Http\Controllers\Retaguarda\ImportacaoEditalController;
 use App\Http\Controllers\Retaguarda\ImportacaoQuestionarioController;
 use App\Http\Controllers\Retaguarda\InstrucaoDocumentoController;
@@ -120,6 +121,11 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
                 ->whereNumber('user')
                 ->whereIn('campo', PessoaFisica::ARQUIVOS)
                 ->name('proponentes.anexo');
+        });
+
+        // Homologação das inscrições finalizadas. A lista traz nome e documento do proponente: cifrada no histórico.
+        Route::middleware('inertia.encrypt')->group(function () {
+            Route::get('/homologacao', [HomologacaoController::class, 'index'])->name('homologacao.index');
         });
 
         // Cadastro. Avaliador não se exclui, só se desativa. As telas ficam cifradas no histórico (CPF e data de nascimento).

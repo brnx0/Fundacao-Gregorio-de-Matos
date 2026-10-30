@@ -2,7 +2,7 @@ export type ItemMenu = { href: string; texto: string; icone: string };
 export type GrupoMenu = { id: string; texto: string; icone: string; itens: ItemMenu[] };
 
 // Caminhos das rotas retaguarda.painel, retaguarda.editais.index, retaguarda.eventos.index, retaguarda.vlibras.edit,
-// retaguarda.proponentes.index, retaguarda.avaliadores.index, retaguarda.prefeituras-bairro.index, retaguarda.areas-atuacao.index,
+// retaguarda.homologacao.index, retaguarda.proponentes.index, retaguarda.avaliadores.index, retaguarda.prefeituras-bairro.index, retaguarda.areas-atuacao.index,
 // retaguarda.integracao-ia.edit e retaguarda.usuarios.index (o front não tem helper de rotas nomeadas).
 // O menu lateral (MenuRetaguarda) e a trilha do topo de cada página (PaginaRetaguarda) saem daqui.
 
@@ -34,6 +34,19 @@ export const gruposMenu: GrupoMenu[] = [
                 href: '/retaguarda/avaliadores',
                 texto: 'Avaliadores',
                 icone: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 11-5.7M16 18l2 2 4-4',
+            },
+        ],
+    },
+    // Inscrições finalizadas no portal, para o gestor conferir e homologar.
+    {
+        id: 'menu-grupo-inscricoes',
+        texto: 'Inscrições',
+        icone: 'M9 3h6v4H9zM9 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3M9 14l2 2 4-4',
+        itens: [
+            {
+                href: '/retaguarda/homologacao',
+                texto: 'Homologação',
+                icone: 'M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM9 12l2 2 4-4',
             },
         ],
     },
