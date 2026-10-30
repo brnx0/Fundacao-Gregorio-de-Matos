@@ -99,9 +99,9 @@ class QuestionarioDaRespostaTest extends TestCase
 
     public function test_esquema_do_edital_nao_muda(): void
     {
-        // sha256 do json_encode (JSON_UNESCAPED_UNICODE) de EsquemaDaResposta::esquema() antes de os helpers irem para MontaEsquema.
+        // sha256 do json_encode (JSON_UNESCAPED_UNICODE) de EsquemaDaResposta::esquema(); renovado quando o período "Validação" da chamada virou "Avaliação" (depois da Homologação).
         $this->assertSame(
-            '68781c2919c430a5c96472c197cc9d18350b0ae7a38c6f67f0a039da4ab951e8',
+            '59a4035812a85f8276535cec7d548e58d3ee29176f4038565a1b52c168ea7bdb',
             hash('sha256', (string) json_encode(EsquemaDaResposta::esquema(), JSON_UNESCAPED_UNICODE)),
         );
     }
