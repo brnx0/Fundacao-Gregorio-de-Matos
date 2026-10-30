@@ -290,6 +290,7 @@ const classeRodape = 'flex flex-wrap items-center justify-between gap-3 border-t
                     :pode-finalizar="podeFinalizar"
                     :pode-editar="podeEditar"
                     :pode-reabrir="podeReabrir"
+                    :resultado="resultado"
                     :ocupado="ocupado"
                     :voltar-para="voltarPara"
                 />

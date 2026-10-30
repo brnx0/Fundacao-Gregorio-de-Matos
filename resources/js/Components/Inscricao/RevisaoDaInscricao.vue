@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
-import type { CotaDaInscricao, DocumentoDaInscricao, PortalInscricaoPassosProps, RespostaDaInscricao, SecaoDaInscricao, SituacaoConferencia, SituacaoDoDocumento } from '../../types';
+import type {
+    CotaDaInscricao,
+    DocumentoDaInscricao,
+    PortalInscricaoPassosProps,
+    RespostaDaInscricao,
+    ResultadoDaHomologacao as Resultado,
+    SecaoDaInscricao,
+    SituacaoConferencia,
+    SituacaoDoDocumento,
+} from '../../types';
 import { perguntasVisiveis, textoDaResposta } from './questionario';
+import ResultadoDaHomologacao from './ResultadoDaHomologacao.vue';
 
 const props = defineProps<{
     inscricao: PortalInscricaoPassosProps['inscricao'];
@@ -16,6 +26,8 @@ const props = defineProps<{
     podeFinalizar: boolean;
     podeEditar: boolean;
     podeReabrir: boolean;
+    /** Resultado da homologação; nulo no rascunho. */
+    resultado: Resultado | null;
     /** Outra requisição da tela em andamento (ela seria cancelada). */
     ocupado: boolean;
     /** Endereço do passo anterior; nulo na leitura. */
@@ -172,10 +184,14 @@ const classeTermo = 'text-[0.8125rem] font-semibold text-tinta-suave';
                     Número da inscrição <strong class="font-semibold">{{ inscricao.numero }}</strong>.
                     <template v-if="inscricao.finalizadaEm">Enviada em {{ envio.data }} às {{ envio.hora }}.</template>
                 </p>
+                <ResultadoDaHomologacao v-if="resultado" :resultado="resultado" :inscricao-id="inscricao.id" />
                 <div v-if="podeReabrir" class="flex">
                     <button type="button" :class="classeSecundario" @click="abrirReabrir">Reabrir para editar</button>
                 </div>
-                <p v-else class="leading-[1.6] text-tinta-suave">Fora do período de inscrição, a inscrição finalizada continua válida e não pode mais ser alterada.</p>
+                <!-- Com resultado, o próprio resultado diz o que vale; o aviso é só para quem ainda aguarda a homologação. -->
+                <p v-else-if="resultado?.situacao === 'em_homologacao'" class="leading-[1.6] text-tinta-suave">
+                    Fora do período de inscrição, a inscrição finalizada continua válida e não pode mais ser alterada.
+                </p>
             </template>
 
             <template v-else-if="podeEditar">

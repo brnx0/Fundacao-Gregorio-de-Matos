@@ -10,7 +10,8 @@ import { Link, usePage } from '@inertiajs/vue3';
 
 type ItemMenu = { href: string; texto: string; ativoEm: string[]; icone: string };
 
-// Caminhos das rotas cadastro, portal.editais e portal.projetos (o front não tem helper de rotas nomeadas).
+// Caminhos das rotas cadastro, portal.editais, portal.inscricoes.index e portal.projetos (o front não tem helper de rotas
+// nomeadas).
 const cadastro: ItemMenu = {
     href: '/cadastro',
     texto: 'Cadastro',
@@ -23,6 +24,13 @@ const editais: ItemMenu = {
     ativoEm: ['/portal/editais'],
     icone: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6',
 };
+// Também fica em destaque dentro de uma inscrição (/portal/inscricoes/{id}).
+const minhasInscricoes: ItemMenu = {
+    href: '/portal/inscricoes',
+    texto: 'Minhas inscrições',
+    ativoEm: ['/portal/inscricoes'],
+    icone: 'M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1zM8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 14l2 2 4-4',
+};
 const projetos: ItemMenu = {
     href: '/portal/projetos',
     texto: 'Projetos',
@@ -33,12 +41,12 @@ const projetos: ItemMenu = {
 const page = usePage();
 const tiposCadastro = computed(() => page.props.auth.user?.tiposCadastro ?? []);
 
-// Editais é do proponente e Projetos, do patrocinador (quem marcou os dois vê os dois); Cadastro, comum a todos,
-// vem por último.
+// Editais e Minhas inscrições são do proponente e Projetos, do patrocinador (quem marcou os dois vê os dois); Cadastro,
+// comum a todos, vem por último.
 const itens = computed<ItemMenu[]>(() => {
     if (!tiposCadastro.value.length) return [];
     return [
-        ...(tiposCadastro.value.includes('proponente') ? [editais] : []),
+        ...(tiposCadastro.value.includes('proponente') ? [editais, minhasInscricoes] : []),
         ...(tiposCadastro.value.includes('patrocinador') ? [projetos] : []),
         cadastro,
     ];

@@ -98,4 +98,12 @@ class MenuDoPortalTest extends TestCase
     {
         $this->actingAs(User::factory()->gestor()->create())->get('/portal/editais')->assertRedirect('/');
     }
+
+    public function test_menu_tem_minhas_inscricoes(): void
+    {
+        $menu = file_get_contents(resource_path('js/Components/MenuPortal.vue'));
+
+        $this->assertStringContainsString("'".route('portal.inscricoes.index', absolute: false)."'", $menu);
+        $this->assertStringContainsString("'Minhas inscrições'", $menu);
+    }
 }
