@@ -144,6 +144,9 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
         Route::get('/homologacao/{inscricao}/recurso/documentos/{documento}/arquivo', [RecursoDaHomologacaoController::class, 'arquivo'])
             ->whereNumber(['inscricao', 'documento'])
             ->name('homologacao.recurso.arquivo');
+        Route::post('/homologacao/{inscricao}/recurso', [RecursoDaHomologacaoController::class, 'julgar'])
+            ->whereNumber('inscricao')
+            ->name('homologacao.recurso.julgar');
 
         // Cadastro. Avaliador não se exclui, só se desativa. As telas ficam cifradas no histórico (CPF e data de nascimento).
         Route::middleware('inertia.encrypt')->group(function () {
