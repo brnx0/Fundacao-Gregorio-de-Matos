@@ -1481,6 +1481,25 @@ export interface RetaguardaVLibrasProps {
     avatares: { valor: AvatarVLibras; rotulo: string }[];
 }
 
+/** App\Enums\CriptografiaEmail. */
+export type CriptografiaEmail = 'tls' | 'ssl';
+
+/** Servidor SMTP dos e-mails do sistema (Retaguarda\ProvedorEmailController@edit). A senha nunca vem: só senhaGuardada. */
+export interface RetaguardaProvedorEmailProps {
+    configuracao: {
+        ativo: boolean;
+        host: string;
+        porta: number;
+        criptografia: CriptografiaEmail;
+        usuario: string;
+        remetente_email: string;
+        remetente_nome: string;
+    };
+    senhaGuardada: boolean;
+    criptografias: { valor: CriptografiaEmail; rotulo: string }[];
+    emailDoTeste: string;
+}
+
 /** App\Enums\ProvedorIa. */
 export type ProvedorIa = 'openai' | 'gemini';
 

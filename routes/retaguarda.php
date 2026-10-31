@@ -17,6 +17,7 @@ use App\Http\Controllers\Retaguarda\PainelController;
 use App\Http\Controllers\Retaguarda\PerfilController;
 use App\Http\Controllers\Retaguarda\PrefeituraBairroController;
 use App\Http\Controllers\Retaguarda\ProponenteController;
+use App\Http\Controllers\Retaguarda\ProvedorEmailController;
 use App\Http\Controllers\Retaguarda\QuestionarioDoEditalController;
 use App\Http\Controllers\Retaguarda\RecursoDaHomologacaoController;
 use App\Http\Controllers\Retaguarda\UsuarioController;
@@ -190,6 +191,14 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
         Route::controller(ConexaoIaController::class)->middleware('throttle:10,1,integracao-ia')->group(function () {
             Route::post('/integracao-ia/modelos', 'modelos')->name('integracao-ia.modelos');
             Route::post('/integracao-ia/teste', 'teste')->name('integracao-ia.teste');
+        });
+
+        // Parametrização. E-mail: servidor SMTP dos e-mails do sistema. O teste conecta no servidor e envia de verdade:
+        // limite próprio, como o da IA.
+        Route::controller(ProvedorEmailController::class)->group(function () {
+            Route::get('/email', 'edit')->name('email.edit');
+            Route::put('/email', 'update')->name('email.update');
+            Route::post('/email/teste', 'teste')->middleware('throttle:6,1,email-teste')->name('email.teste');
         });
     });
 });

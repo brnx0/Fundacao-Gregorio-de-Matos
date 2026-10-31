@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Auth\GovBr\FakeLoginGate;
 use App\Database\OracleConnection;
+use App\Models\ConfiguracaoEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Connection;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -36,6 +38,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->make(FakeLoginGate::class)->assertNaoEmProducao();
+
+        // E-mail configurado na retaguarda vale no lugar do .env. Só quando o envio é carregado, para não ler o banco
+        // em toda requisição; sem a tabela (migration ainda não rodada), o .env continua valendo.
+        $this->app->afterResolving('mail.manager', function (): void {
+            try {
+                ConfiguracaoEmail::aplicar();
+            } catch (QueryException) {
+                // Segue com o .env.
+            }
+        });
 
         // 10/min por rota e por IP: um login (redirect + callback) não gasta o limite da outra rota.
         RateLimiter::for('govbr', fn (Request $request) => Limit::perMinute(10)->by(
