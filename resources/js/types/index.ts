@@ -1175,13 +1175,34 @@ export interface RetaguardaProponentesIndexProps {
 /** App\Enums\SituacaoHomologacao. */
 export type SituacaoHomologacao = 'homologada' | 'nao_homologada' | 'em_recurso' | 'recurso_negado';
 
-/** Linha da lista da homologação (Retaguarda\HomologacaoController@index); documento com CPF mascarado ou CNPJ formatado. */
+/** Edital na lista da homologação (Retaguarda\HomologacaoController@index), com as inscrições finalizadas por situação. */
+export interface EditalDaHomologacao {
+    id: number;
+    slug: string;
+    titulo: string;
+    /** Período de homologação de cada chamada ("d/m/Y a d/m/Y", com o nome da chamada quando há mais de uma). */
+    periodos: string[];
+    /** Alguma chamada está hoje no período de homologação. */
+    emHomologacao: boolean;
+    finalizadas: number;
+    semDecisao: number;
+    emRecurso: number;
+    homologadas: number;
+    /** Não homologadas e com recurso negado. */
+    naoHomologadas: number;
+}
+
+export interface RetaguardaHomologacaoIndexProps {
+    editais: Paginado<EditalDaHomologacao>;
+    filtros: { busca?: string };
+}
+
+/** Linha das inscrições de um edital (Retaguarda\HomologacaoController@edital); documento com CPF mascarado ou CNPJ formatado. */
 export interface LinhaDaHomologacao {
     id: number;
     numero: string;
     proponente: string;
     documento: string;
-    edital: string;
     categoria: string | null;
     finalizadaEm: string;
     homologacao: SituacaoHomologacao | null;
@@ -1189,10 +1210,10 @@ export interface LinhaDaHomologacao {
     situacaoRotulo: string;
 }
 
-export interface RetaguardaHomologacaoIndexProps {
+export interface RetaguardaHomologacaoEditalProps {
+    edital: { id: number; slug: string; titulo: string; periodos: string[] };
     inscricoes: Paginado<LinhaDaHomologacao>;
-    filtros: { edital?: string; situacao?: string; busca?: string };
-    editais: { valor: string; rotulo: string }[];
+    filtros: { situacao?: string; busca?: string };
     situacoes: { valor: string; rotulo: string }[];
 }
 
@@ -1241,6 +1262,8 @@ export interface RetaguardaHomologacaoShowProps {
     inscricao: {
         id: number;
         numero: string;
+        /** Nulo quando o edital foi despublicado (a lista dele não abre). */
+        editalSlug: string | null;
         edital: string;
         chamada: string | null;
         proponente: string;

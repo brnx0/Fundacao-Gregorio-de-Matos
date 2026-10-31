@@ -15,8 +15,9 @@ defineOptions({ layout: RetaguardaLayout });
 
 const props = defineProps<RetaguardaHomologacaoShowProps>();
 
-// Caminho da rota retaguarda.homologacao.index (o front não tem helper de rotas nomeadas).
-const BASE = '/retaguarda/homologacao';
+// Caminho da rota retaguarda.homologacao.edital: a volta é para as inscrições do edital desta; com o edital despublicado,
+// para a lista dos editais (retaguarda.homologacao.index). O front não tem helper de rotas nomeadas.
+const DO_EDITAL = props.inscricao.editalSlug ? `/retaguarda/homologacao/editais/${props.inscricao.editalSlug}` : '/retaguarda/homologacao';
 
 // Só as perguntas que entram na conferência (as visíveis pela condição); seção sem nenhuma não aparece.
 const secoesConferidas = computed(() => {
@@ -80,7 +81,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
         largura="estreita"
         :titulo="`Inscrição ${inscricao.numero}`"
         :descricao="`${inscricao.proponente} · ${inscricao.edital}`"
-        :trilha="[{ texto: inscricao.numero }]"
+        :trilha="[{ texto: inscricao.edital, href: DO_EDITAL }, { texto: inscricao.numero }]"
     >
         <Head :title="`Inscrição ${inscricao.numero} · Homologação · Retaguarda`" />
 
@@ -94,7 +95,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
 
         <template #acoes>
             <Link
-                :href="BASE"
+                :href="DO_EDITAL"
                 class="vidro vidro-pilula pressionavel inline-flex min-h-11 items-center justify-center gap-2 rounded-pill px-5 text-[0.8125rem] font-bold tracking-[0.1em] text-white uppercase"
             >
                 <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -301,7 +302,7 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
         </SecaoCadastro>
 
         <div>
-            <Link :href="BASE" class="botao-secundario">Voltar para a lista</Link>
+            <Link :href="DO_EDITAL" class="botao-secundario">Voltar para a lista</Link>
         </div>
     </PaginaRetaguarda>
 </template>

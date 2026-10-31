@@ -5,114 +5,90 @@ import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vu
 import PainelLista from '../../../Components/Retaguarda/PainelLista.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
-import type { RetaguardaHomologacaoIndexProps, SituacaoHomologacao } from '../../../types';
+import type { RetaguardaHomologacaoIndexProps } from '../../../types';
 
 defineOptions({ layout: RetaguardaLayout });
 
 const props = defineProps<RetaguardaHomologacaoIndexProps>();
 
-// Caminhos das rotas retaguarda.homologacao.index e retaguarda.homologacao.show (o front não tem helper de rotas nomeadas).
+// Caminhos das rotas retaguarda.homologacao.index e retaguarda.homologacao.edital (o front não tem helper de rotas nomeadas).
 const BASE = '/retaguarda/homologacao';
 
-const filtros = reactive({ edital: props.filtros.edital ?? '', situacao: props.filtros.situacao ?? '', busca: props.filtros.busca ?? '' });
+const filtros = reactive({ busca: props.filtros.busca ?? '' });
 
-// Só os filtros preenchidos vão para a URL; a lista volta para a página 1.
+// Só a busca preenchida vai para a URL; a lista volta para a página 1.
 const filtrar = (): void => {
-    const consulta = Object.fromEntries(Object.entries(filtros).filter(([, valor]) => valor !== ''));
-    router.get(BASE, consulta, { preserveState: true, preserveScroll: true, replace: true });
+    router.get(BASE, filtros.busca !== '' ? { busca: filtros.busca } : {}, { preserveState: true, preserveScroll: true, replace: true });
 };
 
 const limpar = (): void => {
-    filtros.edital = '';
-    filtros.situacao = '';
     filtros.busca = '';
     filtrar();
-};
-
-/** Homologada em verde; em recurso e sem decisão pedem atenção; não homologada e recurso negado ficam no cinza. */
-const classeDoSelo = (homologacao: SituacaoHomologacao | null): string => {
-    if (homologacao === 'homologada') {
-        return 'selo-positivo';
-    }
-
-    return homologacao === null || homologacao === 'em_recurso' ? 'selo-atencao' : '';
 };
 </script>
 
 <template>
-    <PaginaRetaguarda titulo="Homologação" descricao="Inscrições finalizadas, para conferir e decidir. Recursos e inscrições sem decisão aparecem primeiro.">
+    <PaginaRetaguarda titulo="Homologação" descricao="Escolha o edital para conferir e decidir as inscrições finalizadas dele.">
         <Head title="Homologação · Retaguarda" />
 
         <PainelLista
-            legenda="Inscrições para homologação"
-            :links="inscricoes.links"
-            :total="inscricoes.total"
-            :de="inscricoes.from"
-            :ate="inscricoes.to"
-            vazio="Nenhuma inscrição encontrada."
+            legenda="Editais com inscrições para homologação"
+            :links="editais.links"
+            :total="editais.total"
+            :de="editais.from"
+            :ate="editais.to"
+            vazio="Nenhum edital com inscrição finalizada."
         >
             <template #filtros>
-                <form
-                    role="search"
-                    aria-label="Filtrar inscrições"
-                    class="grid gap-3 @2xl:grid-cols-2 @2xl:items-end @5xl:grid-cols-[1fr_16rem_12rem_auto]"
-                    @submit.prevent="filtrar"
-                >
+                <form role="search" aria-label="Filtrar editais" class="grid gap-3 @2xl:grid-cols-[1fr_auto] @2xl:items-end" @submit.prevent="filtrar">
                     <div class="flex flex-col gap-1.5">
-                        <label for="busca" class="rotulo-retaguarda">Buscar pelo número ou pelo proponente</label>
-                        <input id="busca" v-model="filtros.busca" type="search" maxlength="255" placeholder="Número da inscrição ou parte do nome" class="campo-retaguarda" />
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label for="edital" class="rotulo-retaguarda">Edital</label>
-                        <select id="edital" v-model="filtros.edital" class="campo-retaguarda" @change="filtrar">
-                            <option value="">Todos</option>
-                            <option v-for="opcao in editais" :key="opcao.valor" :value="opcao.valor">{{ opcao.rotulo }}</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label for="situacao" class="rotulo-retaguarda">Situação</label>
-                        <select id="situacao" v-model="filtros.situacao" class="campo-retaguarda" @change="filtrar">
-                            <option value="">Todas</option>
-                            <option v-for="opcao in situacoes" :key="opcao.valor" :value="opcao.valor">{{ opcao.rotulo }}</option>
-                        </select>
+                        <label for="busca" class="rotulo-retaguarda">Buscar pelo título do edital</label>
+                        <input id="busca" v-model="filtros.busca" type="search" maxlength="255" placeholder="Parte do título" class="campo-retaguarda" />
                     </div>
                     <div class="flex gap-2">
                         <button type="submit" class="botao-primario flex-1 @3xl:flex-none">Filtrar</button>
-                        <button v-if="filtros.busca || filtros.edital || filtros.situacao" type="button" class="botao-secundario flex-1 @3xl:flex-none" @click="limpar">Limpar</button>
+                        <button v-if="filtros.busca" type="button" class="botao-secundario flex-1 @3xl:flex-none" @click="limpar">Limpar</button>
                     </div>
                 </form>
             </template>
 
             <template #cabecalho>
                 <tr>
-                    <th scope="col">Inscrição</th>
-                    <th scope="col">Proponente</th>
                     <th scope="col">Edital</th>
-                    <th scope="col">Finalizada em</th>
-                    <th scope="col">Situação</th>
+                    <th scope="col">Período de homologação</th>
+                    <th scope="col" class="text-right">Inscrições</th>
+                    <th scope="col" class="text-right">Sem decisão</th>
+                    <th scope="col" class="text-right">Em recurso</th>
+                    <th scope="col" class="text-right">Homologadas</th>
+                    <th scope="col" class="text-right">Não homologadas</th>
                     <th scope="col"><span class="sr-only">Ações</span></th>
                 </tr>
             </template>
 
-            <tr v-for="inscricao in inscricoes.data" :key="inscricao.id" class="align-middle">
-                <th scope="row" class="text-left font-semibold whitespace-nowrap tabular-nums">{{ inscricao.numero }}</th>
-                <td class="min-w-56">
-                    <span class="block font-semibold">{{ inscricao.proponente }}</span>
-                    <span class="block text-[0.8125rem] text-tinta-suave tabular-nums">{{ inscricao.documento }}</span>
-                </td>
+            <tr v-for="edital in editais.data" :key="edital.id" class="align-middle">
+                <th scope="row" class="min-w-56 text-left font-semibold">
+                    <Link :href="`${BASE}/editais/${edital.slug}`" class="hover:underline">{{ edital.titulo }}</Link>
+                </th>
                 <td class="min-w-48">
-                    <span class="block">{{ inscricao.edital }}</span>
-                    <span v-if="inscricao.categoria" class="block text-[0.8125rem] text-tinta-suave">{{ inscricao.categoria }}</span>
+                    <span v-for="(periodo, indice) in edital.periodos" :key="indice" class="block tabular-nums">{{ periodo }}</span>
+                    <span v-if="edital.emHomologacao" class="selo selo-positivo mt-1">Em andamento</span>
                 </td>
-                <td class="whitespace-nowrap tabular-nums">{{ inscricao.finalizadaEm }}</td>
-                <td>
-                    <span class="selo" :class="classeDoSelo(inscricao.homologacao)">{{ inscricao.situacaoRotulo }}</span>
+                <td class="text-right tabular-nums">{{ edital.finalizadas }}</td>
+                <td class="text-right tabular-nums">
+                    <span v-if="edital.semDecisao > 0" class="selo selo-atencao">{{ edital.semDecisao }}</span>
+                    <span v-else>0</span>
                 </td>
+                <td class="text-right tabular-nums">
+                    <span v-if="edital.emRecurso > 0" class="selo selo-atencao">{{ edital.emRecurso }}</span>
+                    <span v-else>0</span>
+                </td>
+                <td class="text-right tabular-nums">{{ edital.homologadas }}</td>
+                <td class="text-right tabular-nums">{{ edital.naoHomologadas }}</td>
                 <td class="px-2! py-1!">
                     <div class="flex items-center justify-end">
-                        <Link :href="`${BASE}/${inscricao.id}`" class="acao-icone" data-dica="Conferir">
+                        <Link :href="`${BASE}/editais/${edital.slug}`" class="acao-icone" data-dica="Ver inscrições">
                             <IconeAcao nome="ver" />
-                            <span class="sr-only">Conferir a inscrição {{ inscricao.numero }} de {{ inscricao.proponente }}</span>
+                            <span class="sr-only">Ver as inscrições do edital {{ edital.titulo }}</span>
                         </Link>
                     </div>
                 </td>

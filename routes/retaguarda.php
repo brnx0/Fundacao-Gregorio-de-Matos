@@ -128,6 +128,8 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
         // cifradas no histórico. Os arquivos (da inscrição e do recurso) saem só por estas rotas, nunca pelo caminho.
         Route::middleware('inertia.encrypt')->group(function () {
             Route::get('/homologacao', [HomologacaoController::class, 'index'])->name('homologacao.index');
+            Route::get('/homologacao/editais/{edital}', [HomologacaoController::class, 'edital'])
+                ->name('homologacao.edital');
             Route::get('/homologacao/{inscricao}', [HomologacaoController::class, 'show'])
                 ->whereNumber('inscricao')
                 ->name('homologacao.show');

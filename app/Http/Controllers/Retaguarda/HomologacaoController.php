@@ -13,6 +13,7 @@ use App\Http\Controllers\InscricaoDocumentoController;
 use App\Http\Requests\Retaguarda\DecidirHomologacaoRequest;
 use App\Http\Requests\Retaguarda\MarcarItemRequest;
 use App\Models\Edital;
+use App\Models\EditalChamada;
 use App\Models\EditalDocumento;
 use App\Models\EditalPergunta;
 use App\Models\Inscricao;
@@ -63,24 +64,78 @@ class HomologacaoController extends Controller
     /** Valor do filtro das inscrições ainda sem decisão. */
     private const string SEM_DECISAO = 'sem_decisao';
 
+    /**
+     * Os editais publicados com inscrição finalizada, cada um com as contagens por situação. A homologação é feita
+     * edital por edital: as inscrições só aparecem dentro do edital escolhido.
+     */
     public function index(Request $request): Response
     {
         $busca = trim((string) $request->query('busca', ''));
-        $edital = ctype_digit((string) $request->query('edital', '')) ? (string) $request->query('edital') : '';
+
+        $editais = Edital::query()
+            ->publicados()
+            ->whereHas('inscricoes', fn (Builder $q) => $q->where('situacao', SituacaoInscricao::Finalizada))
+            // No Oracle a comparação de texto diferencia maiúsculas; % e _ digitados valem literalmente.
+            ->when($busca !== '', fn (Builder $q) => $q->whereRaw(
+                "LOWER(titulo) LIKE ? ESCAPE '\\'",
+                ['%'.addcslashes(mb_strtolower($busca), '\\%_').'%'],
+            ))
+            ->withCount([
+                'inscricoes as finalizadas' => fn (Builder $q) => $q->where('situacao', SituacaoInscricao::Finalizada),
+                'inscricoes as sem_decisao' => fn (Builder $q) => $q->where('situacao', SituacaoInscricao::Finalizada)->whereNull('homologacao'),
+                'inscricoes as em_recurso' => fn (Builder $q) => $q->where('situacao', SituacaoInscricao::Finalizada)->where('homologacao', SituacaoHomologacao::EmRecurso),
+                'inscricoes as homologadas' => fn (Builder $q) => $q->where('situacao', SituacaoInscricao::Finalizada)->where('homologacao', SituacaoHomologacao::Homologada),
+                'inscricoes as nao_homologadas' => fn (Builder $q) => $q->where('situacao', SituacaoInscricao::Finalizada)
+                    ->whereIn('homologacao', [SituacaoHomologacao::NaoHomologada, SituacaoHomologacao::RecursoNegado]),
+            ])
+            ->with('chamadas:id,edital_id,nome,homologacao_inicio,homologacao_fim,ordem')
+            ->orderBy('titulo')
+            ->orderBy('id')
+            ->paginate(15, ['id', 'slug', 'titulo'])
+            ->withQueryString()
+            ->through(fn (Edital $edital): array => [
+                'id' => (int) $edital->id,
+                'slug' => $edital->slug,
+                'titulo' => $edital->titulo,
+                'periodos' => $this->periodosDeHomologacao($edital),
+                'emHomologacao' => $edital->chamadas->contains(fn (EditalChamada $chamada): bool => $chamada->naHomologacao()),
+                'finalizadas' => (int) $edital->finalizadas,
+                'semDecisao' => (int) $edital->sem_decisao,
+                'emRecurso' => (int) $edital->em_recurso,
+                'homologadas' => (int) $edital->homologadas,
+                'naoHomologadas' => (int) $edital->nao_homologadas,
+            ]);
+
+        return Inertia::render('Retaguarda/Homologacao/Index', [
+            'editais' => $editais,
+            'filtros' => ['busca' => $busca],
+        ]);
+    }
+
+    /**
+     * As inscrições finalizadas de um edital publicado, com o que pede atenção primeiro: recursos, depois as sem
+     * decisão (as mais antigas antes), depois as decididas.
+     */
+    public function edital(Request $request, Edital $edital): Response
+    {
+        abort_unless($edital->publicado, 404);
+
+        $busca = trim((string) $request->query('busca', ''));
         $situacao = (string) $request->query('situacao', '');
         $situacaoDecidida = SituacaoHomologacao::tryFrom($situacao);
         if ($situacaoDecidida === null && $situacao !== self::SEM_DECISAO) {
             $situacao = '';
         }
 
-        $inscricoes = $this->finalizadasDosEditaisPublicados()
+        $inscricoes = Inscricao::query()
+            ->where('inscricoes.situacao', SituacaoInscricao::Finalizada)
+            ->where('inscricoes.edital_id', $edital->id)
             ->select([
                 'inscricoes.id', 'inscricoes.edital_id', 'inscricoes.user_id', 'inscricoes.organizacao_id',
                 'inscricoes.edital_categoria_id', 'inscricoes.documento_cadastro', 'inscricoes.numero',
                 'inscricoes.finalizada_em', 'inscricoes.homologacao',
             ])
-            ->with(['edital:id,titulo', 'user:id,name', 'organizacao:id,razao_social,nome_fantasia', 'categoria:id,nome'])
-            ->when($edital !== '', fn (Builder $q) => $q->where('inscricoes.edital_id', (int) $edital))
+            ->with(['user:id,name', 'organizacao:id,razao_social,nome_fantasia', 'categoria:id,nome'])
             ->when($situacaoDecidida !== null, fn (Builder $q) => $q->where('inscricoes.homologacao', $situacaoDecidida->value))
             ->when($situacao === self::SEM_DECISAO, fn (Builder $q) => $q->whereNull('inscricoes.homologacao'))
             ->when($busca !== '', fn (Builder $q) => $this->buscar($q, $busca))
@@ -94,26 +149,23 @@ class HomologacaoController extends Controller
                 'numero' => $inscricao->numero,
                 'proponente' => PropsDaInscricao::nomeDoCadastro($inscricao, $inscricao->user),
                 'documento' => $this->documento($inscricao->documento_cadastro),
-                'edital' => $inscricao->edital->titulo,
                 'categoria' => $inscricao->categoria?->nome,
                 'finalizadaEm' => $inscricao->finalizada_em->format('d/m/Y H:i'),
                 'homologacao' => $inscricao->homologacao?->value,
                 'situacaoRotulo' => $inscricao->homologacao?->rotulo() ?? 'Sem decisão',
             ]);
 
-        $editais = Edital::query()
-            ->publicados()
-            ->whereHas('inscricoes', fn (Builder $q) => $q->where('situacao', SituacaoInscricao::Finalizada))
-            ->orderBy('titulo')
-            ->orderBy('id')
-            ->get(['id', 'titulo'])
-            ->map(fn (Edital $e): array => ['valor' => (string) $e->id, 'rotulo' => $e->titulo])
-            ->values();
+        $edital->load('chamadas:id,edital_id,nome,homologacao_inicio,homologacao_fim,ordem');
 
-        return Inertia::render('Retaguarda/Homologacao/Index', [
+        return Inertia::render('Retaguarda/Homologacao/Edital', [
+            'edital' => [
+                'id' => (int) $edital->id,
+                'slug' => $edital->slug,
+                'titulo' => $edital->titulo,
+                'periodos' => $this->periodosDeHomologacao($edital),
+            ],
             'inscricoes' => $inscricoes,
-            'filtros' => ['edital' => $edital, 'situacao' => $situacao, 'busca' => $busca],
-            'editais' => $editais,
+            'filtros' => ['situacao' => $situacao, 'busca' => $busca],
             'situacoes' => [
                 ['valor' => self::SEM_DECISAO, 'rotulo' => 'Sem decisão'],
                 ...array_map(fn (SituacaoHomologacao $s): array => ['valor' => $s->value, 'rotulo' => $s->rotulo()], SituacaoHomologacao::cases()),
@@ -130,7 +182,7 @@ class HomologacaoController extends Controller
     {
         abort_unless($inscricao->situacao === SituacaoInscricao::Finalizada && $inscricao->edital !== null, 404);
 
-        $inscricao->load(['edital:id,titulo', 'chamada', 'user:id,name', 'organizacao:id,razao_social,nome_fantasia', 'categoria:id,nome', 'homologador:id,name']);
+        $inscricao->load(['edital:id,slug,titulo,publicado', 'chamada', 'user:id,name', 'organizacao:id,razao_social,nome_fantasia', 'categoria:id,nome', 'homologador:id,name']);
         $conferencia = new ConferenciaDaInscricao($inscricao);
         $questionario = new QuestionarioDaInscricao($inscricao);
         $marcacoes = $conferencia->marcacoes();
@@ -143,6 +195,8 @@ class HomologacaoController extends Controller
             'inscricao' => [
                 'id' => (int) $inscricao->id,
                 'numero' => $inscricao->numero,
+                // Edital despublicado não abre a lista dele: a volta é para a lista dos editais.
+                'editalSlug' => $inscricao->edital->publicado ? $inscricao->edital->slug : null,
                 'edital' => $inscricao->edital->titulo,
                 'chamada' => $chamada?->nome,
                 'proponente' => PropsDaInscricao::nomeDoCadastro($inscricao, $inscricao->user),
@@ -301,12 +355,27 @@ class HomologacaoController extends Controller
         return Storage::disk(Inscricao::DISCO)->response($enviado->arquivo, $enviado->arquivo_nome);
     }
 
-    /** @return Builder<Inscricao> */
-    private function finalizadasDosEditaisPublicados(): Builder
+    /**
+     * O período de homologação de cada chamada do edital ("01/12/2026 a 10/12/2026"), com o nome da chamada entre
+     * parênteses quando há mais de uma; "Não cadastrado" na chamada sem as datas e no edital sem chamada.
+     *
+     * @return list<string>
+     */
+    private function periodosDeHomologacao(Edital $edital): array
     {
-        return Inscricao::query()
-            ->where('inscricoes.situacao', SituacaoInscricao::Finalizada)
-            ->whereHas('edital', fn (Builder $q) => $q->publicados());
+        $chamadas = $edital->chamadas;
+
+        if ($chamadas->isEmpty()) {
+            return ['Não cadastrado'];
+        }
+
+        return $chamadas->map(function (EditalChamada $chamada) use ($chamadas): string {
+            $periodo = $chamada->temPeriodoDeHomologacao()
+                ? $chamada->homologacao_inicio->format('d/m/Y').' a '.$chamada->homologacao_fim->format('d/m/Y')
+                : 'Não cadastrado';
+
+            return $chamadas->count() > 1 ? "{$periodo} ({$chamada->nome})" : $periodo;
+        })->values()->all();
     }
 
     /** O número da inscrição ou parte do nome do proponente (o usuário ou a organização). */
