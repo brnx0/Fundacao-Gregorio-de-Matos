@@ -17,6 +17,7 @@ use App\Http\Controllers\Retaguarda\IntegracaoIaController;
 use App\Http\Controllers\Retaguarda\LocalizacaoEventoController;
 use App\Http\Controllers\Retaguarda\LoginController;
 use App\Http\Controllers\Retaguarda\MinhaSenhaController;
+use App\Http\Controllers\Retaguarda\NotasDaAvaliacaoController;
 use App\Http\Controllers\Retaguarda\PainelController;
 use App\Http\Controllers\Retaguarda\PerfilController;
 use App\Http\Controllers\Retaguarda\PrefeituraBairroController;
@@ -164,6 +165,12 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
                 ->name('avaliacao.avaliadores.index');
             Route::get('/avaliacao/editais/{edital}/distribuicao', [DistribuicaoController::class, 'index'])
                 ->name('avaliacao.distribuicao.index');
+            Route::get('/avaliacao/editais/{edital}/notas', [NotasDaAvaliacaoController::class, 'index'])
+                ->name('avaliacao.notas.index');
+            // A inscrição ({inscricao}) tem de ser do edital da URL, homologada e com avaliação concluída (senão 404).
+            Route::get('/avaliacao/editais/{edital}/notas/{inscricao}', [NotasDaAvaliacaoController::class, 'show'])
+                ->whereNumber('inscricao')
+                ->name('avaliacao.notas.show');
         });
         Route::post('/avaliacao/editais/{edital}/distribuicao', [DistribuicaoController::class, 'distribuir'])
             ->name('avaliacao.distribuicao.store');

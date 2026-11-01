@@ -1327,6 +1327,49 @@ export interface RetaguardaAvaliacaoDistribuicaoProps {
     desativados: (AvaliadorParaTransferir & { naoConcluidas: number })[];
 }
 
+/** Inscrição homologada na aba Notas (Retaguarda\NotasDaAvaliacaoController@index); a nota final só vem da avaliação concluída. */
+export interface LinhaDasNotas {
+    id: number;
+    numero: string;
+    proponente: string;
+    categoria: string | null;
+    avaliador: string | null;
+    situacao: SituacaoAvaliacao | null;
+    /** "Sem avaliador" ou o andamento da avaliação. */
+    situacaoRotulo: string;
+    /** Com vírgula decimal; nulo se a avaliação não está concluída. */
+    notaFinal: string | null;
+}
+
+export interface RetaguardaAvaliacaoNotasProps {
+    edital: { slug: string; titulo: string; periodos: string[] };
+    inscricoes: Paginado<LinhaDasNotas>;
+    filtros: { situacao: string };
+    situacoes: { valor: string; rotulo: string }[];
+}
+
+/** Nota de um critério numa avaliação concluída; peso e pontuação máxima são a cópia gravada com a nota (vírgula decimal). */
+export interface NotaDoCriterioConcluida {
+    id: number;
+    nome: string;
+    nota: string;
+    peso: string | null;
+    pontosMaximos: string | null;
+}
+
+export interface RetaguardaAvaliacaoNotasDaInscricaoProps {
+    edital: { slug: string; titulo: string };
+    inscricao: { id: number; numero: string; proponente: string; categoria: string | null };
+    avaliacao: {
+        avaliador: string;
+        /** "d/m/Y H:i". */
+        concluidaEm: string;
+        notaFinal: string | null;
+        observacao: string | null;
+        criterios: NotaDoCriterioConcluida[];
+    };
+}
+
 /** Inscrição na lista do avaliador (Avaliacao\InicioController). */
 export interface InscricaoDoAvaliador {
     id: number;
