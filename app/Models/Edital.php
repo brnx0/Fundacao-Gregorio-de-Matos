@@ -149,6 +149,12 @@ class Edital extends Model
         return $this->hasMany(Inscricao::class);
     }
 
+    /** @return HasMany<EditalAvaliador, $this> */
+    public function avaliadores(): HasMany
+    {
+        return $this->hasMany(EditalAvaliador::class);
+    }
+
     /** O número nasce na primeira finalização e fica ao reabrir (finalizada_em é zerado), então é ele que marca a trava. */
     public function questionarioTravado(): bool
     {

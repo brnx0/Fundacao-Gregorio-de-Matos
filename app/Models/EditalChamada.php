@@ -101,6 +101,24 @@ class EditalChamada extends Model
         return $hoje >= $this->homologacao_inicio->toDateString() && $hoje <= $this->homologacao_fim->toDateString();
     }
 
+    /** As duas datas da avaliação (colunas validacao_*) preenchidas. */
+    public function temPeriodoDeAvaliacao(): bool
+    {
+        return $this->validacao_inicio !== null && $this->validacao_fim !== null;
+    }
+
+    /** Hoje entre o início e o fim da avaliação, inclusive (dias inteiros, ver UsaDiaCivil); falso sem as duas datas. */
+    public function naAvaliacao(?CarbonInterface $agora = null): bool
+    {
+        if (! $this->temPeriodoDeAvaliacao()) {
+            return false;
+        }
+
+        $hoje = self::hoje($agora)->toDateString();
+
+        return $hoje >= $this->validacao_inicio->toDateString() && $hoje <= $this->validacao_fim->toDateString();
+    }
+
     /** @return BelongsTo<Edital, $this> */
     public function edital(): BelongsTo
     {

@@ -116,6 +116,12 @@ class Inscricao extends Model
         return $this->hasMany(InscricaoConferencia::class);
     }
 
+    /** @return HasOne<InscricaoAvaliacao, $this> */
+    public function avaliacao(): HasOne
+    {
+        return $this->hasOne(InscricaoAvaliacao::class);
+    }
+
     /** @return HasOne<InscricaoRecurso, $this> */
     public function recurso(): HasOne
     {
@@ -204,6 +210,12 @@ class Inscricao extends Model
     public function naHomologacao(?CarbonInterface $agora = null): bool
     {
         return $this->chamada?->naHomologacao($agora) === true;
+    }
+
+    /** Chamada da inscrição no período de avaliação; falso sem chamada (apagada) ou sem as datas. */
+    public function naAvaliacao(?CarbonInterface $agora = null): bool
+    {
+        return $this->chamada?->naAvaliacao($agora) === true;
     }
 
     /**
