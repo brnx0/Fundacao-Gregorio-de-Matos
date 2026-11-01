@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Retaguarda\AreaAtuacaoController;
+use App\Http\Controllers\Retaguarda\AtribuicaoController;
 use App\Http\Controllers\Retaguarda\AvaliacaoController;
 use App\Http\Controllers\Retaguarda\AvaliadorController;
 use App\Http\Controllers\Retaguarda\AvaliadoresDaAvaliacaoController;
@@ -166,6 +167,12 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
         });
         Route::post('/avaliacao/editais/{edital}/distribuicao', [DistribuicaoController::class, 'distribuir'])
             ->name('avaliacao.distribuicao.store');
+        // Atribuição manual: a inscrição ({inscricao}) tem de ser do edital da URL (o controller devolve 404).
+        Route::put('/avaliacao/editais/{edital}/inscricoes/{inscricao}/avaliador', [AtribuicaoController::class, 'atribuir'])
+            ->whereNumber('inscricao')
+            ->name('avaliacao.atribuicao');
+        Route::post('/avaliacao/editais/{edital}/transferencia', [AtribuicaoController::class, 'transferirTodas'])
+            ->name('avaliacao.transferencia');
         Route::controller(AvaliadoresDaAvaliacaoController::class)
             ->prefix('/avaliacao/editais/{edital}/avaliadores')
             ->name('avaliacao.avaliadores.')

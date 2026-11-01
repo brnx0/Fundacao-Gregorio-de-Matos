@@ -35,7 +35,7 @@ class DistribuicaoController extends Controller
 
     public const string SEM_AVALIADOR = 'Sem avaliador';
 
-    /** As inscrições homologadas, os destinos, as pendências e, com `?modo=`, a estimativa da distribuição. */
+    /** As inscrições homologadas, os destinos, os desativados com trabalho, as pendências e, com `?modo=`, a estimativa da distribuição. */
     public function index(Request $request, Edital $edital, DistribuidorDeInscricoes $distribuidor): Response
     {
         abort_unless($edital->publicado, 404);
@@ -78,7 +78,9 @@ class DistribuicaoController extends Controller
                 'numero' => $inscricao->numero,
                 'proponente' => PropsDaInscricao::nomeDoCadastro($inscricao, $inscricao->user),
                 'categoria' => $inscricao->categoria?->nome,
+                'avaliadorId' => $inscricao->avaliacao === null ? null : (int) $inscricao->avaliacao->avaliador_id,
                 'avaliador' => $inscricao->avaliacao?->avaliador->nome,
+                'situacao' => $inscricao->avaliacao?->situacao()->value,
                 'situacaoRotulo' => $inscricao->avaliacao?->situacao()->rotulo() ?? self::SEM_AVALIADOR,
             ]);
 
@@ -93,6 +95,7 @@ class DistribuicaoController extends Controller
             'previa' => $previa,
             'inscricoes' => $inscricoes,
             'destinos' => $this->destinos($edital),
+            'desativados' => $this->desativados($edital),
         ]);
     }
 
@@ -186,6 +189,40 @@ class DistribuicaoController extends Controller
             ->get()
             ->map(fn (EditalAvaliador $vinculo): array => ['avaliadorId' => (int) $vinculo->avaliador_id, 'nome' => $vinculo->avaliador->nome])
             ->sortBy(fn (array $destino): string => mb_strtolower($destino['nome']))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Os avaliadores desativados do edital que ainda têm inscrições não concluídas dele, pelo nome: a tela pede que
+     * sejam transferidas.
+     *
+     * @return list<array{avaliadorId: int, nome: string, naoConcluidas: int}>
+     */
+    private function desativados(Edital $edital): array
+    {
+        $abertas = InscricaoAvaliacao::query()
+            ->join('inscricoes', 'inscricoes.id', '=', 'inscricao_avaliacoes.inscricao_id')
+            ->where('inscricoes.edital_id', $edital->id)
+            ->whereNull('inscricao_avaliacoes.concluida_em')
+            ->groupBy('inscricao_avaliacoes.avaliador_id')
+            ->selectRaw('inscricao_avaliacoes.avaliador_id as avaliador_id')
+            ->selectRaw('count(*) as total')
+            ->toBase()
+            ->pluck('total', 'avaliador_id')
+            ->mapWithKeys(fn ($total, $avaliador): array => [(int) $avaliador => (int) $total]);
+
+        return $edital->avaliadores()
+            ->whereHas('avaliador', fn (Builder $q) => $q->where('ativo', false))
+            ->with('avaliador:id,nome')
+            ->get()
+            ->filter(fn (EditalAvaliador $vinculo): bool => $abertas->get((int) $vinculo->avaliador_id, 0) > 0)
+            ->map(fn (EditalAvaliador $vinculo): array => [
+                'avaliadorId' => (int) $vinculo->avaliador_id,
+                'nome' => $vinculo->avaliador->nome,
+                'naoConcluidas' => $abertas->get((int) $vinculo->avaliador_id),
+            ])
+            ->sortBy(fn (array $desativado): string => mb_strtolower($desativado['nome']))
             ->values()
             ->all();
     }

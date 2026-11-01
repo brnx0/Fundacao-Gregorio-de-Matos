@@ -268,10 +268,13 @@ class AvaliacaoDistribuicaoTest extends TestCase
                 'numero' => $jaComAna->numero,
                 'proponente' => $jaComAna->user->name,
                 'categoria' => null,
+                'avaliadorId' => (int) $ana->id,
                 'avaliador' => 'Ana',
+                'situacao' => 'nao_iniciada',
                 'situacaoRotulo' => 'Não iniciada',
             ])
             ->where('inscricoes.data.1.avaliador', null)
+            ->where('inscricoes.data.1.situacao', null)
             ->where('inscricoes.data.1.situacaoRotulo', 'Sem avaliador')
             ->has('destinos', 2));
 

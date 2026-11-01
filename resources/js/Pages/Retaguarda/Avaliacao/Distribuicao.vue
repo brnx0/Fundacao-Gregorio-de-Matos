@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, reactive, ref } from 'vue';
 import AbasDaAvaliacao from '../../../Components/Retaguarda/Avaliacao/AbasDaAvaliacao.vue';
+import TransferirInscricoes from '../../../Components/Retaguarda/Avaliacao/TransferirInscricoes.vue';
 import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
 import PainelLista from '../../../Components/Retaguarda/PainelLista.vue';
 import { classeCaixa, classeMarcacao } from '../../../Components/Retaguarda/listaEditavel';
 import { Head, Link, router } from '@inertiajs/vue3';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
-import type { ModoDistribuicao, RetaguardaAvaliacaoDistribuicaoProps } from '../../../types';
+import type { AvaliadorParaTransferir, LinhaDaDistribuicao, ModoDistribuicao, RetaguardaAvaliacaoDistribuicaoProps } from '../../../types';
 
 defineOptions({ layout: RetaguardaLayout });
 
 const props = defineProps<RetaguardaAvaliacaoDistribuicaoProps>();
 
-// Caminhos das rotas retaguarda.avaliacao.index e retaguarda.avaliacao.distribuicao.index / .store (a mesma URL, GET
-// e POST); o front não tem helper de rotas nomeadas.
+// Caminhos das rotas retaguarda.avaliacao.index, retaguarda.avaliacao.distribuicao.index / .store (a mesma URL, GET
+// e POST) e retaguarda.avaliacao.atribuicao; o front não tem helper de rotas nomeadas.
 const LISTA = '/retaguarda/avaliacao';
-const BASE = `${LISTA}/editais/${props.edital.slug}/distribuicao`;
+const EDITAL = `${LISTA}/editais/${props.edital.slug}`;
+const BASE = `${EDITAL}/distribuicao`;
 
 const descricoes: Record<ModoDistribuicao, string> = {
     igual: 'Cada inscrição vai para o avaliador do edital com menos inscrições; o empate é sorteado.',
@@ -70,6 +72,76 @@ const distribuir = (): void => {
 };
 
 const plural = (quantidade: number, singular: string, varios: string): string => `${quantidade} ${quantidade === 1 ? singular : varios}`;
+
+// Transferir todas: saem de qualquer avaliador do edital com inscrições (ativo ou desativado), vão para um ativo.
+const origens = computed<AvaliadorParaTransferir[]>(() =>
+    [...props.destinos, ...props.desativados.map(({ avaliadorId, nome }) => ({ avaliadorId, nome }))].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+);
+
+// Avaliador de cada inscrição: a escolha fica na linha até gravar; concluída não muda de avaliador.
+const escolhas = reactive<Record<number, number | ''>>({});
+const erroDaLinha = reactive<Record<number, string | undefined>>({});
+const gravandoLinha = ref<number | null>(null);
+
+const escolhaDa = (linha: LinhaDaDistribuicao): number | '' => escolhas[linha.id] ?? linha.avaliadorId ?? '';
+
+const escolher = (linha: LinhaDaDistribuicao, valor: string): void => {
+    escolhas[linha.id] = valor === '' ? '' : Number(valor);
+    erroDaLinha[linha.id] = undefined;
+};
+
+const mudou = (linha: LinhaDaDistribuicao): boolean => escolhaDa(linha) !== '' && escolhaDa(linha) !== linha.avaliadorId;
+
+// Avaliador atual desativado: não está entre os destinos, mas aparece como a opção marcada.
+const foraDosDestinos = (linha: LinhaDaDistribuicao): boolean =>
+    linha.avaliadorId !== null && !props.destinos.some((destino) => destino.avaliadorId === linha.avaliadorId);
+
+const fecharConfirmacao = (): void => dialogoConfirmacao.value?.close();
+
+const enviarAtribuicao = (linha: LinhaDaDistribuicao): void => {
+    router.put(
+        `${EDITAL}/inscricoes/${linha.id}/avaliador`,
+        { avaliador_id: escolhaDa(linha) },
+        {
+            preserveScroll: true,
+            onStart: () => {
+                gravandoLinha.value = linha.id;
+            },
+            onSuccess: () => {
+                delete escolhas[linha.id];
+            },
+            onError: (erros) => {
+                erroDaLinha[linha.id] = erros.avaliador_id ?? Object.values(erros)[0];
+            },
+            onFinish: () => {
+                gravandoLinha.value = null;
+                void nextTick(fecharConfirmacao);
+            },
+        },
+    );
+};
+
+// Em andamento: confirma antes, porque as notas e a observação já lançadas são apagadas.
+const dialogoConfirmacao = ref<HTMLDialogElement | null>(null);
+const paraConfirmar = ref<LinhaDaDistribuicao | null>(null);
+
+const atribuir = (linha: LinhaDaDistribuicao): void => {
+    if (!mudou(linha) || gravandoLinha.value !== null) return;
+
+    if (linha.situacao === 'em_andamento') {
+        paraConfirmar.value = linha;
+        dialogoConfirmacao.value?.showModal();
+
+        return;
+    }
+
+    enviarAtribuicao(linha);
+};
+
+const nomeDoDestino = (linha: LinhaDaDistribuicao): string => props.destinos.find((destino) => destino.avaliadorId === escolhaDa(linha))?.nome ?? '';
+
+const classeCancelar =
+    'pressionavel inline-flex min-h-11 items-center justify-center rounded-pill border border-tinta-suave/70 bg-superficie px-5 text-[0.8125rem] font-bold tracking-[0.12em] uppercase hover:border-acao hover:text-acao';
 </script>
 
 <template>
@@ -103,6 +175,21 @@ const plural = (quantidade: number, singular: string, varios: string): string =>
             <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 text-[0.9375rem] leading-[1.5]">
                 <li v-for="pendencia in pendencias" :key="pendencia">{{ pendencia }}</li>
             </ul>
+        </div>
+
+        <div
+            v-for="desativado in desativados"
+            :key="desativado.avaliadorId"
+            role="note"
+            class="rounded-[16px] border border-aviso-texto/30 bg-aviso-fundo p-4 text-aviso-texto"
+        >
+            <p class="text-[0.9375rem] leading-[1.5] font-semibold">
+                {{ desativado.nome }} está desativado e tem {{ plural(desativado.naoConcluidas, 'inscrição não concluída', 'inscrições não concluídas') }}. Transfira-as
+                para outro avaliador.
+            </p>
+            <div class="mt-3 text-home-tinta">
+                <TransferirInscricoes :id="`transferir-${desativado.avaliadorId}`" :edital="edital.slug" :de="desativado" :destinos="destinos" />
+            </div>
         </div>
 
         <section aria-labelledby="distribuir-titulo" class="painel-retaguarda p-4 @3xl:p-6">
@@ -189,7 +276,42 @@ const plural = (quantidade: number, singular: string, varios: string): string =>
                 <th scope="row" class="text-left font-semibold whitespace-nowrap tabular-nums">{{ inscricao.numero }}</th>
                 <td class="min-w-56 font-semibold">{{ inscricao.proponente }}</td>
                 <td class="min-w-40">{{ inscricao.categoria ?? '—' }}</td>
-                <td class="min-w-40">{{ inscricao.avaliador ?? '—' }}</td>
+                <td class="min-w-64">
+                    <span v-if="inscricao.situacao === 'concluida'">{{ inscricao.avaliador }}</span>
+                    <div v-else class="flex flex-col gap-1">
+                        <div class="flex items-center gap-2">
+                            <label :for="`avaliador-${inscricao.id}`" class="sr-only">Avaliador da inscrição {{ inscricao.numero }}</label>
+                            <select
+                                :id="`avaliador-${inscricao.id}`"
+                                :value="escolhaDa(inscricao)"
+                                :disabled="gravandoLinha !== null"
+                                class="campo-retaguarda min-w-0 flex-1"
+                                :aria-invalid="Boolean(erroDaLinha[inscricao.id]) || undefined"
+                                :aria-describedby="erroDaLinha[inscricao.id] ? `avaliador-${inscricao.id}-erro` : undefined"
+                                @change="escolher(inscricao, ($event.target as HTMLSelectElement).value)"
+                            >
+                                <option v-if="inscricao.avaliadorId === null" value="" disabled>Sem avaliador</option>
+                                <option v-if="foraDosDestinos(inscricao)" :value="inscricao.avaliadorId" disabled>{{ inscricao.avaliador }} (desativado)</option>
+                                <option v-for="destino in destinos" :key="destino.avaliadorId" :value="destino.avaliadorId">{{ destino.nome }}</option>
+                            </select>
+                            <button
+                                type="button"
+                                :disabled="!mudou(inscricao) || gravandoLinha !== null"
+                                class="acao-icone disabled:cursor-not-allowed disabled:opacity-50"
+                                :data-dica="inscricao.avaliadorId === null ? 'Atribuir' : 'Transferir'"
+                                @click="atribuir(inscricao)"
+                            >
+                                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 6 9 17l-5-5" />
+                                </svg>
+                                <span class="sr-only">{{ inscricao.avaliadorId === null ? 'Atribuir' : 'Transferir' }} a inscrição {{ inscricao.numero }} ao avaliador escolhido</span>
+                            </button>
+                        </div>
+                        <p v-if="erroDaLinha[inscricao.id]" :id="`avaliador-${inscricao.id}-erro`" role="alert" class="text-[0.875rem] font-semibold text-invalido-texto">
+                            {{ erroDaLinha[inscricao.id] }}
+                        </p>
+                    </div>
+                </td>
                 <td>
                     <span class="selo" :class="{ 'selo-atencao': inscricao.avaliador === null, 'selo-positivo': inscricao.situacaoRotulo === 'Concluída' }">
                         {{ inscricao.situacaoRotulo }}
@@ -197,5 +319,32 @@ const plural = (quantidade: number, singular: string, varios: string): string =>
                 </td>
             </tr>
         </PainelLista>
+
+        <section aria-labelledby="transferir-titulo" class="painel-retaguarda p-4 @3xl:p-6">
+            <h2 id="transferir-titulo" class="font-barlow text-[1.5rem] leading-none font-extrabold tracking-[0.01em] uppercase">Transferir todas</h2>
+            <p class="mt-2 mb-5 text-[0.9375rem] leading-[1.6] text-tinta-suave">Passe de uma vez as inscrições não concluídas de um avaliador para outro.</p>
+            <TransferirInscricoes id="transferir-todas" :edital="edital.slug" :origens="origens" :destinos="destinos" />
+        </section>
+
+        <dialog
+            ref="dialogoConfirmacao"
+            aria-labelledby="confirmar-transferencia-titulo"
+            aria-describedby="confirmar-transferencia-aviso"
+            class="dialogo-retaguarda m-auto w-[min(30rem,calc(100vw-2rem))] rounded-card border border-hairline bg-superficie p-6 text-home-tinta backdrop:bg-noite/60"
+        >
+            <h2 id="confirmar-transferencia-titulo" class="text-[1.25rem] leading-tight font-bold">
+                Transferir a inscrição {{ paraConfirmar?.numero }} para {{ paraConfirmar ? nomeDoDestino(paraConfirmar) : '' }}?
+            </h2>
+            <p id="confirmar-transferencia-aviso" class="mt-2 text-[0.9375rem] text-tinta-suave">
+                {{ paraConfirmar?.avaliador }} já começou a avaliar: as notas e a observação lançadas são apagadas, e o novo avaliador começa do zero.
+            </p>
+
+            <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button type="button" autofocus :class="classeCancelar" @click="fecharConfirmacao">Cancelar</button>
+                <button type="button" :disabled="gravandoLinha !== null" class="botao-primario" @click="paraConfirmar && enviarAtribuicao(paraConfirmar)">
+                    {{ gravandoLinha !== null ? 'Transferindo…' : 'Transferir' }}
+                </button>
+            </div>
+        </dialog>
     </PaginaRetaguarda>
 </template>

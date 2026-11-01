@@ -1254,6 +1254,8 @@ export type SituacaoConvite = 'na_fila' | 'enviado' | 'falhou';
 /** Avaliador de um edital (Retaguarda\AvaliadoresDaAvaliacaoController@index); `id` é o do vínculo com o edital. */
 export interface AvaliadorDoEdital {
     id: number;
+    /** Id do avaliador (o da transferência das inscrições). */
+    avaliadorId: number;
     nome: string;
     email: string;
     /** Desativado em Cadastro: perde o acesso e não recebe inscrições novas. */
@@ -1280,14 +1282,26 @@ export interface RetaguardaAvaliacaoAvaliadoresProps {
 /** App\Enums\ModoDistribuicao. */
 export type ModoDistribuicao = 'igual' | 'por_categoria';
 
+/** App\Enums\SituacaoAvaliacao. */
+export type SituacaoAvaliacao = 'nao_iniciada' | 'em_andamento' | 'concluida';
+
+/** Avaliador do edital como origem ou destino de uma transferência. */
+export interface AvaliadorParaTransferir {
+    avaliadorId: number;
+    nome: string;
+}
+
 /** Inscrição homologada na aba Distribuição (Retaguarda\DistribuicaoController@index). */
 export interface LinhaDaDistribuicao {
     id: number;
     numero: string;
     proponente: string;
     categoria: string | null;
-    /** Nome do avaliador; nulo sem avaliador. */
+    /** Id e nome do avaliador; nulos sem avaliador. */
+    avaliadorId: number | null;
     avaliador: string | null;
+    /** Andamento da avaliação; nulo sem avaliador. */
+    situacao: SituacaoAvaliacao | null;
     /** "Sem avaliador" ou o andamento da avaliação. */
     situacaoRotulo: string;
 }
@@ -1308,7 +1322,9 @@ export interface RetaguardaAvaliacaoDistribuicaoProps {
     previa: PreviaDaDistribuicao | null;
     inscricoes: Paginado<LinhaDaDistribuicao>;
     /** Avaliadores ativos do edital, pelo nome: para onde uma inscrição pode ir. */
-    destinos: { avaliadorId: number; nome: string }[];
+    destinos: AvaliadorParaTransferir[];
+    /** Avaliadores desativados do edital com inscrições não concluídas, pelo nome: precisam ser transferidas. */
+    desativados: (AvaliadorParaTransferir & { naoConcluidas: number })[];
 }
 
 /** Marcação do gestor sobre um item conferido (App\Support\Inscricao\ConferenciaDaInscricao); `em` em "d/m/Y H:i". */

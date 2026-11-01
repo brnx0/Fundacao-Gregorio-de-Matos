@@ -164,6 +164,7 @@ class AvaliacaoAvaliadoresTest extends TestCase
             ->where('avaliadores.0.inscricoes', 0)
             ->where('avaliadores.0.naoConcluidas', 0)
             ->where('avaliadores.1.nome', 'Bruno')
+            ->where('avaliadores.1.avaliadorId', (int) $bruno->id)
             ->where('avaliadores.1.ativo', false)
             ->where('avaliadores.1.convite.situacao', 'enviado')
             ->where('avaliadores.1.convite.enviadoEm', '15/12/2026 10:00')

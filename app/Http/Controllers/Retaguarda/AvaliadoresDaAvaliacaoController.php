@@ -52,6 +52,7 @@ class AvaliadoresDaAvaliacaoController extends Controller
 
                 return [
                     'id' => (int) $vinculo->id,
+                    'avaliadorId' => (int) $vinculo->avaliador_id,
                     'nome' => $vinculo->avaliador->nome,
                     'email' => $vinculo->avaliador->email,
                     'ativo' => $vinculo->avaliador->ativo,

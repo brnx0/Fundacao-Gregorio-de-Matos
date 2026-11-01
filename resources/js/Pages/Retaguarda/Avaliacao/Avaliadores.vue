@@ -3,6 +3,7 @@ import { computed, nextTick, reactive, ref } from 'vue';
 import CampoCadastro from '../../../Components/CampoCadastro.vue';
 import Interruptor from '../../../Components/Interruptor.vue';
 import AbasDaAvaliacao from '../../../Components/Retaguarda/Avaliacao/AbasDaAvaliacao.vue';
+import TransferirInscricoes from '../../../Components/Retaguarda/Avaliacao/TransferirInscricoes.vue';
 import BarraAcoes from '../../../Components/Retaguarda/BarraAcoes.vue';
 import ConfirmarExclusao from '../../../Components/Retaguarda/ConfirmarExclusao.vue';
 import IconeAcao from '../../../Components/Retaguarda/IconeAcao.vue';
@@ -11,7 +12,7 @@ import PainelLista from '../../../Components/Retaguarda/PainelLista.vue';
 import { focarPrimeiroErro } from '../../../Components/focarPrimeiroErro';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
-import type { AvaliadorDoEdital, RetaguardaAvaliacaoAvaliadoresProps, SituacaoConvite } from '../../../types';
+import type { AvaliadorDoEdital, AvaliadorParaTransferir, RetaguardaAvaliacaoAvaliadoresProps, SituacaoConvite } from '../../../types';
 
 defineOptions({ layout: RetaguardaLayout });
 
@@ -101,6 +102,12 @@ const classeDoConvite = (situacao: SituacaoConvite | null): string => {
 };
 
 const plural = (quantidade: number, singular: string, varios: string): string => `${quantidade} ${quantidade === 1 ? singular : varios}`;
+
+// Atalho do aviso do desativado: as inscrições não concluídas dele vão para um avaliador ativo do edital (a lista já
+// vem pelo nome).
+const destinos = computed<AvaliadorParaTransferir[]>(() =>
+    props.avaliadores.filter((avaliador) => avaliador.ativo).map((avaliador) => ({ avaliadorId: avaliador.avaliadorId, nome: avaliador.nome })),
+);
 
 // Link novo: confirma antes, porque o link atual (e quem já entrou com ele) deixa de valer na hora.
 const dialogoNovoLink = ref<HTMLDialogElement | null>(null);
@@ -193,13 +200,25 @@ const classeCancelar =
                     <span class="block font-semibold">{{ avaliador.nome }}</span>
                     <span class="block text-[0.8125rem] break-all text-tinta-suave">{{ avaliador.email }}</span>
                     <span v-if="!avaliador.ativo" class="selo mt-1.5">Desativado</span>
-                    <p
+                    <div
                         v-if="!avaliador.ativo && avaliador.naoConcluidas > 0"
-                        class="mt-2 max-w-72 rounded-[12px] border border-aviso-texto/30 bg-aviso-fundo px-3 py-2 text-[0.8125rem] leading-[1.5] font-semibold text-aviso-texto"
+                        role="note"
+                        class="mt-2 max-w-72 rounded-[12px] border border-aviso-texto/30 bg-aviso-fundo px-3 py-2 text-[0.8125rem] leading-[1.5] text-aviso-texto"
                     >
-                        Desativado com {{ plural(avaliador.naoConcluidas, 'inscrição não concluída', 'inscrições não concluídas') }} neste edital. Transfira-as para outro
-                        avaliador.
-                    </p>
+                        <p class="font-semibold">
+                            Desativado com {{ plural(avaliador.naoConcluidas, 'inscrição não concluída', 'inscrições não concluídas') }} neste edital. Transfira-as para outro
+                            avaliador.
+                        </p>
+                        <div class="mt-2 text-home-tinta">
+                            <TransferirInscricoes
+                                :id="`transferir-${avaliador.id}`"
+                                :edital="edital.slug"
+                                :de="{ avaliadorId: avaliador.avaliadorId, nome: avaliador.nome }"
+                                :destinos="destinos"
+                                empilhado
+                            />
+                        </div>
+                    </div>
                 </th>
                 <td class="min-w-56">
                     <fieldset v-if="edital.temCategorias" class="min-w-0" :aria-describedby="erroDasCategorias[avaliador.id] ? `categorias-${avaliador.id}-erro` : undefined">
