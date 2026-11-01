@@ -1327,6 +1327,89 @@ export interface RetaguardaAvaliacaoDistribuicaoProps {
     desativados: (AvaliadorParaTransferir & { naoConcluidas: number })[];
 }
 
+/** Inscrição na lista do avaliador (Avaliacao\InicioController). */
+export interface InscricaoDoAvaliador {
+    id: number;
+    numero: string;
+    proponente: string;
+    categoria: string | null;
+    situacao: SituacaoAvaliacao;
+    situacaoRotulo: string;
+    /** Com vírgula decimal ("20,00"); só na concluída. */
+    notaFinal: string | null;
+}
+
+/** Edital com as inscrições que o avaliador avalia, pelo número. */
+export interface EditalDoAvaliador {
+    id: number;
+    titulo: string;
+    /** Período de avaliação de cada chamada (App\Support\Edital\PeriodosDoEdital). */
+    periodos: string[];
+    inscricoes: InscricaoDoAvaliador[];
+}
+
+export interface AvaliacaoInicioProps {
+    editais: EditalDoAvaliador[];
+}
+
+/** Critério que vale para a inscrição; peso e máximo com vírgula decimal (com nota dada, os copiados nela). */
+export interface CriterioDaAvaliacao {
+    id: number;
+    nome: string;
+    descricao: string | null;
+    peso: string;
+    /** Nulo no critério sem pontuação máxima cadastrada. */
+    pontosMaximos: string | null;
+}
+
+/** Documento exigido, com o arquivo enviado (aberto pela rota do avaliador). */
+export interface DocumentoDaAvaliacao {
+    id: number;
+    nome: string;
+    etapaRotulo: string;
+    obrigatorio: boolean;
+    enviado: ArquivoDaHomologacao | null;
+}
+
+/** A inscrição só para leitura, como a conferência a mostra, sem o parecer da IA nem as marcações. */
+export interface InscricaoCompletaProps {
+    inscricao: {
+        id: number;
+        numero: string;
+        edital: string;
+        chamada: string | null;
+        proponente: string;
+        /** CPF mascarado ou CNPJ formatado. */
+        documento: string;
+        cadastro: 'Pessoa física' | 'Pessoa jurídica';
+        categoria: string | null;
+        cotas: string[];
+    };
+    /** Retrato do perfil gravado na finalização. */
+    perfil: { rotulo: string; valor: string | null }[];
+    documentos: DocumentoDaAvaliacao[];
+    secoes: SecaoDaInscricao[];
+    /** Respostas gravadas, pelo id da pergunta. */
+    respostas: Record<number, RespostaDaInscricao>;
+    /** Ids das perguntas visíveis pela condição. */
+    perguntasVisiveis: number[];
+}
+
+/** A inscrição para o avaliador dar as notas (Avaliacao\InscricoesDoAvaliadorController@show). */
+export interface AvaliacaoInscricaoProps extends InscricaoCompletaProps {
+    criterios: CriterioDaAvaliacao[];
+    /** Notas gravadas pelo id do critério, com vírgula decimal. */
+    notas: Record<number, string>;
+    observacao: string | null;
+    situacaoRotulo: string;
+    /** Com vírgula decimal; só na concluída. */
+    notaFinal: string | null;
+    /** Não concluída e dentro do período de avaliação. */
+    podeAvaliar: boolean;
+    /** Por que está só para consulta (concluída, fora do período ou sem ele); nulo quando pode avaliar. */
+    aviso: string | null;
+}
+
 /** Marcação do gestor sobre um item conferido (App\Support\Inscricao\ConferenciaDaInscricao); `em` em "d/m/Y H:i". */
 export interface MarcacaoConferida {
     situacao: 'ok' | 'problema';
