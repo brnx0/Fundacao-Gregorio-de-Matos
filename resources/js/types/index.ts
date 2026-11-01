@@ -1056,6 +1056,12 @@ export interface RetaguardaEditaisFormProps {
     documentosTravados: boolean;
     /** Motivo da trava, mostrado na aba Documentos. */
     avisoDocumentosTravados: string;
+    /** O edital já tem nota dada: critério salvo não muda peso, pontuação máxima nem categorias, e nada entra ou sai. */
+    criteriosTravados: boolean;
+    /** Motivo da trava, mostrado na aba Avaliação. */
+    avisoCriteriosTravados: string;
+    /** Motivo da trava das categorias salvas (não são removidas), mostrado na aba Categorias. */
+    avisoCategoriasTravadas: string;
     /** Importação por IA que gerou o edital, enquanto não foi conferida (só para ler, nunca vem). */
     importacao: ImportacaoDoEdital | null;
     /** Aberto pelo ícone Visualizar da lista: o mesmo formulário, só para ler (nada se edita nem se salva). */

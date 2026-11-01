@@ -39,8 +39,10 @@ const props = withDefaults(
         somenteLeitura?: boolean;
         /** Só os itens ainda não salvos (sem id) têm "Remover"; adicionar e mover continuam valendo. */
         removerSoNovos?: boolean;
+        /** Sem "Adicionar"; mover e remover continuam valendo. */
+        semAdicionar?: boolean;
     }>(),
-    { feminino: false, resumo: undefined, contaNoSelo: undefined, nivel: 3, somenteLeitura: false, removerSoNovos: false },
+    { feminino: false, resumo: undefined, contaNoSelo: undefined, nivel: 3, somenteLeitura: false, removerSoNovos: false, semAdicionar: false },
 );
 
 const emit = defineEmits<{
@@ -221,7 +223,7 @@ const removeBloqueado = (item: T): boolean => props.removerSoNovos && (item as {
             </li>
         </ol>
 
-        <div v-if="!semEdicao" class="flex flex-col items-start gap-2">
+        <div v-if="!semEdicao && !semAdicionar" class="flex flex-col items-start gap-2">
             <button
                 ref="botaoAdicionar"
                 type="button"

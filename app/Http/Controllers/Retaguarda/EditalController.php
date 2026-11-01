@@ -117,6 +117,9 @@ class EditalController extends Controller
             'pendencias' => [],
             'documentosTravados' => false,
             'avisoDocumentosTravados' => Edital::AVISO_DOCUMENTOS_TRAVADOS,
+            'criteriosTravados' => false,
+            'avisoCriteriosTravados' => Edital::AVISO_CRITERIOS_TRAVADOS,
+            'avisoCategoriasTravadas' => Edital::AVISO_CATEGORIAS_TRAVADAS,
             'importacao' => null,
             'somenteLeitura' => false,
             ...$this->opcoesDoFormulario(),
@@ -238,6 +241,9 @@ class EditalController extends Controller
             'pendencias' => $edital->pendenciasParaPublicar(),
             'documentosTravados' => $edital->documentosTravados(),
             'avisoDocumentosTravados' => Edital::AVISO_DOCUMENTOS_TRAVADOS,
+            'criteriosTravados' => $edital->avaliacaoIniciada(),
+            'avisoCriteriosTravados' => Edital::AVISO_CRITERIOS_TRAVADOS,
+            'avisoCategoriasTravadas' => Edital::AVISO_CATEGORIAS_TRAVADAS,
             // Conferir a importação é de quem edita: só para ler, o quadro não aparece.
             'importacao' => $somenteLeitura ? null : $this->importacaoNaoConferida($edital),
             'somenteLeitura' => $somenteLeitura,
@@ -343,11 +349,24 @@ class EditalController extends Controller
                     throw new RuntimeException('Não foi possível salvar o edital.');
                 }
 
-                // Uma inscrição pode ter sido decidida depois da validação do envio: confere de novo, com o edital travado.
+                // Uma inscrição pode ter sido decidida, ou a primeira nota dada, depois da validação do envio: confere de
+                // novo, com o edital travado.
                 if ($request->comListas()) {
                     Edital::query()->whereKey($edital->getKey())->lockForUpdate()->first();
+                    $travas = [];
                     if ($edital->documentosTravados() && $request->removeDocumentoSalvo($edital)) {
-                        throw ValidationException::withMessages(['documentos' => Edital::AVISO_DOCUMENTOS_TRAVADOS]);
+                        $travas['documentos'] = Edital::AVISO_DOCUMENTOS_TRAVADOS;
+                    }
+                    if ($edital->avaliacaoIniciada()) {
+                        if ($request->mudaCriterioSalvo($edital)) {
+                            $travas['criterios'] = Edital::AVISO_CRITERIOS_TRAVADOS;
+                        }
+                        if ($request->removeCategoriaSalva($edital)) {
+                            $travas['categorias'] = Edital::AVISO_CATEGORIAS_TRAVADAS;
+                        }
+                    }
+                    if ($travas !== []) {
+                        throw ValidationException::withMessages($travas);
                     }
 
                     $sincronizador->sincronizar($edital, $request->listasDoEdital());

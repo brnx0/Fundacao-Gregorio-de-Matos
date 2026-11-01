@@ -11,6 +11,8 @@ use App\Enums\NaturezaProponente;
 use App\Enums\TipoEdital;
 use App\Http\Requests\Retaguarda\Concerns\MensagensDosCampos;
 use App\Models\Edital;
+use App\Models\EditalCategoria;
+use App\Models\EditalCriterio;
 use App\Rules\TamanhoEmBytes;
 use App\Support\Edital\SincronizadorDoEdital;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -275,6 +277,20 @@ class SalvarEditalRequest extends FormRequest
                 }
             },
             function (Validator $validator): void {
+                $edital = $this->route('edital');
+
+                if (! $edital instanceof Edital || ! $this->comListas() || ! $edital->avaliacaoIniciada()) {
+                    return;
+                }
+
+                if ($this->mudaCriterioSalvo($edital)) {
+                    $validator->errors()->add('criterios', Edital::AVISO_CRITERIOS_TRAVADOS);
+                }
+                if ($this->removeCategoriaSalva($edital)) {
+                    $validator->errors()->add('categorias', Edital::AVISO_CATEGORIAS_TRAVADAS);
+                }
+            },
+            function (Validator $validator): void {
                 if (! $this->boolean('publicado')) {
                     return;
                 }
@@ -335,22 +351,107 @@ class SalvarEditalRequest extends FormRequest
     /** Com as listas no envio, algum documento já salvo do edital ficou de fora de `documentos.*.id` (seria apagado). */
     public function removeDocumentoSalvo(Edital $edital): bool
     {
+        return $this->comListas() && $this->removeSalvo('documentos', $edital->documentos()->pluck('id')->all());
+    }
+
+    /** Com as listas no envio, alguma categoria já salva do edital ficou de fora de `categorias.*.id` (seria apagada). */
+    public function removeCategoriaSalva(Edital $edital): bool
+    {
+        return $this->comListas() && $this->removeSalvo('categorias', $edital->categorias()->pluck('id')->all());
+    }
+
+    /**
+     * Com as listas no envio, os critérios mudam no que pesa na nota: critério salvo removido, critério novo, ou, num
+     * critério salvo, peso, pontuação máxima, "todas as categorias" ou o conjunto de categorias (categoria nova conta).
+     * Nome, descrição e ordem podem mudar.
+     */
+    public function mudaCriterioSalvo(Edital $edital): bool
+    {
         if (! $this->comListas()) {
             return false;
         }
 
+        $salvos = $edital->criterios()->with('categorias')->get()->keyBy(fn (EditalCriterio $criterio): int => (int) $criterio->id);
+        $enviados = array_values((array) $this->input('criterios', []));
+
+        if (count($enviados) !== $salvos->count()) {
+            return true;
+        }
+
+        foreach ($enviados as $enviado) {
+            $id = is_array($enviado) && is_numeric($enviado['id'] ?? null) ? (int) $enviado['id'] : null;
+            $salvo = $id !== null ? $salvos->pull($id) : null;
+
+            if ($salvo === null || $this->mudaCriterio($salvo, $enviado)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $enviado
+     */
+    private function mudaCriterio(EditalCriterio $salvo, array $enviado): bool
+    {
+        $todasCategorias = filter_var($enviado['todas_categorias'] ?? true, FILTER_VALIDATE_BOOL);
+
+        if (! self::mesmoNumero($enviado['peso'] ?? null, $salvo->peso)
+            || ! self::mesmoNumero($enviado['pontos_maximos'] ?? null, $salvo->pontos_maximos)
+            || $todasCategorias !== $salvo->todas_categorias) {
+            return true;
+        }
+
+        if ($todasCategorias) {
+            return false;
+        }
+
+        // Posição enviada → id da categoria nessa posição; categoria nova (sem id) conta como mudança.
+        $enviadas = [];
+        foreach ((array) ($enviado['categorias'] ?? []) as $posicao) {
+            $id = is_numeric($posicao) ? $this->input('categorias.'.(int) $posicao.'.id') : null;
+            if (! is_numeric($id)) {
+                return true;
+            }
+            $enviadas[] = (int) $id;
+        }
+
+        $salvas = $salvo->categorias->map(fn (EditalCategoria $categoria): int => (int) $categoria->id)->all();
+        $enviadas = array_values(array_unique($enviadas));
+        sort($enviadas);
+        sort($salvas);
+
+        return $enviadas !== $salvas;
+    }
+
+    /**
+     * Algum id salvo ficou de fora de `{lista}.*.id`.
+     *
+     * @param  array<mixed>  $idsSalvos
+     */
+    private function removeSalvo(string $lista, array $idsSalvos): bool
+    {
         $enviados = array_map(intval(...), array_filter(
-            (array) $this->input('documentos.*.id', []),
+            (array) $this->input("{$lista}.*.id", []),
             fn (mixed $id): bool => is_numeric($id),
         ));
 
-        foreach ($edital->documentos()->pluck('id') as $id) {
+        foreach ($idsSalvos as $id) {
             if (! in_array((int) $id, $enviados, true)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** Números iguais com 2 casas; vazio só é igual a vazio. */
+    private static function mesmoNumero(mixed $enviado, mixed $salvo): bool
+    {
+        $normalizar = fn (mixed $valor): ?string => is_numeric($valor) ? number_format((float) $valor, 2, '.', '') : null;
+
+        return $normalizar($enviado) === $normalizar($salvo);
     }
 
     /**

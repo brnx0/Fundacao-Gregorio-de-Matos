@@ -1,20 +1,31 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import CampoCadastro from '../../CampoCadastro.vue';
 import ListaEditavel from './ListaEditavel.vue';
 import { OPCOES_SIM_NAO, classeCaixa, classeCampo, classeDica, classeMarcacao, classeTexto, decimal, novaChave } from '../listaEditavel';
 import type { CategoriaEditavel, CriterioEditavel, GrupoPontuacaoEditavel, PontuacaoExtraEditavel } from '../../../types';
 
-defineProps<{
+const props = defineProps<{
     /** Erros do useForm: "criterios.N.campo" e "pontuacao_extra.*". */
     erros: Partial<Record<string, string>>;
     /** Categorias atuais da aba Categorias, na ordem em que estão. */
     categorias: CategoriaEditavel[];
+    /** Edital com nota dada: nenhum critério entra ou sai, e os salvos não mudam peso, pontos nem categorias. */
+    travados: boolean;
+    /** Motivo da trava, mostrado acima da lista. */
+    avisoTravados: string;
 }>();
 
 const emit = defineEmits<{ limparErros: [campos: string[]] }>();
 
 const criterios = defineModel<CriterioEditavel[]>({ required: true });
 const pontuacao = defineModel<PontuacaoExtraEditavel>('pontuacao', { required: true });
+
+// O aviso da trava já aparece acima da lista; a lista só mostra outro erro geral.
+const errosDaLista = computed<Partial<Record<string, string>>>(() => (props.travados && props.erros.criterios === props.avisoTravados ? { ...props.erros, criterios: undefined } : props.erros));
+
+/** Critério já salvo num edital travado: peso, pontos e categorias só para ler. */
+const fixo = (criterio: CriterioEditavel): boolean => props.travados && criterio.id != null;
 
 const CAMPOS_VISIVEIS = /^(nome|descricao|peso|pontos_maximos|todas_categorias|categorias)(\.|$)/;
 
@@ -39,11 +50,18 @@ const limparPontuacao = (campo: string): void => emit('limparErros', [`pontuacao
     <div class="flex flex-col gap-8">
         <div class="flex flex-col gap-3">
             <h3 class="text-[1.125rem] font-bold">Critérios</h3>
+            <div v-if="travados" role="note" class="flex items-start gap-3 rounded-[16px] border border-aviso-texto/30 bg-aviso-fundo p-4 text-aviso-texto">
+                <svg aria-hidden="true" viewBox="0 0 24 24" class="mt-0.5 size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="11" width="14" height="10" rx="2" />
+                    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                </svg>
+                <p class="text-[0.9375rem] leading-[1.6] font-semibold">{{ avisoTravados }}</p>
+            </div>
             <ListaEditavel
                 v-model="criterios"
                 id="criterio"
                 prefixo="criterios"
-                :erros="erros"
+                :erros="errosDaLista"
                 singular="critério"
                 plural="critérios"
                 vazio="Nenhum critério de avaliação cadastrado."
@@ -53,6 +71,8 @@ const limparPontuacao = (campo: string): void => emit('limparErros', [`pontuacao
                 :resumo="resumo"
                 :conta-no-selo="(campo) => CAMPOS_VISIVEIS.test(campo)"
                 :nivel="4"
+                :remover-so-novos="travados"
+                :sem-adicionar="travados"
                 @limpar-erros="emit('limparErros', $event)"
             >
                 <template #default="{ item: criterio, idCampo, erro, erroDaLista, limpar, limparLista }">
@@ -92,7 +112,8 @@ const limparPontuacao = (campo: string): void => emit('limparErros', [`pontuacao
                                 type="text"
                                 inputmode="decimal"
                                 autocomplete="off"
-                                :class="[classeCampo, 'tabular-nums']"
+                                :readonly="fixo(criterio)"
+                                :class="[classeCampo, 'tabular-nums read-only:bg-nevoa']"
                                 :aria-invalid="invalido || undefined"
                                 :aria-describedby="descricao"
                                 @input="
@@ -109,7 +130,8 @@ const limparPontuacao = (campo: string): void => emit('limparErros', [`pontuacao
                                 type="text"
                                 inputmode="decimal"
                                 autocomplete="off"
-                                :class="[classeCampo, 'tabular-nums']"
+                                :readonly="fixo(criterio)"
+                                :class="[classeCampo, 'tabular-nums read-only:bg-nevoa']"
                                 :aria-invalid="invalido || undefined"
                                 :aria-describedby="descricao"
                                 @input="
@@ -130,6 +152,7 @@ const limparPontuacao = (campo: string): void => emit('limparErros', [`pontuacao
                                     type="radio"
                                     :name="idCampo('todas')"
                                     :checked="criterio.todas_categorias"
+                                    :disabled="fixo(criterio)"
                                     :class="classeCaixa"
                                     @change="escolherTodas(criterio, true, limparLista)"
                                 />
@@ -140,6 +163,7 @@ const limparPontuacao = (campo: string): void => emit('limparErros', [`pontuacao
                                     type="radio"
                                     :name="idCampo('todas')"
                                     :checked="!criterio.todas_categorias"
+                                    :disabled="fixo(criterio)"
                                     :class="classeCaixa"
                                     @change="escolherTodas(criterio, false, limparLista)"
                                 />
@@ -154,6 +178,7 @@ const limparPontuacao = (campo: string): void => emit('limparErros', [`pontuacao
                                     type="checkbox"
                                     :value="categoria.chave"
                                     :required="criterio.categorias.length === 0"
+                                    :disabled="fixo(criterio)"
                                     :class="classeCaixa"
                                     :aria-invalid="erroDaLista('categorias') ? true : undefined"
                                     @change="limparLista('categorias')"

@@ -725,6 +725,8 @@ const urlDoQuestionario = salvo && salvo.categorias.length > 0 ? `${BASE}/${salv
                             :erros="erros"
                             :naturezas="naturezas"
                             :chamadas="form.chamadas"
+                            :travadas="criteriosTravados"
+                            :aviso-travadas="avisoCategoriasTravadas"
                             @limpar-erros="limparErros"
                         />
 
@@ -796,6 +798,8 @@ const urlDoQuestionario = salvo && salvo.categorias.length > 0 ? `${BASE}/${salv
                                 v-model:pontuacao="form.pontuacao_extra"
                                 :erros="erros"
                                 :categorias="form.categorias"
+                                :travados="criteriosTravados"
+                                :aviso-travados="avisoCriteriosTravados"
                                 @limpar-erros="limparErros"
                             />
                         </div>
