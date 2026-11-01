@@ -299,6 +299,13 @@ class AvaliacaoAvaliadoresTest extends TestCase
         $vinculo = $this->vinculo($edital, $avaliador);
         $outro = $this->vinculo($this->editalEmAvaliacao(), $avaliador);
         $deOutroAvaliador = $this->vinculo($edital);
+        // Edital despublicado e edital apagado: ficam fora do e-mail.
+        $naoPublicado = $this->editalEmAvaliacao();
+        $doNaoPublicado = $this->vinculo($naoPublicado, $avaliador);
+        $naoPublicado->update(['publicado' => false]);
+        $apagado = $this->editalEmAvaliacao();
+        $doApagado = $this->vinculo($apagado, $avaliador);
+        $apagado->delete();
 
         $this->post($this->aba($edital)."/{$vinculo->id}/novo-link")
             ->assertRedirect()
@@ -312,6 +319,8 @@ class AvaliacaoAvaliadoresTest extends TestCase
         $this->assertSame(SituacaoConvite::NaFila, $outro->convite_situacao);
         $this->assertSame($vinculo->convite_execucao, $outro->convite_execucao);
         $this->assertNull($deOutroAvaliador->fresh()->convite_situacao);
+        $this->assertNull($doNaoPublicado->fresh()->convite_situacao);
+        $this->assertNull(EditalAvaliador::query()->whereKey($doApagado->id)->value('convite_situacao'));
         $this->assertSame([['avaliador' => (int) $avaliador->id, 'execucao' => $vinculo->convite_execucao]], $this->lancador->chamadas);
     }
 

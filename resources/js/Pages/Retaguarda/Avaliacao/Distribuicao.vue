@@ -7,7 +7,7 @@ import PainelLista from '../../../Components/Retaguarda/PainelLista.vue';
 import { classeCaixa, classeMarcacao } from '../../../Components/Retaguarda/listaEditavel';
 import { Head, Link, router } from '@inertiajs/vue3';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
-import type { AvaliadorParaTransferir, LinhaDaDistribuicao, ModoDistribuicao, RetaguardaAvaliacaoDistribuicaoProps } from '../../../types';
+import type { LinhaDaDistribuicao, ModoDistribuicao, RetaguardaAvaliacaoDistribuicaoProps } from '../../../types';
 
 defineOptions({ layout: RetaguardaLayout });
 
@@ -73,11 +73,6 @@ const distribuir = (): void => {
 
 const plural = (quantidade: number, singular: string, varios: string): string => `${quantidade} ${quantidade === 1 ? singular : varios}`;
 
-// Transferir todas: saem de qualquer avaliador do edital com inscrições (ativo ou desativado), vão para um ativo.
-const origens = computed<AvaliadorParaTransferir[]>(() =>
-    [...props.destinos, ...props.desativados.map(({ avaliadorId, nome }) => ({ avaliadorId, nome }))].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
-);
-
 // Avaliador de cada inscrição: a escolha fica na linha até gravar; concluída não muda de avaliador.
 const escolhas = reactive<Record<number, number | ''>>({});
 const erroDaLinha = reactive<Record<number, string | undefined>>({});
@@ -125,8 +120,11 @@ const enviarAtribuicao = (linha: LinhaDaDistribuicao): void => {
 const dialogoConfirmacao = ref<HTMLDialogElement | null>(null);
 const paraConfirmar = ref<LinhaDaDistribuicao | null>(null);
 
+// Com pendência (como no "Distribuir"), ninguém recebe inscrição: o servidor também recusa.
+const podeAtribuir = computed<boolean>(() => props.pendencias.length === 0);
+
 const atribuir = (linha: LinhaDaDistribuicao): void => {
-    if (!mudou(linha) || gravandoLinha.value !== null) return;
+    if (!podeAtribuir.value || !mudou(linha) || gravandoLinha.value !== null) return;
 
     if (linha.situacao === 'em_andamento') {
         paraConfirmar.value = linha;
@@ -175,6 +173,7 @@ const classeCancelar =
             <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 text-[0.9375rem] leading-[1.5]">
                 <li v-for="pendencia in pendencias" :key="pendencia">{{ pendencia }}</li>
             </ul>
+            <p class="mt-2 text-[0.9375rem] leading-[1.5]">Enquanto isso, as inscrições não podem ser distribuídas nem atribuídas a um avaliador.</p>
         </div>
 
         <div
@@ -277,7 +276,7 @@ const classeCancelar =
                 <td class="min-w-56 font-semibold">{{ inscricao.proponente }}</td>
                 <td class="min-w-40">{{ inscricao.categoria ?? '—' }}</td>
                 <td class="min-w-64">
-                    <span v-if="inscricao.situacao === 'concluida'">{{ inscricao.avaliador }}</span>
+                    <span v-if="inscricao.situacao === 'concluida' || !podeAtribuir">{{ inscricao.avaliador ?? '—' }}</span>
                     <div v-else class="flex flex-col gap-1">
                         <div class="flex items-center gap-2">
                             <label :for="`avaliador-${inscricao.id}`" class="sr-only">Avaliador da inscrição {{ inscricao.numero }}</label>

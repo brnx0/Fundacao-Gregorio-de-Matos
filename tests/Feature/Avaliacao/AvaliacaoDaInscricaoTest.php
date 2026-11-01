@@ -323,6 +323,23 @@ class AvaliacaoDaInscricaoTest extends TestCase
         $avaliacao = InscricaoAvaliacao::query()->sole();
         $this->assertNull($avaliacao->concluida_em);
         $this->assertNull($avaliacao->nota_final);
+        // A nota enviada fica como rascunho.
+        $this->assertSame([(int) $this->merito->id => '8.00'], $this->notasGravadas($inscricao));
+    }
+
+    public function test_criterio_sem_pontuacao_maxima_nao_recebe_nota(): void
+    {
+        $this->viabilidade->update(['pontos_maximos' => null]);
+        $inscricao = $this->inscricaoDaAna();
+
+        $this->get("/avaliacao/inscricoes/{$inscricao->id}")->assertInertia(fn (Assert $p) => $p
+            ->where('criterios.1.id', (int) $this->viabilidade->id)
+            ->where('criterios.1.pontosMaximos', null));
+
+        $this->put("/avaliacao/inscricoes/{$inscricao->id}/notas", $this->dados([$this->merito->id => '8', $this->viabilidade->id => '0']))
+            ->assertSessionHasErrors(["notas.{$this->viabilidade->id}" => SalvarNotasRequest::ERRO_SEM_PONTUACAO]);
+
+        $this->assertSame([], $this->notasGravadas($inscricao));
     }
 
     public function test_concluir_grava_nota_final_e_trava(): void

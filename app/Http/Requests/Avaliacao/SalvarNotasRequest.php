@@ -25,6 +25,8 @@ class SalvarNotasRequest extends FormRequest
 
     public const string ERRO_MAXIMO = 'A nota de ":nome" vai de 0 a :maximo.';
 
+    public const string ERRO_SEM_PONTUACAO = 'Este critério está sem pontuação máxima. Avise a equipe da FGM.';
+
     public function authorize(): bool
     {
         InscricoesDoAvaliadorController::avaliacaoDoAvaliador($this, $this->inscricao());
@@ -92,7 +94,8 @@ class SalvarNotasRequest extends FormRequest
 
     /**
      * O que está errado nas notas diante dos critérios que valem: id de critério que não vale (no campo `notas`) e nota
-     * acima da pontuação máxima (no campo da nota). O controller confere de novo com o edital travado.
+     * acima da pontuação máxima ou em critério ainda sem ela (no campo da nota). O controller confere de novo com o
+     * edital travado.
      *
      * @param  Collection<int, EditalCriterio>  $criterios
      * @param  array<int|string, mixed>  $notas
@@ -118,10 +121,12 @@ class SalvarNotasRequest extends FormRequest
 
             $maximo = $criterio->pontos_maximos;
 
-            if ($maximo === null || self::centesimos((string) $nota) > self::centesimos((string) $maximo)) {
+            if ($maximo === null) {
+                $erros["notas.{$id}"] = self::ERRO_SEM_PONTUACAO;
+            } elseif (self::centesimos((string) $nota) > self::centesimos((string) $maximo)) {
                 $erros["notas.{$id}"] = strtr(self::ERRO_MAXIMO, [
                     ':nome' => $criterio->nome,
-                    ':maximo' => InscricoesDoAvaliadorController::numero($maximo ?? '0'),
+                    ':maximo' => InscricoesDoAvaliadorController::numero($maximo),
                 ]);
             }
         }

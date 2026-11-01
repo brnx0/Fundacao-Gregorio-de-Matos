@@ -1291,6 +1291,11 @@ export interface AvaliadorParaTransferir {
     nome: string;
 }
 
+/** Avaliador de quem as inscrições podem sair, com quantas do edital ainda não foram concluídas (vão na transferência). */
+export interface OrigemDaTransferencia extends AvaliadorParaTransferir {
+    naoConcluidas: number;
+}
+
 /** Inscrição homologada na aba Distribuição (Retaguarda\DistribuicaoController@index). */
 export interface LinhaDaDistribuicao {
     id: number;
@@ -1324,7 +1329,9 @@ export interface RetaguardaAvaliacaoDistribuicaoProps {
     /** Avaliadores ativos do edital, pelo nome: para onde uma inscrição pode ir. */
     destinos: AvaliadorParaTransferir[];
     /** Avaliadores desativados do edital com inscrições não concluídas, pelo nome: precisam ser transferidas. */
-    desativados: (AvaliadorParaTransferir & { naoConcluidas: number })[];
+    desativados: OrigemDaTransferencia[];
+    /** De quem o "Transferir todas" pode tirar: os ativos e os desativados com inscrições não concluídas, pelo nome. */
+    origens: OrigemDaTransferencia[];
 }
 
 /** Inscrição homologada na aba Notas (Retaguarda\NotasDaAvaliacaoController@index); a nota final só vem da avaliação concluída. */

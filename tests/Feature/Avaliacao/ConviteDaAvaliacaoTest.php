@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Avaliacao;
 
+use App\Console\Commands\EnviarConviteCommand;
 use App\Enums\SituacaoConvite;
 use App\Mail\ConviteDaAvaliacao;
 use App\Models\Avaliador;
@@ -172,6 +173,28 @@ class ConviteDaAvaliacaoTest extends TestCase
         Mail::assertNothingSent();
         $vinculo->refresh();
         $this->assertSame(SituacaoConvite::NaFila, $vinculo->convite_situacao);
+        $this->assertNull($vinculo->convite_enviado_em);
+    }
+
+    public function test_avaliador_desativado_na_fila_nao_recebe(): void
+    {
+        Mail::fake();
+        $avaliador = Avaliador::factory()->create();
+        $avaliador->novoAcesso();
+        $vinculo = $this->vinculo($avaliador, 'Edital Um');
+        $vinculo->update([
+            'convite_situacao' => SituacaoConvite::NaFila,
+            'convite_iniciado_em' => now(),
+            'convite_execucao' => 'execucao-atual',
+        ]);
+        $avaliador->update(['ativo' => false]);
+
+        Artisan::call('avaliacao:enviar-convite', ['avaliador' => $avaliador->id, 'execucao' => 'execucao-atual']);
+
+        Mail::assertNothingSent();
+        $vinculo->refresh();
+        $this->assertSame(SituacaoConvite::Falhou, $vinculo->convite_situacao);
+        $this->assertSame(EnviarConviteCommand::DESATIVADO, $vinculo->convite_erro);
         $this->assertNull($vinculo->convite_enviado_em);
     }
 }

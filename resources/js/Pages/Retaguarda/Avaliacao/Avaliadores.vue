@@ -213,7 +213,7 @@ const classeCancelar =
                             <TransferirInscricoes
                                 :id="`transferir-${avaliador.id}`"
                                 :edital="edital.slug"
-                                :de="{ avaliadorId: avaliador.avaliadorId, nome: avaliador.nome }"
+                                :de="{ avaliadorId: avaliador.avaliadorId, nome: avaliador.nome, naoConcluidas: avaliador.naoConcluidas }"
                                 :destinos="destinos"
                                 empilhado
                             />

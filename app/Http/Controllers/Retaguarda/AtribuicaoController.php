@@ -31,7 +31,10 @@ class AtribuicaoController extends Controller
 
     public const string ERRO_JA_CONCLUIDA = 'Esta avaliação já foi concluída e não pode ser transferida.';
 
-    /** Dá a inscrição ao avaliador escolhido: cria a avaliação ou a transfere (se não estiver concluída). */
+    /**
+     * Dá a inscrição ao avaliador escolhido: cria a avaliação ou a transfere (se não estiver concluída). Com pendência
+     * da distribuição, nada muda.
+     */
     public function atribuir(AtribuirRequest $request, Edital $edital, Inscricao $inscricao): RedirectResponse
     {
         abort_unless($edital->publicado && (int) $inscricao->edital_id === (int) $edital->id && $this->homologada($inscricao), 404);
@@ -43,6 +46,12 @@ class AtribuicaoController extends Controller
             Travas::edital($edital);
             $travada = Travas::inscricao($inscricao);
             abort_unless($this->publicado($edital) && $this->homologada($travada), 404);
+
+            // Como na distribuição: com pendência (critério sem pontuação máxima, por exemplo) ninguém recebe inscrição.
+            $pendencias = $edital->pendenciasDaDistribuicao();
+            if ($pendencias !== []) {
+                return ['erro', $pendencias[0]];
+            }
 
             $nome = $this->nomeDoDestino($edital, $destino, 'avaliador_id');
             $avaliacao = InscricaoAvaliacao::query()->where('inscricao_id', $travada->id)->with('avaliador:id,nome')->first();

@@ -24,9 +24,12 @@ class AcessoDoAvaliadorTest extends TestCase
         $this->get("/avaliacao/acesso/{$codigo}")
             ->assertOk()
             ->assertInertia(fn (Assert $p) => $p->component('Avaliacao/Acesso')->where('avaliador', null));
+        $sessaoAntes = session()->getId();
 
         $this->post("/avaliacao/acesso/{$codigo}", ['cpf' => $avaliador->cpf])
             ->assertRedirect('/avaliacao');
+        // Sessão nova ao entrar (contra fixação de sessão).
+        $this->assertNotSame($sessaoAntes, session()->getId());
 
         $this->get('/avaliacao')
             ->assertOk()
@@ -145,8 +148,7 @@ class AcessoDoAvaliadorTest extends TestCase
                 ->assertSessionHasErrors(['cpf' => AcessoDoAvaliadorController::ERRO_CPF]);
         }
 
-        $this->withHeader('referer', url("/avaliacao/acesso/{$codigo}"))
-            ->post("/avaliacao/acesso/{$codigo}", ['cpf' => $avaliador->cpf])
+        $this->post("/avaliacao/acesso/{$codigo}", ['cpf' => $avaliador->cpf])
             ->assertRedirect("/avaliacao/acesso/{$codigo}")
             ->assertSessionHasErrors(['cpf' => 'Muitas tentativas. Aguarde um minuto e tente novamente.']);
 

@@ -193,7 +193,7 @@ class AvaliadoresDaAvaliacaoController extends Controller
 
     /**
      * Gera um link novo para o avaliador (o antigo e as sessões abertas com ele deixam de valer) e o envia num convite
-     * com todos os editais dele.
+     * com os editais publicados dele.
      */
     public function novoLink(Edital $edital, EditalAvaliador $vinculo): RedirectResponse
     {
@@ -205,7 +205,14 @@ class AvaliadoresDaAvaliacaoController extends Controller
         }
 
         $avaliador->novoAcesso();
-        Convites::enviar($avaliador, $avaliador->vinculos()->orderBy('id')->get());
+
+        // Só os editais publicados (e não apagados) vão no e-mail.
+        $vinculos = $avaliador->vinculos()->whereHas('edital', fn (Builder $q) => $q->where('publicado', true))->orderBy('id')->get();
+        if ($vinculos->isEmpty()) {
+            return back()->with('sucesso', 'Link novo gerado. O link antigo deixou de valer.');
+        }
+
+        Convites::enviar($avaliador, $vinculos);
 
         return back()->with('sucesso', "Link novo gerado e enviado para {$avaliador->email}. O link antigo deixou de valer.");
     }

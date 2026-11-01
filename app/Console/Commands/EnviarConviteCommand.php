@@ -31,6 +31,8 @@ class EnviarConviteCommand extends Command
 {
     private const string SUPERADA = 'O convite não está mais nesta execução; nada foi enviado.';
 
+    public const string DESATIVADO = 'O avaliador está desativado.';
+
     public function handle(): int
     {
         $execucao = (string) $this->argument('execucao');
@@ -39,6 +41,13 @@ class EnviarConviteCommand extends Command
 
         if ($avaliador === null || $vinculos->isEmpty()) {
             $this->error(self::SUPERADA);
+
+            return self::FAILURE;
+        }
+
+        // Desativado depois de o convite entrar na fila: o link não abriria.
+        if (! $avaliador->ativo) {
+            $this->marcarFalhou($avaliador, $execucao, self::DESATIVADO);
 
             return self::FAILURE;
         }

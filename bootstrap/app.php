@@ -73,8 +73,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 return back()->withErrors(['email' => $mensagem]);
             }
 
+            // A página de acesso não fica como endereço anterior (leva o código): volta para a própria URL.
             if ($request->routeIs('avaliacao.acesso.confirmar')) {
-                return back()->withErrors(['cpf' => $mensagem]);
+                return redirect($request->url())->withErrors(['cpf' => $mensagem]);
             }
 
             if ($request->routeIs('retaguarda.senha.update')) {

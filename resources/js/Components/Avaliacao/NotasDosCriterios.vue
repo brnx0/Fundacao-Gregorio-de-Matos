@@ -20,6 +20,7 @@ const props = defineProps<{
 // Mesmos limites e mensagens do servidor (SalvarNotasRequest, InscricoesDoAvaliadorController).
 const LIMITE_DA_OBSERVACAO = 4000;
 const ERRO_SEM_NOTA = 'Dê nota a este critério para concluir.';
+const SEM_PONTUACAO = 'Este critério está sem pontuação máxima. Avise a equipe da FGM.';
 const CONFIRMACAO = 'Depois de concluir, as notas não podem mais ser alteradas.';
 const FORMULARIO = '#formulario-notas';
 
@@ -40,6 +41,9 @@ const passouDoLimite = computed<boolean>(() => usados.value > LIMITE_DA_OBSERVAC
 const numero = (valor: number): string => valor.toLocaleString('pt-BR');
 
 const idDaNota = (criterioId: number): string => `nota-${criterioId}`;
+
+// Critério sem pontuação máxima não recebe nota (o servidor recusa): sem ele preenchido, não dá para concluir.
+const semPontuacao = computed<boolean>(() => props.criterios.some((criterio) => criterio.pontosMaximos === null));
 
 const ajudaDoCriterio = (criterio: CriterioDaAvaliacao): string =>
     [criterio.pontosMaximos === null ? null : `De 0 a ${criterio.pontosMaximos}`, `peso ${criterio.peso}`].filter(Boolean).join(' · ');
@@ -121,7 +125,14 @@ const classeCancelar =
             <ul class="flex flex-col gap-4">
                 <li v-for="criterio in criterios" :key="criterio.id" class="flex flex-col gap-3 rounded-[16px] border border-hairline p-5">
                     <p v-if="criterio.descricao" class="text-[0.9375rem] leading-[1.6] break-words text-tinta-suave">{{ criterio.descricao }}</p>
+                    <div v-if="criterio.pontosMaximos === null" class="flex flex-col gap-1.5">
+                        <p class="text-[0.9375rem] font-semibold break-words">{{ criterio.nome }}</p>
+                        <p role="note" class="rounded-[12px] border border-aviso-texto/30 bg-aviso-fundo px-4 py-3 text-[0.9375rem] font-semibold text-aviso-texto">
+                            {{ SEM_PONTUACAO }}
+                        </p>
+                    </div>
                     <CampoCadastro
+                        v-else
                         :id="idDaNota(criterio.id)"
                         :rotulo="criterio.nome"
                         obrigatorio
@@ -163,7 +174,12 @@ const classeCancelar =
                 <button type="submit" :disabled="form.processing" class="botao-secundario disabled:cursor-wait">
                     {{ form.processing ? 'Salvando…' : 'Salvar rascunho' }}
                 </button>
-                <button type="button" :disabled="form.processing || criterios.length === 0" class="botao-primario disabled:cursor-not-allowed!" @click="confirmarConclusao">
+                <button
+                    type="button"
+                    :disabled="form.processing || criterios.length === 0 || semPontuacao"
+                    class="botao-primario disabled:cursor-not-allowed!"
+                    @click="confirmarConclusao"
+                >
                     Concluir avaliação
                 </button>
             </div>

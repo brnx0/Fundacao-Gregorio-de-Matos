@@ -114,6 +114,26 @@ class AvaliacaoAtribuicaoTest extends TestCase
         $this->assertNull($avaliacao->concluida_em);
     }
 
+    public function test_com_pendencia_nao_atribui(): void
+    {
+        $ana = $this->avaliador('Ana');
+        $bruno = $this->avaliador('Bruno');
+        $semAvaliador = $this->inscricaoHomologada();
+        $comAna = $this->inscricaoHomologada();
+        $this->atribuir($comAna, $ana);
+        EditalCriterio::factory()->for($this->edital)->create(['pontos_maximos' => null]);
+
+        $this->put($this->urlDoAvaliador($semAvaliador), ['avaliador_id' => $ana->id])
+            ->assertRedirect()
+            ->assertSessionHas('erro', Edital::PENDENCIA_CRITERIO_SEM_PONTOS);
+        $this->put($this->urlDoAvaliador($comAna), ['avaliador_id' => $bruno->id])
+            ->assertSessionHas('erro', Edital::PENDENCIA_CRITERIO_SEM_PONTOS);
+
+        $this->assertNull($this->avaliadorDa($semAvaliador));
+        $this->assertSame((int) $ana->id, $this->avaliadorDa($comAna));
+        $this->assertSame(1, InscricaoAvaliacao::query()->count());
+    }
+
     public function test_transfere_e_apaga_o_rascunho(): void
     {
         $this->travelTo('2026-12-16 10:00:00');
@@ -229,7 +249,11 @@ class AvaliacaoAtribuicaoTest extends TestCase
 
         // A aba Distribuição avisa da desativada com inscrições não concluídas.
         $this->get("/retaguarda/avaliacao/editais/{$this->edital->slug}/distribuicao")->assertOk()->assertInertia(fn (Assert $p) => $p
-            ->where('desativados', [['avaliadorId' => (int) $ana->id, 'nome' => 'Ana', 'naoConcluidas' => 2]]));
+            ->where('desativados', [['avaliadorId' => (int) $ana->id, 'nome' => 'Ana', 'naoConcluidas' => 2]])
+            ->where('origens', [
+                ['avaliadorId' => (int) $ana->id, 'nome' => 'Ana', 'naoConcluidas' => 2],
+                ['avaliadorId' => (int) $bruno->id, 'nome' => 'Bruno', 'naoConcluidas' => 0],
+            ]));
 
         $this->post($this->urlDaTransferencia(), ['de' => $ana->id, 'para' => $bruno->id])
             ->assertRedirect()
@@ -246,7 +270,7 @@ class AvaliacaoAtribuicaoTest extends TestCase
         $concluida->refresh();
         $this->assertSame((int) $ana->id, (int) $concluida->avaliador_id);
         $this->assertSame('Projeto consistente.', $concluida->observacao);
-        $this->assertSame(1, $concluida->notas()->count());
+        $this->assertSame(['8.00'], $concluida->notas()->pluck('nota')->all());
         $this->assertSame((int) $ana->id, (int) $deOutroEdital->fresh()->avaliador_id);
 
         $this->get("/retaguarda/avaliacao/editais/{$this->edital->slug}/distribuicao")->assertInertia(fn (Assert $p) => $p->where('desativados', []));

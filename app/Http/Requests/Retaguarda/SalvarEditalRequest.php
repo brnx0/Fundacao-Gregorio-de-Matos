@@ -363,7 +363,8 @@ class SalvarEditalRequest extends FormRequest
     /**
      * Com as listas no envio, os critérios mudam no que pesa na nota: critério salvo removido, critério novo, ou, num
      * critério salvo, peso, pontuação máxima, "todas as categorias" ou o conjunto de categorias (categoria nova conta).
-     * Nome, descrição e ordem podem mudar.
+     * Nome, descrição e ordem podem mudar, e a pontuação máxima ainda em branco pode ser preenchida (critério sem ela
+     * não recebe nota).
      */
     public function mudaCriterioSalvo(Edital $edital): bool
     {
@@ -405,7 +406,7 @@ class SalvarEditalRequest extends FormRequest
         $todasCategorias = filter_var($enviado['todas_categorias'] ?? true, FILTER_VALIDATE_BOOL);
 
         if (! self::mesmoNumero($enviado['peso'] ?? null, $salvo->peso)
-            || ! self::mesmoNumero($enviado['pontos_maximos'] ?? null, $salvo->pontos_maximos)
+            || ($salvo->pontos_maximos !== null && ! self::mesmoNumero($enviado['pontos_maximos'] ?? null, $salvo->pontos_maximos))
             || $todasCategorias !== $salvo->todas_categorias) {
             return true;
         }

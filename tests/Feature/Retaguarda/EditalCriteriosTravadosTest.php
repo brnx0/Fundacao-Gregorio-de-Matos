@@ -171,6 +171,19 @@ class EditalCriteriosTravadosTest extends TestCase
         $this->assertSame(3, $this->edital->categorias()->count());
     }
 
+    public function test_com_nota_preenche_pontuacao_maxima_em_branco(): void
+    {
+        $this->relevancia->update(['pontos_maximos' => null]);
+        $this->darNota($this->edital);
+        $dados = $this->envio();
+        $dados['criterios'][1]['pontos_maximos'] = '10';
+
+        $this->put("/retaguarda/editais/{$this->edital->slug}", $dados)->assertSessionHasNoErrors();
+
+        $this->assertSame('10.00', $this->relevancia->refresh()->pontos_maximos);
+        $this->assertCriteriosIntactos();
+    }
+
     public function test_com_nota_nao_remove_categoria(): void
     {
         $this->darNota($this->edital);
