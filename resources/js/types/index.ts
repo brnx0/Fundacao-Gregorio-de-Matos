@@ -1229,6 +1229,54 @@ export interface RetaguardaHomologacaoEditalProps {
     situacoes: { valor: string; rotulo: string }[];
 }
 
+/** Edital na lista da avaliação (Retaguarda\AvaliacaoController@index), com as inscrições homologadas. */
+export interface EditalDaAvaliacao {
+    id: number;
+    slug: string;
+    titulo: string;
+    /** Período de avaliação de cada chamada ("d/m/Y a d/m/Y", com o nome da chamada quando há mais de uma). */
+    periodos: string[];
+    /** Alguma chamada está hoje no período de avaliação. */
+    emAvaliacao: boolean;
+    homologadas: number;
+    semAvaliador: number;
+    concluidas: number;
+}
+
+export interface RetaguardaAvaliacaoIndexProps {
+    editais: Paginado<EditalDaAvaliacao>;
+    filtros: { busca?: string };
+}
+
+/** App\Enums\SituacaoConvite. */
+export type SituacaoConvite = 'na_fila' | 'enviado' | 'falhou';
+
+/** Avaliador de um edital (Retaguarda\AvaliadoresDaAvaliacaoController@index); `id` é o do vínculo com o edital. */
+export interface AvaliadorDoEdital {
+    id: number;
+    nome: string;
+    email: string;
+    /** Desativado em Cadastro: perde o acesso e não recebe inscrições novas. */
+    ativo: boolean;
+    /** Ids das categorias do edital que ele avalia. */
+    categorias: number[];
+    /** Situação para a tela: "na fila" há mais de 15 minutos já vem como falhou. Tudo nulo sem convite. */
+    convite: { situacao: SituacaoConvite | null; rotulo: string | null; enviadoEm: string | null; erro: string | null };
+    /** Inscrições do edital com ele e, delas, as ainda não concluídas. */
+    inscricoes: number;
+    naoConcluidas: number;
+}
+
+export interface RetaguardaAvaliacaoAvaliadoresProps {
+    edital: { slug: string; titulo: string; temCategorias: boolean; periodos: string[] };
+    avaliadores: AvaliadorDoEdital[];
+    /** Avaliadores ativos do Cadastro ainda fora do edital, com o CPF mascarado. */
+    disponiveis: { id: number; nome: string; cpf: string }[];
+    categorias: { id: number; nome: string }[];
+    /** O que falta para distribuir as inscrições (Edital::pendenciasDaDistribuicao). */
+    pendencias: string[];
+}
+
 /** Marcação do gestor sobre um item conferido (App\Support\Inscricao\ConferenciaDaInscricao); `em` em "d/m/Y H:i". */
 export interface MarcacaoConferida {
     situacao: 'ok' | 'problema';

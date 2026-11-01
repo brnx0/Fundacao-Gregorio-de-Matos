@@ -7,7 +7,7 @@ use App\Mail\ConviteDaAvaliacao;
 use App\Models\Avaliador;
 use App\Models\ConfiguracaoEmail;
 use App\Models\EditalAvaliador;
-use App\Models\EditalChamada;
+use App\Support\Edital\PeriodosDoEdital;
 use App\Support\FalhaNoEnvioDeEmail;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -121,21 +121,11 @@ class EnviarConviteCommand extends Command
         return [(string) config("{$mailer}.host", ''), (int) config("{$mailer}.port", 0)];
     }
 
-    /** O período de avaliação do edital: as datas de cada chamada (com o nome dela se houver várias). */
+    /** O período de avaliação do edital: as datas de cada chamada (com o nome dela se houver várias), separadas por ";". */
     private function periodoDeAvaliacao(EditalAvaliador $vinculo): string
     {
-        $chamadas = $vinculo->edital?->chamadas ?? new Collection;
-
-        if ($chamadas->isEmpty()) {
-            return 'Não cadastrado';
-        }
-
-        return $chamadas->map(function (EditalChamada $chamada) use ($chamadas): string {
-            $periodo = $chamada->temPeriodoDeAvaliacao()
-                ? $chamada->validacao_inicio->format('d/m/Y').' a '.$chamada->validacao_fim->format('d/m/Y')
-                : 'Não cadastrado';
-
-            return $chamadas->count() > 1 ? "{$periodo} ({$chamada->nome})" : $periodo;
-        })->implode('; ');
+        return $vinculo->edital === null
+            ? 'Não cadastrado'
+            : implode('; ', PeriodosDoEdital::formatar($vinculo->edital, 'validacao'));
     }
 }

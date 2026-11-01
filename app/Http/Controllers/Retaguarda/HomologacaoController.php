@@ -21,6 +21,7 @@ use App\Models\InscricaoDocumento;
 use App\Models\InscricaoRecursoDocumento;
 use App\Support\Cnpj;
 use App\Support\Cpf;
+use App\Support\Edital\PeriodosDoEdital;
 use App\Support\Inscricao\ConferenciaDaInscricao;
 use App\Support\Inscricao\PropsDaInscricao;
 use App\Support\Inscricao\QuestionarioDaInscricao;
@@ -97,7 +98,7 @@ class HomologacaoController extends Controller
                 'id' => (int) $edital->id,
                 'slug' => $edital->slug,
                 'titulo' => $edital->titulo,
-                'periodos' => $this->periodosDeHomologacao($edital),
+                'periodos' => PeriodosDoEdital::formatar($edital, 'homologacao'),
                 'emHomologacao' => $edital->chamadas->contains(fn (EditalChamada $chamada): bool => $chamada->naHomologacao()),
                 'finalizadas' => (int) $edital->finalizadas,
                 'semDecisao' => (int) $edital->sem_decisao,
@@ -162,7 +163,7 @@ class HomologacaoController extends Controller
                 'id' => (int) $edital->id,
                 'slug' => $edital->slug,
                 'titulo' => $edital->titulo,
-                'periodos' => $this->periodosDeHomologacao($edital),
+                'periodos' => PeriodosDoEdital::formatar($edital, 'homologacao'),
             ],
             'inscricoes' => $inscricoes,
             'filtros' => ['situacao' => $situacao, 'busca' => $busca],
@@ -353,29 +354,6 @@ class HomologacaoController extends Controller
         abort_unless($enviado !== null && Storage::disk(Inscricao::DISCO)->exists($enviado->arquivo), 404);
 
         return Storage::disk(Inscricao::DISCO)->response($enviado->arquivo, $enviado->arquivo_nome);
-    }
-
-    /**
-     * O período de homologação de cada chamada do edital ("01/12/2026 a 10/12/2026"), com o nome da chamada entre
-     * parênteses quando há mais de uma; "Não cadastrado" na chamada sem as datas e no edital sem chamada.
-     *
-     * @return list<string>
-     */
-    private function periodosDeHomologacao(Edital $edital): array
-    {
-        $chamadas = $edital->chamadas;
-
-        if ($chamadas->isEmpty()) {
-            return ['Não cadastrado'];
-        }
-
-        return $chamadas->map(function (EditalChamada $chamada) use ($chamadas): string {
-            $periodo = $chamada->temPeriodoDeHomologacao()
-                ? $chamada->homologacao_inicio->format('d/m/Y').' a '.$chamada->homologacao_fim->format('d/m/Y')
-                : 'Não cadastrado';
-
-            return $chamadas->count() > 1 ? "{$periodo} ({$chamada->nome})" : $periodo;
-        })->values()->all();
     }
 
     /** O número da inscrição ou parte do nome do proponente (o usuário ou a organização). */

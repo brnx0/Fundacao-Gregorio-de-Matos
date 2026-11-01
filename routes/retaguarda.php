@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Retaguarda\AreaAtuacaoController;
+use App\Http\Controllers\Retaguarda\AvaliacaoController;
 use App\Http\Controllers\Retaguarda\AvaliadorController;
+use App\Http\Controllers\Retaguarda\AvaliadoresDaAvaliacaoController;
 use App\Http\Controllers\Retaguarda\ConexaoIaController;
 use App\Http\Controllers\Retaguarda\EditalController;
 use App\Http\Controllers\Retaguarda\EventoController;
@@ -150,6 +152,31 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
         Route::post('/homologacao/{inscricao}/recurso', [RecursoDaHomologacaoController::class, 'julgar'])
             ->whereNumber('inscricao')
             ->name('homologacao.recurso.julgar');
+
+        // Avaliação das inscrições homologadas, por edital. As telas trazem nome, e-mail e CPF mascarado dos avaliadores:
+        // cifradas no histórico. O vínculo ({vinculo}) tem de ser do edital da URL (o controller devolve 404).
+        Route::middleware('inertia.encrypt')->group(function () {
+            Route::get('/avaliacao', [AvaliacaoController::class, 'index'])->name('avaliacao.index');
+            Route::get('/avaliacao/editais/{edital}/avaliadores', [AvaliadoresDaAvaliacaoController::class, 'index'])
+                ->name('avaliacao.avaliadores.index');
+        });
+        Route::controller(AvaliadoresDaAvaliacaoController::class)
+            ->prefix('/avaliacao/editais/{edital}/avaliadores')
+            ->name('avaliacao.avaliadores.')
+            ->group(function () {
+                Route::post('/', 'store')->name('store');
+                Route::put('/{vinculo}/categorias', 'categorias')->whereNumber('vinculo')->name('categorias');
+                Route::delete('/{vinculo}', 'destroy')->whereNumber('vinculo')->name('destroy');
+                // Cada convite é um e-mail: limite próprio (o prefixo separa esta contagem da dos outros limites).
+                Route::post('/{vinculo}/convite', 'convite')
+                    ->whereNumber('vinculo')
+                    ->middleware('throttle:10,1,convite-avaliador')
+                    ->name('convite');
+                Route::post('/{vinculo}/novo-link', 'novoLink')
+                    ->whereNumber('vinculo')
+                    ->middleware('throttle:10,1,convite-avaliador')
+                    ->name('novo-link');
+            });
 
         // Cadastro. Avaliador não se exclui, só se desativa. As telas ficam cifradas no histórico (CPF e data de nascimento).
         Route::middleware('inertia.encrypt')->group(function () {

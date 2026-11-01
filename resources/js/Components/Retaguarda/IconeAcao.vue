@@ -1,7 +1,7 @@
 <script lang="ts">
 // Ícones das ações das listas da retaguarda (botões só com ícone, com a dica de data-dica): traço de 24px, como os
 // demais ícones do sistema. Publicar usa o globo do grupo Portal do menu e Ocultar publicação, o mesmo globo riscado;
-// Ver, o olho aberto; o questionário do edital, a prancheta com a lista.
+// Ver, o olho aberto; o questionário do edital, a prancheta com a lista; o link novo do avaliador, os elos da corrente.
 const ICONES = {
     editar: 'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497zM15 5l4 4',
     ativar: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9 12l2 2 4-4',
@@ -16,6 +16,7 @@ const ICONES = {
     subir: 'M12 19V5M6 11l6-6 6 6',
     descer: 'M12 5v14M6 13l6 6 6-6',
     remover: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+    link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
     questionario:
         'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM12 11h4M12 16h4M8 11h.01M8 16h.01',
 };
