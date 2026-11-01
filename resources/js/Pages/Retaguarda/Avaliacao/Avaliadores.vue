@@ -59,7 +59,7 @@ const incluir = (): void => {
     });
 };
 
-// Categorias de cada avaliador: cada interruptor grava na hora a lista nova; enquanto grava, os dele ficam travados.
+// Categorias de cada avaliador: cada botão grava na hora a lista nova; enquanto grava, os dele ficam travados.
 const salvandoCategorias = reactive<Record<number, boolean>>({});
 const erroDasCategorias = reactive<Record<number, string | undefined>>({});
 
@@ -223,17 +223,30 @@ const classeCancelar =
                 <td class="min-w-56">
                     <fieldset v-if="edital.temCategorias" class="min-w-0" :aria-describedby="erroDasCategorias[avaliador.id] ? `categorias-${avaliador.id}-erro` : undefined">
                         <legend class="sr-only">Categorias que {{ avaliador.nome }} avalia</legend>
-                        <Interruptor
-                            v-for="categoria in categorias"
-                            :id="`categoria-${avaliador.id}-${categoria.id}`"
-                            :key="categoria.id"
-                            :model-value="avaliador.categorias.includes(categoria.id)"
-                            :rotulo="categoria.nome"
-                            variante="linha"
-                            :desabilitado="salvandoCategorias[avaliador.id]"
-                            :invalido="Boolean(erroDasCategorias[avaliador.id])"
-                            @update:model-value="(ligado: boolean) => alternarCategoria(avaliador, categoria.id, ligado)"
-                        />
+                        <div class="flex flex-wrap gap-1.5">
+                            <button
+                                v-for="categoria in categorias"
+                                :id="`categoria-${avaliador.id}-${categoria.id}`"
+                                :key="categoria.id"
+                                type="button"
+                                :aria-pressed="avaliador.categorias.includes(categoria.id) ? 'true' : 'false'"
+                                :disabled="salvandoCategorias[avaliador.id]"
+                                class="pressionavel inline-flex min-h-9 items-center gap-1.5 rounded-pill border px-3.5 text-[0.8125rem] font-bold transition-colors disabled:cursor-wait disabled:opacity-70"
+                                :class="[
+                                    avaliador.categorias.includes(categoria.id)
+                                        ? 'border-acao bg-acao text-white hover:bg-acao-escuro'
+                                        : 'border-dashed border-tinta-suave/60 bg-superficie text-home-tinta hover:border-solid hover:border-acao hover:text-acao',
+                                    erroDasCategorias[avaliador.id] ? 'ring-2 ring-invalido-fim/40' : '',
+                                ]"
+                                @click="alternarCategoria(avaliador, categoria.id, !avaliador.categorias.includes(categoria.id))"
+                            >
+                                <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path v-if="avaliador.categorias.includes(categoria.id)" d="m5 12 5 5 9-10" />
+                                    <path v-else d="M12 5v14M5 12h14" />
+                                </svg>
+                                {{ categoria.nome }}
+                            </button>
+                        </div>
                         <p v-if="erroDasCategorias[avaliador.id]" :id="`categorias-${avaliador.id}-erro`" role="alert" class="mt-1 text-[0.875rem] font-semibold text-invalido-texto">
                             {{ erroDasCategorias[avaliador.id] }}
                         </p>
