@@ -378,11 +378,17 @@ class SalvarEditalRequest extends FormRequest
             return true;
         }
 
-        foreach ($enviados as $enviado) {
-            $id = is_array($enviado) && is_numeric($enviado['id'] ?? null) ? (int) $enviado['id'] : null;
-            $salvo = $id !== null ? $salvos->pull($id) : null;
+        // Como o SincronizadorDoEdital resolve: id repetido ou de fora vira registro novo.
+        $criterioNaPosicao = SincronizadorDoEdital::idsMantidos($enviados, $salvos->keys()->all());
+        $categoriaNaPosicao = SincronizadorDoEdital::idsMantidos(
+            array_values((array) $this->input('categorias', [])),
+            $edital->categorias()->pluck('id')->all(),
+        );
 
-            if ($salvo === null || $this->mudaCriterio($salvo, $enviado)) {
+        foreach ($enviados as $posicao => $enviado) {
+            $salvo = $criterioNaPosicao[$posicao] !== null ? $salvos->get($criterioNaPosicao[$posicao]) : null;
+
+            if ($salvo === null || $this->mudaCriterio($salvo, $enviado, $categoriaNaPosicao)) {
                 return true;
             }
         }
@@ -392,8 +398,9 @@ class SalvarEditalRequest extends FormRequest
 
     /**
      * @param  array<string, mixed>  $enviado
+     * @param  list<int|null>  $categoriaNaPosicao  Categoria salva que cada posição enviada mantém (nulo = nova).
      */
-    private function mudaCriterio(EditalCriterio $salvo, array $enviado): bool
+    private function mudaCriterio(EditalCriterio $salvo, array $enviado, array $categoriaNaPosicao): bool
     {
         $todasCategorias = filter_var($enviado['todas_categorias'] ?? true, FILTER_VALIDATE_BOOL);
 
@@ -407,14 +414,14 @@ class SalvarEditalRequest extends FormRequest
             return false;
         }
 
-        // Posição enviada → id da categoria nessa posição; categoria nova (sem id) conta como mudança.
+        // Posição enviada → categoria salva que ela mantém; categoria nova conta como mudança.
         $enviadas = [];
         foreach ((array) ($enviado['categorias'] ?? []) as $posicao) {
-            $id = is_numeric($posicao) ? $this->input('categorias.'.(int) $posicao.'.id') : null;
-            if (! is_numeric($id)) {
+            $id = is_numeric($posicao) ? ($categoriaNaPosicao[(int) $posicao] ?? null) : null;
+            if ($id === null) {
                 return true;
             }
-            $enviadas[] = (int) $id;
+            $enviadas[] = $id;
         }
 
         $salvas = $salvo->categorias->map(fn (EditalCategoria $categoria): int => (int) $categoria->id)->all();

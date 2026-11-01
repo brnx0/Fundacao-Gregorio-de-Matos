@@ -195,10 +195,11 @@ class SincronizadorDoEdital
         // Oracle devolve os ids como string.
         $existentes = $relacao->get()->keyBy(fn (Model $registro): int => (int) $registro->getKey());
 
+        $mantidos = self::idsMantidos($itens, $existentes->keys()->all());
+
         $gravados = [];
         foreach (array_values($itens) as $posicao => $item) {
-            $id = isset($item['id']) && is_numeric($item['id']) ? (int) $item['id'] : null;
-            $registro = ($id !== null ? $existentes->pull($id) : null) ?? $relacao->make();
+            $registro = ($mantidos[$posicao] !== null ? $existentes->pull($mantidos[$posicao]) : null) ?? $relacao->make();
 
             $preencher($registro, $item);
             $registro->setAttribute('ordem', $posicao + 1);
@@ -215,6 +216,32 @@ class SincronizadorDoEdital
         }
 
         return $gravados;
+    }
+
+    /**
+     * Registro salvo que cada posição enviada mantém, na ordem: o id enviado, se é um dos salvos e ainda não foi usado;
+     * nulo = registro novo (sem id, id de fora ou repetido). O SalvarEditalRequest usa a mesma regra nas travas.
+     *
+     * @param  array<mixed>  $itens
+     * @param  array<mixed>  $idsSalvos
+     * @return list<int|null>
+     */
+    public static function idsMantidos(array $itens, array $idsSalvos): array
+    {
+        $livres = array_fill_keys(array_map(intval(...), $idsSalvos), true);
+
+        $mantidos = [];
+        foreach (array_values($itens) as $item) {
+            $id = is_array($item) && isset($item['id']) && is_numeric($item['id']) ? (int) $item['id'] : null;
+            if ($id !== null && isset($livres[$id])) {
+                unset($livres[$id]);
+                $mantidos[] = $id;
+            } else {
+                $mantidos[] = null;
+            }
+        }
+
+        return $mantidos;
     }
 
     private function trocarModelo(EditalDocumento $documento, mixed $arquivo, bool $remover): void

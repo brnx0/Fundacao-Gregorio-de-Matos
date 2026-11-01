@@ -130,6 +130,10 @@ class EditalCriteriosTravadosTest extends TestCase
                 $dados['categorias'][] = ['nome' => 'Circo'];
                 $dados['criterios'][0]['categorias'] = [0, 2];
             },
+            'id de categoria repetido' => function (array &$dados): void {
+                $dados['categorias'][] = ['id' => (int) $this->teatro->id, 'nome' => 'Circo'];
+                $dados['criterios'][0]['categorias'] = [2];
+            },
         ];
 
         foreach ($alteracoes as $alteracao => $alterar) {
@@ -146,7 +150,7 @@ class EditalCriteriosTravadosTest extends TestCase
             $this->assertCriteriosIntactos();
         }
 
-        $this->assertSame(2, $this->edital->categorias()->count());
+        $this->assertSame(['Teatro', 'Dança'], $this->edital->categorias()->orderBy('ordem')->pluck('nome')->all());
     }
 
     public function test_com_nota_edita_nome_e_descricao(): void
