@@ -34,6 +34,18 @@ class Edital extends Model
     /** Aviso da trava dos documentos exigidos (ver documentosTravados()). */
     public const string AVISO_DOCUMENTOS_TRAVADOS = 'Os documentos exigidos não podem ser removidos porque o edital já tem inscrição com resultado da homologação: a remoção apagaria os arquivos em que a decisão se apoiou.';
 
+    /** Avisos das travas depois da primeira nota (ver avaliacaoIniciada()). */
+    public const string AVISO_CRITERIOS_TRAVADOS = 'Este edital já tem notas dadas: os critérios não podem ser acrescentados, removidos, nem ter peso, pontuação máxima ou categorias alterados. Nome e descrição continuam editáveis.';
+
+    public const string AVISO_CATEGORIAS_TRAVADAS = 'Este edital já tem notas dadas: as categorias salvas não podem ser removidas.';
+
+    /** Pendências para distribuir as inscrições entre os avaliadores. */
+    public const string PENDENCIA_SEM_AVALIADOR = 'Inclua ao menos um avaliador ativo no edital.';
+
+    public const string PENDENCIA_SEM_CRITERIO = 'Cadastre ao menos um critério na aba Avaliação do edital.';
+
+    public const string PENDENCIA_CRITERIO_SEM_PONTOS = 'Preencha a pontuação máxima de todos os critérios na aba Avaliação do edital.';
+
     /** Pendências para publicar que o formulário também confere no envio (SalvarEditalRequest). */
     public const string PENDENCIA_CHAMADA = 'Cadastre ao menos uma chamada com início e fim das inscrições.';
 
@@ -165,6 +177,35 @@ class Edital extends Model
     public function documentosTravados(): bool
     {
         return $this->inscricoes()->whereNotNull('homologacao')->exists();
+    }
+
+    /** Com nota dada em alguma inscrição, critérios e categorias deixam de poder mudar. */
+    public function avaliacaoIniciada(): bool
+    {
+        return InscricaoAvaliacaoNota::query()
+            ->whereHas('avaliacao.inscricao', fn (Builder $inscricoes) => $inscricoes->where('edital_id', $this->id))
+            ->exists();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function pendenciasDaDistribuicao(): array
+    {
+        $pendencias = [];
+
+        $temAvaliadorAtivo = $this->avaliadores()->whereHas('avaliador', fn (Builder $avaliadores) => $avaliadores->where('ativo', true))->exists();
+        if (! $temAvaliadorAtivo) {
+            $pendencias[] = self::PENDENCIA_SEM_AVALIADOR;
+        }
+
+        if (! $this->criterios()->exists()) {
+            $pendencias[] = self::PENDENCIA_SEM_CRITERIO;
+        } elseif ($this->criterios()->whereNull('pontos_maximos')->exists()) {
+            $pendencias[] = self::PENDENCIA_CRITERIO_SEM_PONTOS;
+        }
+
+        return $pendencias;
     }
 
     /**
