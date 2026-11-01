@@ -126,3 +126,4 @@ Route::middleware('throttle:govbr')->group(function () {
 });
 
 require __DIR__.'/retaguarda.php';
+require __DIR__.'/avaliacao.php';

@@ -4,8 +4,10 @@ use App\Http\Middleware\BloquearGestorNoCadastro;
 use App\Http\Middleware\EncerrarSessaoDoProponente;
 use App\Http\Middleware\ExigirCadastroCompleto;
 use App\Http\Middleware\ExigirTipoCadastro;
+use App\Http\Middleware\GarantirAvaliador;
 use App\Http\Middleware\GarantirGestor;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\IniciarSessao;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -29,10 +31,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             SecurityHeaders::class,
             HandleInertiaRequests::class,
+        ], replace: [
+            // Não guarda a página de acesso do avaliador (com o código do link) como "página anterior".
+            StartSession::class => IniciarSessao::class,
         ]);
 
         $middleware->alias([
             'gestor' => GarantirGestor::class,
+            'avaliador' => GarantirAvaliador::class,
             'nao-gestor' => BloquearGestorNoCadastro::class,
             'cadastro-completo' => ExigirCadastroCompleto::class,
             'tipo-cadastro' => ExigirTipoCadastro::class,
@@ -65,6 +71,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
             if ($request->routeIs('retaguarda.login.entrar')) {
                 return back()->withErrors(['email' => $mensagem]);
+            }
+
+            if ($request->routeIs('avaliacao.acesso.confirmar')) {
+                return back()->withErrors(['cpf' => $mensagem]);
             }
 
             if ($request->routeIs('retaguarda.senha.update')) {

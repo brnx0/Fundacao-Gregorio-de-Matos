@@ -4,12 +4,15 @@ namespace App\Providers;
 
 use App\Auth\GovBr\FakeLoginGate;
 use App\Database\OracleConnection;
+use App\Http\Middleware\IniciarSessao;
 use App\Models\ConfiguracaoEmail;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Database\Connection;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
+use Illuminate\Session\SessionManager;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -30,6 +33,12 @@ class AppServiceProvider extends ServiceProvider
 
             return new OracleConnection($base->getPdo(), $database, $prefix, $config);
         });
+
+        // Como o StartSession do framework: uma instância só, com o cache para as rotas com block().
+        $this->app->singleton(IniciarSessao::class, fn ($app) => new IniciarSessao(
+            $app->make(SessionManager::class),
+            fn () => $app->make(CacheFactory::class),
+        ));
     }
 
     /**
@@ -57,6 +66,11 @@ class AppServiceProvider extends ServiceProvider
         // 5/min por e-mail (normalizado) e IP, contra tentativa de senha na retaguarda.
         RateLimiter::for('retaguarda-login', fn (Request $request) => Limit::perMinute(5)->by(
             mb_strtolower(trim((string) $request->input('email'))).'|'.$request->ip()
+        ));
+
+        // 5/min por link de avaliador e IP, contra tentativa de CPF. A chave usa o hash do código, nunca o código.
+        RateLimiter::for('avaliacao-cpf', fn (Request $request) => Limit::perMinute(5)->by(
+            hash('sha256', (string) $request->route('codigo')).'|'.$request->ip()
         ));
 
         // 30/min por usuário nas consultas de CNPJ, CEP e municípios do cadastro.

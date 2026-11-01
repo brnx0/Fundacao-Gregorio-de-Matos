@@ -13,9 +13,15 @@ export interface UsuarioAutenticado {
     tiposCadastro: TipoCadastro[];
 }
 
+/** Avaliador que entrou pelo link pessoal; só nas rotas da área do avaliador (fora delas, null). */
+export interface AvaliadorDaSessao {
+    nome: string;
+}
+
 /** Props compartilhadas, vindas de App\Http\Middleware\HandleInertiaRequests. */
 export interface SharedProps {
     auth: { user: UsuarioAutenticado | null };
+    avaliador: AvaliadorDaSessao | null;
     ambienteTeste: boolean;
     flash: { erro: string | null; aviso: string | null; sucesso: string | null };
     errors: Record<string, string>;
