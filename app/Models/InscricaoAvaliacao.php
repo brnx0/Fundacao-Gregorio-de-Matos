@@ -35,14 +35,16 @@ class InscricaoAvaliacao extends Model
         ];
     }
 
-    /** Concluída; com nota ou observação, em andamento; senão não iniciada. */
+    /** Concluída; com nota ou observação, em andamento; senão não iniciada. Usa as notas já carregadas, se houver. */
     public function situacao(): SituacaoAvaliacao
     {
         if ($this->concluida_em !== null) {
             return SituacaoAvaliacao::Concluida;
         }
 
-        if ($this->observacao !== null || $this->notas()->exists()) {
+        $temNotas = $this->relationLoaded('notas') ? $this->notas->isNotEmpty() : $this->notas()->exists();
+
+        if ($this->observacao !== null || $temNotas) {
             return SituacaoAvaliacao::EmAndamento;
         }
 

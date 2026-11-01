@@ -1277,6 +1277,40 @@ export interface RetaguardaAvaliacaoAvaliadoresProps {
     pendencias: string[];
 }
 
+/** App\Enums\ModoDistribuicao. */
+export type ModoDistribuicao = 'igual' | 'por_categoria';
+
+/** Inscrição homologada na aba Distribuição (Retaguarda\DistribuicaoController@index). */
+export interface LinhaDaDistribuicao {
+    id: number;
+    numero: string;
+    proponente: string;
+    categoria: string | null;
+    /** Nome do avaliador; nulo sem avaliador. */
+    avaliador: string | null;
+    /** "Sem avaliador" ou o andamento da avaliação. */
+    situacaoRotulo: string;
+}
+
+/** Estimativa de uma rodada da distribuição: quantas vão para cada avaliador e quantas ficam sem, por categoria. */
+export interface PreviaDaDistribuicao {
+    modo: ModoDistribuicao;
+    porAvaliador: { nome: string; quantidade: number }[];
+    semAvaliador: { categoria: string; quantidade: number }[];
+}
+
+export interface RetaguardaAvaliacaoDistribuicaoProps {
+    edital: { slug: string; titulo: string; periodos: string[] };
+    pendencias: string[];
+    /** Por categoria só em edital com categorias. */
+    modos: { valor: ModoDistribuicao; rotulo: string }[];
+    /** Só com `?modo=` válido na URL. */
+    previa: PreviaDaDistribuicao | null;
+    inscricoes: Paginado<LinhaDaDistribuicao>;
+    /** Avaliadores ativos do edital, pelo nome: para onde uma inscrição pode ir. */
+    destinos: { avaliadorId: number; nome: string }[];
+}
+
 /** Marcação do gestor sobre um item conferido (App\Support\Inscricao\ConferenciaDaInscricao); `em` em "d/m/Y H:i". */
 export interface MarcacaoConferida {
     situacao: 'ok' | 'problema';

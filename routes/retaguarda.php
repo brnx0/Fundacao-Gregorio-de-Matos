@@ -5,6 +5,7 @@ use App\Http\Controllers\Retaguarda\AvaliacaoController;
 use App\Http\Controllers\Retaguarda\AvaliadorController;
 use App\Http\Controllers\Retaguarda\AvaliadoresDaAvaliacaoController;
 use App\Http\Controllers\Retaguarda\ConexaoIaController;
+use App\Http\Controllers\Retaguarda\DistribuicaoController;
 use App\Http\Controllers\Retaguarda\EditalController;
 use App\Http\Controllers\Retaguarda\EventoController;
 use App\Http\Controllers\Retaguarda\HomologacaoController;
@@ -153,13 +154,18 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
             ->whereNumber('inscricao')
             ->name('homologacao.recurso.julgar');
 
-        // Avaliação das inscrições homologadas, por edital. As telas trazem nome, e-mail e CPF mascarado dos avaliadores:
-        // cifradas no histórico. O vínculo ({vinculo}) tem de ser do edital da URL (o controller devolve 404).
+        // Avaliação das inscrições homologadas, por edital. As telas trazem nome, e-mail e CPF mascarado dos avaliadores e
+        // o nome dos proponentes: cifradas no histórico. O vínculo ({vinculo}) tem de ser do edital da URL (o controller
+        // devolve 404).
         Route::middleware('inertia.encrypt')->group(function () {
             Route::get('/avaliacao', [AvaliacaoController::class, 'index'])->name('avaliacao.index');
             Route::get('/avaliacao/editais/{edital}/avaliadores', [AvaliadoresDaAvaliacaoController::class, 'index'])
                 ->name('avaliacao.avaliadores.index');
+            Route::get('/avaliacao/editais/{edital}/distribuicao', [DistribuicaoController::class, 'index'])
+                ->name('avaliacao.distribuicao.index');
         });
+        Route::post('/avaliacao/editais/{edital}/distribuicao', [DistribuicaoController::class, 'distribuir'])
+            ->name('avaliacao.distribuicao.store');
         Route::controller(AvaliadoresDaAvaliacaoController::class)
             ->prefix('/avaliacao/editais/{edital}/avaliadores')
             ->name('avaliacao.avaliadores.')
