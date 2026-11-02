@@ -5,12 +5,14 @@ import AvisoCamposObrigatorios from '../../../Components/AvisoCamposObrigatorios
 import CampoArquivo from '../../../Components/CampoArquivo.vue';
 import CampoCadastro from '../../../Components/CampoCadastro.vue';
 import AbasFormulario from '../../../Components/Retaguarda/AbasFormulario.vue';
+import CampoDescricaoDoCard from '../../../Components/Retaguarda/Edital/CampoDescricaoDoCard.vue';
 import CategoriasEdital from '../../../Components/Retaguarda/Edital/CategoriasEdital.vue';
 import ChamadasEdital from '../../../Components/Retaguarda/Edital/ChamadasEdital.vue';
 import CotasEdital from '../../../Components/Retaguarda/Edital/CotasEdital.vue';
 import CriteriosEdital from '../../../Components/Retaguarda/Edital/CriteriosEdital.vue';
 import DocumentosEdital from '../../../Components/Retaguarda/Edital/DocumentosEdital.vue';
 import InformacoesEdital from '../../../Components/Retaguarda/Edital/InformacoesEdital.vue';
+import PreviaCardEdital from '../../../Components/Retaguarda/Edital/PreviaCardEdital.vue';
 import QuadroImportacao from '../../../Components/Retaguarda/Edital/QuadroImportacao.vue';
 import {
     OPCOES_SIM_NAO,
@@ -56,6 +58,8 @@ const BASE = '/retaguarda/editais';
 
 const salvo = props.edital;
 const editando = salvo !== null;
+// "Voltar para a lista" e "Cancelar" voltam para a aba do edital salvo na lista.
+const LISTA = salvo?.publicado ? `${BASE}?publicado=sim` : BASE;
 
 // Visualizar (show) usa este mesmo formulário só para ler: as abas trocam, os campos ficam bloqueados
 // (AbasFormulario) e os componentes de dentro escondem o que é de editar.
@@ -167,6 +171,8 @@ const form = useForm({
         conta_para_corte: salvo?.pontuacao_extra?.conta_para_corte ?? null,
     },
     informacoes: Object.fromEntries(props.secoesInformativas.map((secao) => [secao.valor, salvo?.informacoes[secao.valor] ?? ''])) as Record<string, string>,
+    // Não se edita aqui: publicar e despublicar é pelo ícone da lista. Vai o estado salvo, para o servidor continuar
+    // exigindo o edital completo de quem salva um já publicado.
     publicado: salvo?.publicado ?? false,
     pdf: null as File | null,
     imagem: null as File | null,
@@ -204,7 +210,7 @@ const escolherArquivo = (arquivo: File | null, campo: 'pdf' | 'imagem'): void =>
 
 // Uma aba por bloco do edital. Campo terminado em ".*" vale para todo erro que começa com o prefixo ("chamadas.0.nome").
 const DEFINICAO_ABAS: AbaFormulario[] = [
-    { id: 'identificacao', rotulo: 'Identificação', campos: ['numero', 'tipo', 'titulo', 'objeto', 'dom_data', 'dom_numero', 'categoria', 'resumo'] },
+    { id: 'identificacao', rotulo: 'Identificação', campos: ['numero', 'tipo', 'titulo', 'objeto', 'dom_data', 'dom_numero', 'categoria'] },
     { id: 'inscricao', rotulo: 'Períodos', campos: ['chamadas', 'chamadas.*', 'forma_inscricao_original'] },
     { id: 'participacao', rotulo: 'Participação', campos: ['naturezas', 'naturezas.*', 'aceita_coletivos', 'inscricoes_por_proponente', 'limite_por_chamada'] },
     { id: 'categorias', rotulo: 'Categorias', campos: ['categorias', 'categorias.*'] },
@@ -212,9 +218,10 @@ const DEFINICAO_ABAS: AbaFormulario[] = [
     { id: 'documentos', rotulo: 'Documentos', campos: ['documentos', 'documentos.*'] },
     { id: 'avaliacao', rotulo: 'Avaliação', campos: ['nota_maxima', 'nota_corte', 'criterios', 'criterios.*', 'pontuacao_extra', 'pontuacao_extra.*'] },
     { id: 'informacoes', rotulo: 'Informações', campos: ['informacoes', 'informacoes.*'] },
-    { id: 'arquivos', rotulo: 'Arquivos', campos: ['pdf', 'imagem', 'remover_imagem'] },
-    // O questionário tem a sua tela; a pendência dele (pergunta sem vínculo) impede publicar e aparece aqui.
-    { id: 'publicacao', rotulo: 'Publicação', campos: ['publicado', 'questionario'] },
+    { id: 'arquivos', rotulo: 'Arquivos', campos: ['pdf'] },
+    // Tudo o que define o card do portal (imagem, descrição e a prévia) fica na Publicação. O questionário tem a sua
+    // tela; a pendência dele (pergunta sem vínculo) impede publicar e aparece aqui.
+    { id: 'publicacao', rotulo: 'Publicação', campos: ['imagem', 'remover_imagem', 'resumo', 'questionario'] },
 ];
 
 // AbasFormulario conta os erros pelos campos da aba: aqui eles são as chaves com erro que caem na aba.
@@ -279,14 +286,21 @@ vigiarReferencias(
     /^(documentos|criterios)\.\d+\.categorias(\.\d+)?$/,
 );
 
-/** Período do edital como o servidor calcula: menor início e maior fim das chamadas com as duas datas. */
-const periodo = computed<string | null>(() => {
+/** Período do edital como o servidor calcula: menor início e maior fim das chamadas com as duas datas (aaaa-mm-dd). */
+const limitesDoPeriodo = computed<{ inicio: string; fim: string }>(() => {
     const completas = form.chamadas.filter((chamada) => chamada.inicio && chamada.fim);
-    if (completas.length === 0) return null;
+
+    return {
+        inicio: completas.map((chamada) => chamada.inicio).sort()[0] ?? '',
+        fim: completas.map((chamada) => chamada.fim).sort().at(-1) ?? '',
+    };
+});
+
+const periodo = computed<string | null>(() => {
+    const { inicio, fim } = limitesDoPeriodo.value;
+    if (!inicio) return null;
 
     const data = (texto: string): string => texto.split('-').reverse().join('/');
-    const inicio = completas.map((chamada) => chamada.inicio).sort()[0] ?? '';
-    const fim = completas.map((chamada) => chamada.fim).sort().at(-1) ?? '';
 
     return `${data(inicio)} a ${data(fim)}`;
 });
@@ -399,11 +413,15 @@ const salvar = (): void => {
     }
 };
 
-// O servidor exige título, resumo e categoria de quem publica, o PDF (o enviado agora ou o já salvo) e o edital
-// completo, também do que já estava publicado. Tudo volta de uma vez: cada pendência no campo da sua aba (chamadas,
-// naturezas, categorias; a do questionário, que tem a sua tela, na Publicação), para todas as abas que faltam ficarem
-// marcadas. Rascunho salva incompleto.
+// Ao salvar um edital já publicado, o servidor exige título, descrição do card (resumo), categoria, o PDF e a imagem
+// da vitrine (os enviados agora ou os já salvos) e o edital completo. Tudo volta de uma vez: cada pendência no campo da
+// sua aba (chamadas, naturezas, categorias; a do questionário, que tem a sua tela, na Publicação), para todas as abas
+// que faltam ficarem marcadas. Rascunho salva incompleto; o que falta para publicar aparece no ícone Publicar da lista.
 const pdfObrigatorio = computed<boolean>(() => form.publicado && !salvo?.pdfUrl);
+const imagemObrigatoria = computed<boolean>(() => form.publicado && !(salvo?.imagemUrl && !form.remover_imagem));
+
+// Imagem que a prévia do card mostra: a escolhida agora ou a salva, se não for removida.
+const imagemSalvaNaPrevia = computed<string | null>(() => (form.remover_imagem ? null : (salvo?.imagemUrl ?? null)));
 const completoParaPublicar = computed<boolean>(() => form.publicado);
 
 const textoBotao = computed(() => {
@@ -588,28 +606,6 @@ const urlDoQuestionario = salvo && salvo.categorias.length > 0 ? `${BASE}/${salv
                                         :aria-invalid="invalido || undefined"
                                         :aria-describedby="descricao"
                                         @input="form.clearErrors('categoria')"
-                                    />
-                                </CampoCadastro>
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <CampoCadastro
-                                    id="resumo"
-                                    rotulo="Resumo"
-                                    :obrigatorio="form.publicado"
-                                    ajuda="Apresentação curta na vitrine. Obrigatório para publicar."
-                                    :erro="erros.resumo"
-                                    v-slot="{ descricao, invalido }"
-                                >
-                                    <textarea
-                                        id="resumo"
-                                        v-model="form.resumo"
-                                        rows="5"
-                                        :required="form.publicado"
-                                        :class="classeTexto"
-                                        :aria-invalid="invalido || undefined"
-                                        :aria-describedby="descricao"
-                                        @input="form.clearErrors('resumo')"
                                     />
                                 </CampoCadastro>
                             </div>
@@ -833,73 +829,73 @@ const urlDoQuestionario = salvo && salvo.categorias.length > 0 ? `${BASE}/${salv
                                 </p>
                                 <p v-else-if="somenteLeitura" :class="classeDica">Sem PDF do edital.</p>
                             </div>
-
-                            <div class="flex min-w-0 flex-col gap-3">
-                                <p v-if="somenteLeitura" :class="salvo?.imagemUrl ? 'text-[0.9375rem]' : classeDica">
-                                    {{ salvo?.imagemUrl ? 'Imagem da vitrine:' : 'Sem imagem da vitrine.' }}
-                                </p>
-                                <CampoCadastro v-else id="imagem" rotulo="Imagem da vitrine" :erro="erros.imagem" v-slot="{ descricao, invalido }">
-                                    <CampoArquivo
-                                        id="imagem"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        dica="JPG, PNG ou WEBP, até 5 MB"
-                                        :arquivo="form.imagem"
-                                        :enviado="Boolean(salvo?.imagemUrl) && !form.remover_imagem"
-                                        :descricao="descricao"
-                                        :invalido="invalido"
-                                        @escolher="escolherArquivo($event, 'imagem')"
-                                    />
-                                </CampoCadastro>
-                                <div v-if="salvo?.imagemUrl && !form.imagem" class="flex items-start gap-4">
-                                    <img
-                                        :src="salvo.imagemUrl"
-                                        alt="Imagem atual do edital"
-                                        class="h-24 w-36 shrink-0 rounded-[12px] border border-hairline object-cover"
-                                        :class="{ 'opacity-40': form.remover_imagem }"
-                                    />
-                                    <label v-if="!somenteLeitura" :class="classeMarcacao">
-                                        <input v-model="form.remover_imagem" type="checkbox" :class="classeCaixa" />
-                                        Remover imagem
-                                    </label>
-                                </div>
-                            </div>
                         </div>
 
                         <div v-else-if="aba.id === 'publicacao'" class="flex flex-col gap-5">
-                            <div v-if="pendencias.length > 0" class="rounded-[16px] border border-aviso-texto/30 bg-aviso-fundo p-4 text-aviso-texto">
-                                <h3 id="pendencias-titulo" class="text-[0.9375rem] font-bold">
-                                    {{ salvo?.publicado ? 'Já publicado, mas ainda falta:' : 'Para publicar, falta:' }}
-                                </h3>
-                                <ul aria-labelledby="pendencias-titulo" class="mt-2 flex list-disc flex-col gap-1 pl-5 text-[0.9375rem] leading-[1.5]">
-                                    <li v-for="pendencia in pendencias" :key="pendencia">{{ pendencia }}</li>
-                                </ul>
-                                <p class="mt-2 text-[0.8125rem]">
-                                    Conforme a última versão salva.
-                                    <template v-if="urlDoQuestionario">
-                                        O questionário fica na sua tela:
-                                        <Link :href="urlDoQuestionario" class="font-semibold underline">abrir o questionário</Link>.
-                                    </template>
-                                </p>
-                            </div>
-                            <p v-else-if="!editando" :class="classeDica">Ao salvar marcado para publicar, o sistema confere se o edital está completo.</p>
+                            <p v-if="!salvo?.publicado && !somenteLeitura" :class="classeDica">
+                                Depois de salvar, publique pelo ícone Publicar da lista de editais. Para publicar, o edital precisa do PDF, da imagem da
+                                vitrine e da descrição do card.
+                            </p>
 
-                            <div class="flex flex-col gap-1.5">
-                                <label :class="classeMarcacao">
-                                    <input
-                                        v-model="form.publicado"
-                                        type="checkbox"
-                                        :class="classeCaixa"
-                                        :aria-invalid="erros.publicado ? true : undefined"
-                                        :aria-describedby="['publicado-ajuda', erros.publicado && 'publicado-erro'].filter(Boolean).join(' ')"
-                                        @change="form.clearErrors('publicado')"
+                            <!-- O card do portal: a imagem (em todas as vitrines) e a descrição, uma embaixo da outra, e a
+                                 prévia logo abaixo. -->
+                            <section aria-labelledby="card-portal-titulo" class="flex flex-col gap-6 rounded-[20px] border border-hairline p-5 sm:p-6">
+                                <div>
+                                    <h3 id="card-portal-titulo" class="text-[1rem] font-bold">Card do portal</h3>
+                                    <p class="mt-1 text-[0.875rem] leading-[1.5] text-tinta-suave">A imagem e a descrição que o edital mostra nas vitrines do portal depois de publicado.</p>
+                                </div>
+
+                                <div class="flex min-w-0 flex-col gap-3">
+                                    <p v-if="somenteLeitura" :class="salvo?.imagemUrl ? 'text-[0.9375rem] font-semibold' : classeDica">
+                                        {{ salvo?.imagemUrl ? 'Imagem da vitrine:' : 'Sem imagem da vitrine.' }}
+                                    </p>
+                                    <CampoCadastro v-else id="imagem" rotulo="Imagem da vitrine" :obrigatorio="imagemObrigatoria" :erro="erros.imagem" v-slot="{ descricao, invalido }">
+                                        <CampoArquivo
+                                            id="imagem"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            dica="JPG, PNG ou WEBP, até 5 MB. Aparece em todas as vitrines do portal; obrigatória para publicar"
+                                            :arquivo="form.imagem"
+                                            :enviado="Boolean(salvo?.imagemUrl) && !form.remover_imagem"
+                                            :obrigatorio="imagemObrigatoria"
+                                            :descricao="descricao"
+                                            :invalido="invalido"
+                                            @escolher="escolherArquivo($event, 'imagem')"
+                                        />
+                                    </CampoCadastro>
+                                    <div v-if="salvo?.imagemUrl && !form.imagem" class="flex items-center gap-4">
+                                        <img
+                                            :src="salvo.imagemUrl"
+                                            alt="Imagem atual do edital"
+                                            class="aspect-[4/3] w-36 shrink-0 rounded-[12px] border border-hairline object-cover"
+                                            :class="{ 'opacity-40': form.remover_imagem }"
+                                        />
+                                        <label v-if="!somenteLeitura" :class="classeMarcacao">
+                                            <input v-model="form.remover_imagem" type="checkbox" :class="classeCaixa" @change="form.clearErrors('imagem')" />
+                                            Remover imagem
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <CampoDescricaoDoCard
+                                    v-model="form.resumo"
+                                    :contexto="{ titulo: form.titulo, objeto: form.objeto, categoria: form.categoria }"
+                                    :obrigatorio="form.publicado"
+                                    :erro="erros.resumo"
+                                    @limpar-erro="form.clearErrors('resumo')"
+                                />
+
+                                <div class="border-t border-hairline pt-6">
+                                    <PreviaCardEdital
+                                        :titulo="form.titulo"
+                                        :categoria="form.categoria"
+                                        :resumo="form.resumo"
+                                        :inicio="limitesDoPeriodo.inicio"
+                                        :fim="limitesDoPeriodo.fim"
+                                        :imagem="form.imagem"
+                                        :imagem-salva="imagemSalvaNaPrevia"
                                     />
-                                    <span>
-                                        <span class="font-semibold">Publicar no portal</span>
-                                        <span id="publicado-ajuda" class="block text-[0.8125rem] text-tinta-suave">O edital só aparece no portal publicado e com PDF.</span>
-                                    </span>
-                                </label>
-                                <p v-if="erros.publicado" id="publicado-erro" class="flex items-start gap-1.5 text-[0.875rem] font-semibold text-invalido-texto">{{ erros.publicado }}</p>
-                            </div>
+                                </div>
+                            </section>
 
                             <p v-if="erros.questionario" id="questionario-erro" role="alert" class="rounded-[12px] bg-erro-fundo px-4 py-3 text-[0.9375rem] font-semibold text-invalido-texto">
                                 {{ erros.questionario }}
@@ -911,11 +907,11 @@ const urlDoQuestionario = salvo && salvo.categorias.length > 0 ? `${BASE}/${salv
             </AbasFormulario>
             <!-- Só para ler não há o que salvar: volta para a lista (Editar fica no topo). -->
             <div v-if="somenteLeitura">
-                <Link :href="BASE" class="botao-secundario">Voltar para a lista</Link>
+                <Link :href="LISTA" class="botao-secundario">Voltar para a lista</Link>
             </div>
             <BarraAcoes
                 v-else
-                :cancelar="BASE"
+                :cancelar="LISTA"
                 :salvar="textoBotao"
                 :processando="form.processing"
                 :com-erros="form.hasErrors"

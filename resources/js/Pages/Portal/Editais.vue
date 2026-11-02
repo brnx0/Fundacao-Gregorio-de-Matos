@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
+import CartaoEdital from '../../Components/CartaoEdital.vue';
 import FaixaPortal from '../../Components/FaixaPortal.vue';
-import { fotoVitrine } from '../../Components/fotosVitrine';
 import Paginacao from '../../Components/Retaguarda/Paginacao.vue';
 import TabelaPaginada from '../../Components/Retaguarda/TabelaPaginada.vue';
 import PortalProponenteLayout from '../../Layouts/PortalProponenteLayout.vue';
@@ -112,56 +112,23 @@ const classeInscrever =
             <div v-if="visualizacao === 'cards'" class="flex flex-col gap-6">
                 <ul v-if="editais.data.length" aria-label="Editais" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     <li v-for="(edital, indice) in editais.data" :key="edital.slug">
-                        <article
-                            :aria-labelledby="`edital-${edital.slug}`"
-                            class="group flex h-full flex-col overflow-hidden rounded-[24px] border border-hairline bg-superficie shadow-[0_24px_60px_-34px_rgba(6,36,74,0.45)]"
-                        >
-                            <!-- Sem foto própria, o card usa uma foto da vitrine; as duas são decorativas (o título está no texto). -->
-                            <div class="home-escuro relative aspect-[4/3] overflow-hidden bg-noite text-white">
-                                <img
-                                    :src="edital.imagem ?? fotoVitrine(indice).src"
-                                    alt=""
-                                    class="home-foto absolute inset-0 size-full object-cover transition-transform duration-700 ease-out motion-safe:group-hover:scale-105"
-                                    :style="edital.imagem ? undefined : { objectPosition: fotoVitrine(indice).enquadramento }"
-                                    loading="lazy"
-                                    decoding="async"
-                                />
-                                <div
-                                    aria-hidden="true"
-                                    class="home-veu absolute inset-0 bg-[linear-gradient(0deg,rgba(4,26,56,0.9)_0%,rgba(4,26,56,0.4)_40%,rgba(4,26,56,0)_68%)]"
-                                ></div>
-                                <span class="vidro vidro-escuro vidro-pilula absolute top-4 left-4 inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[0.8125rem] font-semibold">
-                                    <span aria-hidden="true" class="size-2 rounded-full" :class="corSituacao[edital.situacao]"></span>
-                                    {{ edital.situacaoRotulo }}
-                                </span>
-                                <p class="absolute inset-x-5 bottom-4 text-[0.75rem] font-bold tracking-[0.2em] uppercase">{{ edital.categoria }}</p>
-                            </div>
-
-                            <div class="flex flex-1 flex-col gap-4 p-5 md:p-6">
-                                <h2 :id="`edital-${edital.slug}`" class="font-barlow text-[1.6rem] leading-[1] font-extrabold tracking-[0.01em] break-words text-home-tinta uppercase">
-                                    {{ edital.titulo }}
-                                </h2>
-                                <dl class="flex flex-col gap-1">
-                                    <dt class="text-[0.75rem] font-semibold tracking-[0.16em] text-tinta-suave uppercase">Inscrições</dt>
-                                    <dd class="font-medium tabular-nums">{{ edital.periodo }}</dd>
-                                </dl>
-                                <p v-if="edital.minhaInscricao" class="inline-flex items-center gap-2 text-[0.8125rem] font-semibold">
-                                    <span aria-hidden="true" class="size-2 rounded-full" :class="corInscricao[edital.minhaInscricao]"></span>
-                                    {{ rotuloInscricao[edital.minhaInscricao] }}
-                                </p>
-                                <div class="mt-auto flex flex-wrap items-center gap-2 pt-1">
-                                    <Link v-if="edital.situacao === 'aberto'" :href="`${BASE}/${edital.slug}/inscricao`" :class="classeInscrever">
-                                        {{ edital.minhaInscricao ? 'Ver minha inscrição' : 'Inscrever' }}<span class="sr-only"> no edital {{ edital.titulo }}</span>
-                                    </Link>
-                                    <a :href="edital.pdf" :class="classeAcao" target="_blank" rel="noopener">
-                                        <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
-                                        </svg>
-                                        PDF<span class="sr-only"> do edital {{ edital.titulo }} (abre em nova aba)</span>
-                                    </a>
-                                </div>
-                            </div>
-                        </article>
+                        <CartaoEdital :edital="edital" :indice="indice">
+                            <p v-if="edital.minhaInscricao" class="inline-flex items-center gap-2 text-[0.8125rem] font-semibold">
+                                <span aria-hidden="true" class="size-2 rounded-full" :class="corInscricao[edital.minhaInscricao]"></span>
+                                {{ rotuloInscricao[edital.minhaInscricao] }}
+                            </p>
+                            <template #acoes>
+                                <Link v-if="edital.situacao === 'aberto'" :href="`${BASE}/${edital.slug}/inscricao`" :class="classeInscrever">
+                                    {{ edital.minhaInscricao ? 'Ver minha inscrição' : 'Inscrever' }}<span class="sr-only"> no edital {{ edital.titulo }}</span>
+                                </Link>
+                                <a :href="edital.pdf" :class="classeAcao" target="_blank" rel="noopener">
+                                    <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+                                    </svg>
+                                    PDF<span class="sr-only"> do edital {{ edital.titulo }} (abre em nova aba)</span>
+                                </a>
+                            </template>
+                        </CartaoEdital>
                     </li>
                 </ul>
                 <p v-else class="rounded-[24px] border border-hairline bg-superficie px-6 py-14 text-center text-tinta-suave">Nenhum edital com inscrições abertas no momento.</p>

@@ -36,8 +36,6 @@ use RuntimeException;
 use Tests\Support\RespostaDaIa;
 use Tests\TestCase;
 
-use function Illuminate\Support\php_binary;
-
 class ImportacaoEditalTest extends TestCase
 {
     use RefreshDatabase;
@@ -81,7 +79,7 @@ class ImportacaoEditalTest extends TestCase
             }
         });
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     /** Arquivo com o tipo vindo do conteúdo, como num upload real. */
@@ -586,6 +584,41 @@ class ImportacaoEditalTest extends TestCase
         Storage::disk('local')->assertMissing($importacao->pdf);
     }
 
+    public function test_novo_envio_apaga_com_o_pdf_as_importacoes_com_erro_que_sairam_do_painel_ha_mais_de_uma_hora(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-28 15:00'));
+        $this->app->instance(LancadorDeAnalise::class, new class extends LancadorDeAnalise
+        {
+            public function lancar(ImportacaoEdital $importacao): void {}
+        });
+        $comPdf = function (ImportacaoEdital $importacao): ImportacaoEdital {
+            Storage::disk('local')->put($importacao->pdf, self::CONTEUDO_PDF);
+
+            return $importacao;
+        };
+        // O erro sai do painel aos 30 minutos e é apagado 1 hora depois; a análise sem término vira erro aos 15.
+        $apagarErroAntes = ImportacaoEdital::MINUTOS_ERRO_NO_PAINEL + ImportacaoEdital::MINUTOS_ATE_APAGAR;
+        $apagarSemTerminoAntes = ImportacaoEdital::MINUTOS_LIMITE + $apagarErroAntes;
+
+        $erroAntigo = $comPdf(ImportacaoEdital::factory()->comErro()->create(['updated_at' => now()->subMinutes($apagarErroAntes + 1)]));
+        $semTerminoAntiga = $comPdf(ImportacaoEdital::factory()->create(['iniciada_em' => now()->subMinutes($apagarSemTerminoAntes + 1)]));
+        $erroNaFolga = $comPdf(ImportacaoEdital::factory()->comErro()->create(['updated_at' => now()->subMinutes($apagarErroAntes - 1)]));
+        $semTerminoNaFolga = $comPdf(ImportacaoEdital::factory()->create(['iniciada_em' => now()->subMinutes($apagarSemTerminoAntes - 1)]));
+        $concluidaAntiga = $comPdf(ImportacaoEdital::factory()->concluida()->create(['updated_at' => now()->subDays(30)]));
+
+        $this->post(self::URL, ['pdf' => $this->pdf()])->assertRedirect(route('retaguarda.editais.index'));
+
+        foreach ([$erroAntigo, $semTerminoAntiga] as $apagada) {
+            $this->assertModelMissing($apagada);
+            Storage::disk('local')->assertMissing($apagada->pdf);
+        }
+        foreach ([$erroNaFolga, $semTerminoNaFolga, $concluidaAntiga] as $mantida) {
+            $this->assertModelExists($mantida);
+            Storage::disk('local')->assertExists($mantida->pdf);
+        }
+        $this->assertSame(4, ImportacaoEdital::count());
+    }
+
     public function test_importacao_concluida_nao_pode_ser_descartada(): void
     {
         $importacao = ImportacaoEdital::factory()->concluida()->create();
@@ -613,19 +646,16 @@ class ImportacaoEditalTest extends TestCase
         $this->post("/retaguarda/editais/{$edital->slug}/importacao/conferida")->assertNotFound();
     }
 
-    public function test_lancador_inicia_o_comando_em_segundo_plano_com_o_php_de_linha_de_comando(): void
+    public function test_lancador_inicia_o_comando_em_segundo_plano(): void
     {
         Process::fake();
         $importacao = ImportacaoEdital::factory()->create();
 
         (new LancadorDeAnalise)->lancar($importacao);
 
-        Process::assertRan(fn (PendingProcess $processo): bool => $processo->command === sprintf(
-            "nohup %s %s editais:analisar %d '%s' > /dev/null 2>&1 &",
-            escapeshellarg(php_binary()),
-            escapeshellarg(base_path('artisan')),
-            $importacao->id,
-            $importacao->execucao,
+        Process::assertRan(fn (PendingProcess $processo): bool => str_contains(
+            $processo->command,
+            "editais:analisar {$importacao->id} ".escapeshellarg($importacao->execucao),
         ));
     }
 

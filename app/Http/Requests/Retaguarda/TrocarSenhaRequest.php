@@ -23,7 +23,7 @@ class TrocarSenhaRequest extends FormRequest
         $temSenha = $this->user()?->password !== null;
 
         return [
-            'senha_atual' => $temSenha ? ['required', 'string', 'current_password:web'] : ['nullable'],
+            'senha_atual' => $temSenha ? ['required', 'string', 'current_password:retaguarda'] : ['nullable'],
             'nova_senha' => array_filter([
                 'required',
                 'string',

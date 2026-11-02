@@ -64,10 +64,10 @@ class EditalEstruturaTest extends TestCase
 
     public function test_lista_da_retaguarda_mostra_rascunho_sem_periodo_nem_situacao(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
         $rascunho = Edital::factory()->rascunho()->create();
 
-        $this->get('/retaguarda/editais')
+        $this->get('/retaguarda/editais?publicado=nao')
             ->assertOk()
             ->assertInertia(fn (Assert $p) => $p
                 ->has('editais.data', 1)
@@ -76,7 +76,7 @@ class EditalEstruturaTest extends TestCase
                 ->where('editais.data.0.periodo', null)
                 ->where('editais.data.0.situacao', null));
 
-        $this->get('/retaguarda/editais?situacao=aberto')
+        $this->get('/retaguarda/editais?publicado=nao&situacao=aberto')
             ->assertInertia(fn (Assert $p) => $p->has('editais.data', 0));
     }
 
@@ -88,6 +88,7 @@ class EditalEstruturaTest extends TestCase
         $this->assertSame([
             'Informe o título do edital.',
             'Envie o PDF do edital.',
+            'Envie a imagem da vitrine.',
             'Cadastre ao menos uma chamada com início e fim das inscrições.',
             'Marque ao menos uma natureza que pode se inscrever.',
             'Cadastre ao menos uma categoria.',
@@ -101,6 +102,7 @@ class EditalEstruturaTest extends TestCase
         $this->assertSame([
             'titulo' => 'Informe o título do edital.',
             'pdf' => 'Envie o PDF do edital.',
+            'imagem' => 'Envie a imagem da vitrine.',
             'chamadas' => 'Cadastre ao menos uma chamada com início e fim das inscrições.',
             'naturezas' => 'Marque ao menos uma natureza que pode se inscrever.',
             'categorias' => 'Cadastre ao menos uma categoria.',

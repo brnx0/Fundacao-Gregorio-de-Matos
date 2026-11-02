@@ -1629,3 +1629,50 @@ html.alto-contraste .dica-retaguarda {
         color: #ffffff;
     }
 }
+
+/* Barra de progresso (análise do edital pela IA): trilho no tom da ação, preenchimento em degradê que cresce com um
+   brilho correndo enquanto a análise está ativa. Sem animação para quem pede menos movimento. */
+@layer components {
+    .barra-progresso {
+        position: relative;
+        height: 0.5rem;
+        overflow: hidden;
+        border-radius: 9999px;
+        background: color-mix(in srgb, var(--color-acao) 14%, transparent);
+    }
+
+    .barra-progresso-preenchimento {
+        position: relative;
+        height: 100%;
+        overflow: hidden;
+        border-radius: inherit;
+        background: linear-gradient(90deg, color-mix(in srgb, var(--color-acao) 55%, #ffffff), var(--color-acao));
+        box-shadow: 0 0 10px color-mix(in srgb, var(--color-acao) 45%, transparent);
+        transition: width 1s linear;
+    }
+
+    .barra-progresso-ativa::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.5), transparent);
+        transform: translateX(-100%);
+        animation: barra-progresso-brilho 1.8s ease-in-out infinite;
+    }
+
+    @keyframes barra-progresso-brilho {
+        to {
+            transform: translateX(100%);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .barra-progresso-preenchimento {
+            transition: none;
+        }
+
+        .barra-progresso-ativa::after {
+            animation: none;
+        }
+    }
+}

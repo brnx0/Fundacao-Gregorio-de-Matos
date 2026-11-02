@@ -79,7 +79,7 @@ class QuestionarioDoEditalController extends Controller
             (new SincronizadorDoQuestionario)->sincronizar($edital, $request->questionario(), $edital->categorias()->get()->all());
         });
 
-        return to_route('retaguarda.editais.index')->with('sucesso', 'Questionário salvo.');
+        return to_route('retaguarda.editais.index', $edital->abaDaLista())->with('sucesso', 'Questionário salvo.');
     }
 
     /**

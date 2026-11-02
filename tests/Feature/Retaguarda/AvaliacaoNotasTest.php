@@ -28,7 +28,7 @@ class AvaliacaoNotasTest extends TestCase
         parent::setUp();
 
         $this->gestor = User::factory()->gestor()->create();
-        $this->actingAs($this->gestor);
+        $this->actingAs($this->gestor, 'retaguarda');
     }
 
     private function editalComCriterios(): Edital

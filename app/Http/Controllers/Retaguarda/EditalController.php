@@ -49,22 +49,28 @@ class EditalController extends Controller
 
     private const string PASTA = 'editais';
 
+    /**
+     * Lista em duas abas: Não publicados, a padrão, e Publicados (Edital::ABA_PUBLICADOS). A busca e a situação
+     * valem na aba aberta e nos totais das duas.
+     */
     public function index(Request $request): Response
     {
         $busca = trim((string) $request->query('busca', ''));
         $situacao = SituacaoEdital::tryFrom((string) $request->query('situacao', ''));
-        $publicado = in_array($request->query('publicado'), ['sim', 'nao'], true) ? $request->query('publicado') : null;
+        $publicado = $request->query('publicado') === 'sim' ? 'sim' : 'nao';
 
-        $editais = Edital::query()
-            ->paraListagem()
-            ->withCount(['categorias', 'perguntas'])
+        $filtrados = fn (): Builder => Edital::query()
             // No Oracle a comparação de texto diferencia maiúsculas; % e _ digitados valem literalmente.
             ->when($busca !== '', fn (Builder $q) => $q->whereRaw(
                 "LOWER(titulo) LIKE ? ESCAPE '\\'",
                 ['%'.addcslashes(mb_strtolower($busca), '\\%_').'%'],
             ))
-            ->when($situacao, fn (Builder $q) => $q->naSituacao($situacao))
-            ->when($publicado, fn (Builder $q) => $q->where('publicado', $publicado === 'sim'))
+            ->when($situacao, fn (Builder $q) => $q->naSituacao($situacao));
+
+        $editais = $filtrados()
+            ->paraListagem()
+            ->withCount(['categorias', 'perguntas'])
+            ->where('publicado', $publicado === 'sim')
             ->orderByDesc('inscricoes_inicio')
             ->orderByDesc('id')
             ->paginate(15)
@@ -94,6 +100,10 @@ class EditalController extends Controller
 
         return Inertia::render('Retaguarda/Editais/Index', [
             'editais' => $editais,
+            'totais' => [
+                'sim' => $filtrados()->where('publicado', true)->count(),
+                'nao' => $filtrados()->where('publicado', false)->count(),
+            ],
             // "Importar com IA" aparece sempre; sem provedor, a janela já diz onde configurar.
             'importacaoConfigurada' => $configuracaoIa->provedoresDaImportacao() !== [],
             'tamanhoMaximoPdfMb' => $configuracaoIa->tamanhoMaximoPdfMb(),
@@ -101,7 +111,7 @@ class EditalController extends Controller
             'filtros' => [
                 'busca' => $busca,
                 'situacao' => $situacao?->value ?? '',
-                'publicado' => $publicado ?? '',
+                'publicado' => $publicado,
             ],
             'situacoes' => array_map(
                 fn (SituacaoEdital $s): array => ['valor' => $s->value, 'rotulo' => $s->rotulo()],
@@ -135,7 +145,7 @@ class EditalController extends Controller
         $this->salvar($request, $edital);
         [$tipo, $mensagem] = $this->mensagemDoSalvo($edital);
 
-        return redirect()->route('retaguarda.editais.index')->with($tipo, $mensagem);
+        return redirect()->route('retaguarda.editais.index', $edital->abaDaLista())->with($tipo, $mensagem);
     }
 
     /** O mesmo formulário, só para ler (ícone Visualizar da lista): mostra tudo, sem editar nem salvar. */
@@ -259,7 +269,7 @@ class EditalController extends Controller
         $this->salvar($request, $edital, $request->boolean('remover_imagem'));
         [$tipo, $mensagem] = $this->mensagemDoSalvo($edital);
 
-        return redirect()->route('retaguarda.editais.index')->with($tipo, $mensagem);
+        return redirect()->route('retaguarda.editais.index', $edital->abaDaLista())->with($tipo, $mensagem);
     }
 
     /**
@@ -281,7 +291,7 @@ class EditalController extends Controller
     {
         $edital->delete();
 
-        return redirect()->route('retaguarda.editais.index')->with('sucesso', 'Edital excluído.');
+        return redirect()->route('retaguarda.editais.index', $edital->abaDaLista())->with('sucesso', 'Edital excluído.');
     }
 
     public function publicacao(Edital $edital): RedirectResponse
@@ -392,28 +402,33 @@ class EditalController extends Controller
     }
 
     /**
-     * Painel da lista: as importações analisando ou com erro e as concluídas nas últimas 24 h (sem as colunas CLOB).
+     * Painel da lista: as importações analisando e as com erro recente (ImportacaoEdital::doPainel, sem as colunas CLOB).
+     * As que estão analisando levam o tempo decorrido e o previsto, para a barra de progresso (uma estimativa: a IA não
+     * informa o andamento).
      *
-     * @return list<array{id: int, pdfNome: string, situacao: string, erro: ?string, editalUrl: ?string, enviadaEm: string}>
+     * @return list<array{id: int, pdfNome: string, situacao: string, erro: ?string, enviadaEm: string, segundosDecorridos: ?int, segundosPrevistos: ?int}>
      */
     private function importacoesRecentes(): array
     {
-        return ImportacaoEdital::query()
-            ->select(['id', 'edital_id', 'situacao', 'erro', 'pdf_nome', 'iniciada_em', 'created_at'])
-            ->with('edital:id,slug')
-            ->where(fn (Builder $q) => $q
-                ->where('situacao', '!=', SituacaoImportacao::Concluida->value)
-                ->orWhere('updated_at', '>=', now()->subDay()))
+        $importacoes = ImportacaoEdital::query()
+            ->select(['id', 'situacao', 'erro', 'pdf_nome', 'iniciada_em', 'created_at'])
+            ->doPainel()
             ->latest('id')
             ->limit(30)
-            ->get()
+            ->get();
+
+        $analisando = fn (ImportacaoEdital $importacao): bool => $importacao->situacaoExibida() === SituacaoImportacao::Analisando;
+        $segundosPrevistos = $importacoes->contains($analisando) ? ImportacaoEdital::segundosPrevistos() : null;
+
+        return $importacoes
             ->map(fn (ImportacaoEdital $importacao): array => [
                 'id' => (int) $importacao->id,
                 'pdfNome' => $importacao->pdf_nome,
                 'situacao' => $importacao->situacaoExibida()->value,
                 'erro' => $importacao->erroExibido(),
-                'editalUrl' => $importacao->edital !== null ? route('retaguarda.editais.edit', $importacao->edital) : null,
                 'enviadaEm' => $importacao->created_at->setTimezone(config('app.timezone'))->format('d/m/Y H:i'),
+                'segundosDecorridos' => $analisando($importacao) ? $importacao->segundosDecorridos() : null,
+                'segundosPrevistos' => $analisando($importacao) ? $segundosPrevistos : null,
             ])
             ->all();
     }

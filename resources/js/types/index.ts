@@ -40,6 +40,8 @@ export interface EditalResumo {
     inscricoesFim: string;
     /** Imagem enviada na retaguarda (URL relativa); null usa as fotos fixas da vitrine. */
     imagem: string | null;
+    /** Descrição do card (o resumo do edital). */
+    resumo: string | null;
 }
 
 /** Edital em EditalController@show. */
@@ -440,6 +442,8 @@ export interface CadastroTipoProps {
 /** Edital na tela Editais do portal (PortalController@editais). */
 export interface EditalPortal {
     slug: string;
+    /** Descrição do card (o resumo do edital). */
+    resumo: string | null;
     titulo: string;
     categoria: string;
     periodo: string;
@@ -700,7 +704,10 @@ export interface SituacaoDaInscricao {
 
 export interface RetaguardaEditaisIndexProps {
     editais: Paginado<EditalRetaguarda>;
-    filtros: { busca: string; situacao: SituacaoEdital | ''; publicado: 'sim' | 'nao' | '' };
+    /** publicado é a aba aberta: "nao" (Não publicados, a padrão) ou "sim" (Publicados). */
+    filtros: { busca: string; situacao: SituacaoEdital | ''; publicado: 'sim' | 'nao' };
+    /** Editais de cada aba com a busca e a situação aplicadas. */
+    totais: { sim: number; nao: number };
     situacoes: { valor: SituacaoEdital; rotulo: string }[];
     /** Provedor principal com modelo e chave na Integração com IA. "Importar com IA" aparece sempre; sem isso, o envio é recusado. */
     importacaoConfigurada: boolean;
@@ -712,13 +719,15 @@ export interface RetaguardaEditaisIndexProps {
 /** Situação de uma importação para a tela (análise sem término há mais de 10 min já vem como "erro"). */
 export type SituacaoImportacao = 'analisando' | 'concluida' | 'erro';
 
-/** Importação no painel da lista de editais (EditalController@index); a consulta JSON devolve situacao, erro e editalUrl. */
+/**
+ * Importação no painel da lista de editais (EditalController@index): analisando ou com erro recente; a concluída sai do
+ * painel. A consulta JSON devolve situacao e erro.
+ */
 export interface ImportacaoResumo {
     id: number;
     pdfNome: string;
     situacao: SituacaoImportacao;
     erro: string | null;
-    editalUrl: string | null;
     /** dd/mm/aaaa hh:mm */
     enviadaEm: string;
 }
@@ -762,6 +771,9 @@ export interface ImportacaoDoQuestionario {
 export interface OpcaoFormulario {
     valor: string;
     rotulo: string;
+    /** Só analisando: tempo desde o início da análise e o previsto pelo histórico, para a barra de progresso estimada. */
+    segundosDecorridos: number | null;
+    segundosPrevistos: number | null;
 }
 
 export interface CotaModalidadeFormulario {

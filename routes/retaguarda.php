@@ -8,6 +8,7 @@ use App\Http\Controllers\Retaguarda\AvaliadoresDaAvaliacaoController;
 use App\Http\Controllers\Retaguarda\ConexaoIaController;
 use App\Http\Controllers\Retaguarda\DistribuicaoController;
 use App\Http\Controllers\Retaguarda\EditalController;
+use App\Http\Controllers\Retaguarda\DescricaoDoCardController;
 use App\Http\Controllers\Retaguarda\EventoController;
 use App\Http\Controllers\Retaguarda\HomologacaoController;
 use App\Http\Controllers\Retaguarda\ImportacaoEditalController;
@@ -44,7 +45,8 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
         return redirect()->route('govbr.redirect', ['destino' => 'retaguarda']);
     })->middleware('throttle:govbr')->name('govbr');
 
-    Route::middleware(['auth', 'gestor'])->group(function () {
+    // Login da retaguarda (guard 'retaguarda'), separado do login do portal; o auth o torna o padrão nestas rotas.
+    Route::middleware(['auth:retaguarda', 'gestor'])->group(function () {
         Route::get('/', function (): RedirectResponse {
             // Mantém avisos (ex.: limite de tentativas, vindo do login) através deste redirecionamento.
             session()->reflash();
@@ -81,6 +83,10 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
             ->name('editais.instrucoes-ia');
 
         // show abre o formulário só para ler (ícone Visualizar da lista).
+        // "Ajustar com IA" da descrição do card (aba Publicação), também do formulário ainda não salvo; responde JSON.
+        Route::post('/editais/descricao-ia', DescricaoDoCardController::class)
+            ->middleware('throttle:10,1,descricao-ia')
+            ->name('editais.descricao-ia');
         Route::resource('editais', EditalController::class)
             ->parameters(['editais' => 'edital']);
         Route::patch('/editais/{edital}/publicacao', [EditalController::class, 'publicacao'])->name('editais.publicacao');

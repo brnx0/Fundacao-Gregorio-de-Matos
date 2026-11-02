@@ -30,7 +30,7 @@ class QuestionarioDoEditalTest extends TestCase
 
         Storage::fake('public');
         Storage::fake('local');
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $this->edital = Edital::factory()->create(['publicado' => false]);
         EditalCategoria::factory()->create(['edital_id' => $this->edital->id, 'nome' => 'Teatro', 'ordem' => 1]);

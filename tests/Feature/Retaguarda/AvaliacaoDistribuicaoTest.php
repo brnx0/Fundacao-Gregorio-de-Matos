@@ -29,7 +29,7 @@ class AvaliacaoDistribuicaoTest extends TestCase
         parent::setUp();
 
         $this->gestor = User::factory()->gestor()->create();
-        $this->actingAs($this->gestor);
+        $this->actingAs($this->gestor, 'retaguarda');
     }
 
     /** Edital publicado com avaliação de 15 a 20/12/2026 e um critério com pontuação: só falta o avaliador. */

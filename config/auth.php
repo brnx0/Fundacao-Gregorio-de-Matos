@@ -41,6 +41,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Login da retaguarda, separado do login do portal ('web'): os dois convivem na mesma sessão do navegador.
+        'retaguarda' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

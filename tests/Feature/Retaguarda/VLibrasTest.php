@@ -18,7 +18,7 @@ class VLibrasTest extends TestCase
 
     public function test_tela_mostra_o_padrao_antes_da_primeira_gravacao(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->get(self::URL);
 
@@ -40,7 +40,7 @@ class VLibrasTest extends TestCase
     public function test_tela_mostra_a_configuracao_salva(): void
     {
         ConfiguracaoVLibras::factory()->desligado()->create(['lado' => LadoVLibras::Esquerda, 'avatar' => AvatarVLibras::Guga]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->get(self::URL);
 
@@ -50,7 +50,7 @@ class VLibrasTest extends TestCase
 
     public function test_salva_a_configuracao_numa_linha_so(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
         $this->put(self::URL, ['ativo' => false, 'lado' => 'L', 'avatar' => 'random']);
 
         $resposta = $this->put(self::URL, ['ativo' => true, 'lado' => 'L', 'avatar' => 'hosana']);
@@ -66,7 +66,7 @@ class VLibrasTest extends TestCase
 
     public function test_recusa_valores_fora_da_lista(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, ['ativo' => 'talvez', 'lado' => 'X', 'avatar' => 'zeca']);
 
@@ -80,7 +80,7 @@ class VLibrasTest extends TestCase
 
     public function test_recusa_envio_sem_os_campos(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, []);
 

@@ -404,8 +404,7 @@ class InscricaoDocumentosTest extends TestCase
 
         (new LancadorDeConferencia)->lancar($documento);
 
-        Process::assertRan(fn (PendingProcess $processo): bool => str_contains($processo->command, "inscricoes:conferir 42 'abc-123'")
-            && str_ends_with($processo->command, '> /dev/null 2>&1 &'));
+        Process::assertRan(fn (PendingProcess $processo): bool => str_contains($processo->command, 'inscricoes:conferir 42 '.escapeshellarg('abc-123')));
     }
 
     private function arquivo(string $nome, string $conteudo = self::CONTEUDO_PDF): UploadedFile

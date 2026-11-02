@@ -23,9 +23,19 @@ const descricao = computed(() => [textoAjuda.value && idAjuda.value, props.erro 
 
 <template>
     <component :is="grupo ? 'fieldset' : 'div'" class="flex min-w-0 flex-col gap-1.5" :aria-describedby="grupo ? descricao : undefined">
-        <!-- A legend não entra no gap do fieldset: o espaço vem da margem. -->
+        <!-- A legend não entra no gap do fieldset: o espaço vem da margem. Com o slot "acao" (um botão do campo), ele
+             fica na linha do rótulo, à direita, fora do label (botão dentro de label não vale). -->
+        <div v-if="$slots.acao" class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <label :for="id" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] font-semibold">
+                <span>
+                    {{ rotulo }}<span v-if="obrigatorio" aria-hidden="true" class="ml-0.5 text-invalido-texto">*</span>
+                </span>
+            </label>
+            <slot name="acao" />
+        </div>
         <component
             :is="grupo ? 'legend' : 'label'"
+            v-else
             :for="grupo ? undefined : id"
             class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] font-semibold"
             :class="{ 'mb-1.5': grupo }"

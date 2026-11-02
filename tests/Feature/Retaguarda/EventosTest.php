@@ -25,7 +25,7 @@ class EventosTest extends TestCase
         parent::setUp();
 
         Storage::fake('public');
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     private function imagem(): UploadedFile

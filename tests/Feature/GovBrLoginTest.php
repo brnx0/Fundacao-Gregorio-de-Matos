@@ -186,13 +186,13 @@ class GovBrLoginTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_logout_de_quem_entrou_pela_retaguarda_com_govbr_vai_ao_govbr(): void
+    public function test_sair_da_retaguarda_de_quem_entrou_nela_com_govbr_vai_ao_govbr(): void
     {
-        $this->actingAs(User::factory()->gestor()->create())
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda')
             ->withSession(['retaguarda.via_govbr' => true]);
 
-        $this->post('/logout')->assertRedirect(app(GovBrClient::class)->logoutUrl());
-        $this->assertGuest();
+        $this->post('/retaguarda/sair')->assertRedirect(app(GovBrClient::class)->logoutUrl());
+        $this->assertGuest('retaguarda');
     }
 
     public function test_logout_de_quem_entrou_com_senha_sai_so_do_portal(): void

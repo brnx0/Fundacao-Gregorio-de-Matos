@@ -28,7 +28,7 @@ class ProponentesTest extends TestCase
         parent::setUp();
 
         Storage::fake('local');
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     /** Usuário do portal que enviou a etapa "Seus dados". */

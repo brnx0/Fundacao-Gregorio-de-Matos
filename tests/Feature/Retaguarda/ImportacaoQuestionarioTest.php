@@ -84,7 +84,7 @@ class ImportacaoQuestionarioTest extends TestCase
         EditalCategoria::factory()->create(['edital_id' => $this->edital->id, 'nome' => 'Dança', 'naturezas' => ['pessoa_fisica'], 'ordem' => 2]);
         $this->teatro = EditalCategoria::factory()->create(['edital_id' => $this->edital->id, 'nome' => 'Teatro', 'naturezas' => null, 'ordem' => 1]);
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     private function url(?Edital $edital = null): string

@@ -34,7 +34,7 @@ class HomologacaoRecursoTest extends TestCase
         Storage::fake(Inscricao::DISCO);
         $this->travelTo(Carbon::parse('2026-12-20 10:00', 'America/Bahia'));
         $this->gestor = User::factory()->gestor()->create();
-        $this->actingAs($this->gestor);
+        $this->actingAs($this->gestor, 'retaguarda');
     }
 
     /** @param array<string, mixed> $dados */

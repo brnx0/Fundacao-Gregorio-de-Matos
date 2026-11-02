@@ -77,10 +77,16 @@ class ImportacaoEditalController extends Controller implements HasMiddleware
             'execucao' => ImportacaoEdital::novaExecucao(),
         ]);
 
+        // Sem agendador no projeto, cada envio apaga as importações com erro que já saíram do painel, com o PDF.
+        (new ImportacaoEdital)->pruneAll();
+
         return $this->lancar($importacao, $lancador);
     }
 
-    /** Inicia a análise; se o processo nem começar, a importação já fica com erro (e com "Tentar de novo"). */
+    /**
+     * Inicia a análise; se o processo nem começar, a importação já fica com erro (e com "Tentar de novo"). Volta para a
+     * aba Não publicados da lista, onde o edital importado aparece.
+     */
     private function lancar(ImportacaoEdital $importacao, LancadorDeAnalise $lancador): RedirectResponse
     {
         try {

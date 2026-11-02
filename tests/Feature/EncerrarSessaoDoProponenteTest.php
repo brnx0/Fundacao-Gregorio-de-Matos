@@ -40,12 +40,12 @@ class EncerrarSessaoDoProponenteTest extends TestCase
     public function test_gestor_continua_logado_na_retaguarda_e_a_home_o_mostra_como_visitante(): void
     {
         $gestor = User::factory()->gestor()->create();
-        $this->actingAs($gestor);
+        $this->actingAs($gestor, 'retaguarda');
 
         $resposta = $this->get('/');
 
         $resposta->assertOk()->assertInertia(fn (Assert $p) => $p->where('auth.user', null));
-        $this->assertAuthenticatedAs($gestor);
+        $this->assertAuthenticatedAs($gestor, 'retaguarda');
     }
 
     public function test_telas_do_cadastro_ficam_cifradas_no_historico_do_navegador(): void

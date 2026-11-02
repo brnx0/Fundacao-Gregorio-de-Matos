@@ -31,7 +31,7 @@ class PainelTest extends TestCase
     {
         parent::setUp();
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     /** Pessoa do portal: usuário que enviou a etapa "Seus dados" (proponente, se não vier outro usuário). */
