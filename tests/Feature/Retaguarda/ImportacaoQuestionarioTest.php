@@ -14,6 +14,7 @@ use App\Models\Edital;
 use App\Models\EditalCategoria;
 use App\Models\EditalPergunta;
 use App\Models\EditalQuestionarioSecao;
+use App\Models\ImportacaoEdital;
 use App\Models\ImportacaoQuestionario;
 use App\Models\Inscricao;
 use App\Models\User;
@@ -172,6 +173,7 @@ class ImportacaoQuestionarioTest extends TestCase
 
         $this->assertSame(SituacaoImportacao::Concluida, $importacao->situacao);
         $this->assertNull($importacao->erro);
+        $this->assertNotNull($importacao->concluida_em);
         $this->assertSame(['pdf', 'espelho.pdf'], [$importacao->tipo_arquivo, $importacao->arquivo_nome]);
         $this->assertSame([ProvedorIa::Gemini, 'gemini-2.5-pro'], [$importacao->provedor, $importacao->modelo]);
         $this->assertSame([8000, 2000, 10000], [$importacao->tokens_entrada, $importacao->tokens_saida, $importacao->tokens_total]);
@@ -464,6 +466,8 @@ class ImportacaoQuestionarioTest extends TestCase
             ->where('importacaoQuestionario.situacao', 'concluida')
             ->where('importacaoQuestionario.erro', null)
             ->where('importacaoQuestionario.arquivoNome', 'espelho.pdf')
+            ->where('importacaoQuestionario.segundosDecorridos', null)
+            ->where('importacaoQuestionario.segundosPrevistos', null)
             ->where('quadroQuestionario.confiabilidade.geral', 85)
             ->where('quadroQuestionario.confiabilidade.blocos.0.rotulo', 'Questionário')
             ->where('quadroQuestionario.atencao.0.blocoRotulo', 'Questionário')
@@ -476,6 +480,43 @@ class ImportacaoQuestionarioTest extends TestCase
         $this->get($editar)->assertInertia(fn (Assert $pagina) => $pagina
             ->where('importacaoQuestionario.situacao', 'concluida')
             ->where('quadroQuestionario', null));
+    }
+
+    public function test_tela_traz_o_tempo_da_analise_em_curso_para_a_barra_de_progresso(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-28 15:00'));
+        ImportacaoQuestionario::factory()->create(['edital_id' => $this->edital->id, 'iniciada_em' => now()->subSeconds(45)]);
+
+        $this->get('/retaguarda/editais/'.$this->edital->slug.'/questionario')->assertInertia(fn (Assert $pagina) => $pagina
+            ->where('importacaoQuestionario.situacao', 'analisando')
+            ->where('importacaoQuestionario.segundosDecorridos', 45)
+            ->where('importacaoQuestionario.segundosPrevistos', ImportacaoEdital::SEGUNDOS_PREVISTOS_PADRAO));
+    }
+
+    public function test_tempo_previsto_e_a_mediana_das_ultimas_analises_concluidas_dentro_dos_limites(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-28 15:00'));
+        $concluidaEm = fn (int $segundos): ImportacaoQuestionario => ImportacaoQuestionario::factory()->concluida()->create([
+            'edital_id' => $this->edital->id,
+            'iniciada_em' => now()->subSeconds($segundos),
+        ]);
+
+        $concluidaEm(60);
+        $concluidaEm(300);
+        $concluidaEm(90);
+        // Concluída antes da coluna (sem a data do fim): fica fora da previsão.
+        ImportacaoQuestionario::factory()->concluida()->create(['edital_id' => $this->edital->id, 'iniciada_em' => now()->subHour(), 'concluida_em' => null]);
+        $this->assertSame(90, ImportacaoQuestionario::segundosPrevistos());
+
+        foreach (range(1, 4) as $_) {
+            $concluidaEm(5);
+        }
+        $this->assertSame(ImportacaoEdital::SEGUNDOS_PREVISTOS_MINIMO, ImportacaoQuestionario::segundosPrevistos());
+
+        ImportacaoQuestionario::query()->delete();
+        $this->assertSame(ImportacaoEdital::SEGUNDOS_PREVISTOS_PADRAO, ImportacaoQuestionario::segundosPrevistos());
+        $concluidaEm(3600);
+        $this->assertSame(ImportacaoEdital::SEGUNDOS_PREVISTOS_MAXIMO, ImportacaoQuestionario::segundosPrevistos());
     }
 
     public function test_proponente_nao_acessa(): void

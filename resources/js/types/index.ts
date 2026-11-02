@@ -809,6 +809,9 @@ export interface ImportacaoDoQuestionario {
     arquivoNome: string;
     /** dd/mm/aaaa hh:mm */
     enviadaEm: string;
+    /** Só analisando: tempo desde o início da análise e o previsto pelo histórico, para a barra de progresso estimada. */
+    segundosDecorridos: number | null;
+    segundosPrevistos: number | null;
 }
 
 /** Opção de um campo de escolha (valor do enum e rótulo). */
@@ -1465,14 +1468,14 @@ export interface CriterioDaAvaliacao {
     pontosMaximos: string | null;
 }
 
-/** Documento exigido, com o arquivo enviado (aberto pela rota do avaliador). */
-export interface DocumentoDaAvaliacao {
-    id: number;
 /** Arquivo enviado, aberto pela rota do avaliador; o tipo decide a miniatura e como ele abre na tela. */
 export interface ArquivoDaAvaliacao extends ArquivoDaHomologacao {
     tipo: 'imagem' | 'pdf' | 'outro';
 }
 
+/** Documento exigido, com o arquivo enviado (aberto pela rota do avaliador). */
+export interface DocumentoDaAvaliacao {
+    id: number;
     nome: string;
     etapaRotulo: string;
     obrigatorio: boolean;
