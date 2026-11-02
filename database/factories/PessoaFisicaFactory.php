@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\AnexoCadastro;
 use App\Enums\Escolaridade;
 use App\Enums\FaixaDeRenda;
 use App\Enums\IdentidadeGenero;
@@ -9,6 +10,7 @@ use App\Enums\PovoTradicional;
 use App\Enums\RacaCor;
 use App\Models\AreaAtuacao;
 use App\Models\PessoaFisica;
+use App\Models\PessoaFisicaAnexo;
 use App\Models\PrefeituraBairro;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,14 +27,8 @@ class PessoaFisicaFactory extends Factory
             'nome_social' => null,
             'nome_artistico' => null,
             'data_nascimento' => fake()->dateTimeBetween('-80 years', '-'.PessoaFisica::IDADE_MINIMA.' years')->format('Y-m-d'),
-            'foto_perfil' => null,
             'pais_origem' => 'Brasil',
             'rg' => fake()->numerify('########'),
-            'documento_cpf' => 'cadastros/cpf.pdf',
-            'documento_rg' => 'cadastros/rg.pdf',
-            'documento_passaporte' => null,
-            'documento_crnm' => null,
-            'documento_outros' => null,
             'drt' => null,
             'cultura_principal_renda' => false,
             'ja_foi_avaliador' => false,
@@ -59,7 +55,6 @@ class PessoaFisicaFactory extends Factory
             'estado' => 'BA',
             // Códigos das Prefeituras-Bairro que a migration cadastra.
             'territorio' => fake()->randomElement(['centro_brotas', 'barra_pituba', 'cajazeiras', PrefeituraBairro::FORA_DE_SALVADOR]),
-            'comprovante_residencia' => null,
         ];
     }
 
@@ -81,5 +76,15 @@ class PessoaFisicaFactory extends Factory
         return $this->afterCreating(fn (PessoaFisica $pessoa) => $pessoa->areasAtuacao()->attach(
             AreaAtuacao::query()->whereIn('nome', $nomes)->pluck('id'),
         ));
+    }
+
+    /** Com as cópias do CPF e do RG já anexadas (sem conferência), como quem concluiu a etapa Anexos. */
+    public function comAnexosObrigatorios(): static
+    {
+        return $this->afterCreating(function (PessoaFisica $pessoa): void {
+            foreach ([AnexoCadastro::DocumentoCpf, AnexoCadastro::DocumentoRg] as $campo) {
+                PessoaFisicaAnexo::factory()->for($pessoa)->campo($campo)->create();
+            }
+        });
     }
 }

@@ -1,18 +1,21 @@
 <?php
 
+use App\Enums\AnexoCadastro;
+use App\Http\Controllers\Retaguarda\AnexosDoCadastroController;
 use App\Http\Controllers\Retaguarda\AreaAtuacaoController;
 use App\Http\Controllers\Retaguarda\AtribuicaoController;
 use App\Http\Controllers\Retaguarda\AvaliacaoController;
 use App\Http\Controllers\Retaguarda\AvaliadorController;
 use App\Http\Controllers\Retaguarda\AvaliadoresDaAvaliacaoController;
 use App\Http\Controllers\Retaguarda\ConexaoIaController;
+use App\Http\Controllers\Retaguarda\DescricaoDoCardController;
 use App\Http\Controllers\Retaguarda\DistribuicaoController;
 use App\Http\Controllers\Retaguarda\EditalController;
-use App\Http\Controllers\Retaguarda\DescricaoDoCardController;
 use App\Http\Controllers\Retaguarda\EventoController;
 use App\Http\Controllers\Retaguarda\HomologacaoController;
 use App\Http\Controllers\Retaguarda\ImportacaoEditalController;
 use App\Http\Controllers\Retaguarda\ImportacaoQuestionarioController;
+use App\Http\Controllers\Retaguarda\InstrucaoAnexoController;
 use App\Http\Controllers\Retaguarda\InstrucaoDocumentoController;
 use App\Http\Controllers\Retaguarda\IntegracaoIaController;
 use App\Http\Controllers\Retaguarda\LocalizacaoEventoController;
@@ -28,7 +31,6 @@ use App\Http\Controllers\Retaguarda\QuestionarioDoEditalController;
 use App\Http\Controllers\Retaguarda\RecursoDaHomologacaoController;
 use App\Http\Controllers\Retaguarda\UsuarioController;
 use App\Http\Controllers\Retaguarda\VLibrasController;
-use App\Models\PessoaFisica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -81,12 +83,12 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
         Route::post('/editais/instrucoes-ia', InstrucaoDocumentoController::class)
             ->middleware('throttle:10,1,instrucoes-ia')
             ->name('editais.instrucoes-ia');
-
-        // show abre o formulário só para ler (ícone Visualizar da lista).
         // "Ajustar com IA" da descrição do card (aba Publicação), também do formulário ainda não salvo; responde JSON.
         Route::post('/editais/descricao-ia', DescricaoDoCardController::class)
             ->middleware('throttle:10,1,descricao-ia')
             ->name('editais.descricao-ia');
+
+        // show abre o formulário só para ler (ícone Visualizar da lista).
         Route::resource('editais', EditalController::class)
             ->parameters(['editais' => 'edital']);
         Route::patch('/editais/{edital}/publicacao', [EditalController::class, 'publicacao'])->name('editais.publicacao');
@@ -124,7 +126,7 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
         Route::patch('/usuarios/{user}/ativo', [UsuarioController::class, 'ativo'])->name('usuarios.ativo');
 
         // Cadastros do portal, só para consulta. As telas ficam cifradas no histórico, como as de dados
-        // pessoais do portal; o anexo aceita só as colunas de arquivo da pessoa física.
+        // pessoais do portal; o anexo aceita só os campos de App\Enums\AnexoCadastro.
         Route::controller(ProponenteController::class)->group(function () {
             Route::middleware('inertia.encrypt')->group(function () {
                 Route::get('/proponentes', 'index')->name('proponentes.index');
@@ -132,7 +134,7 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
             });
             Route::get('/proponentes/{user}/anexos/{campo}', 'anexo')
                 ->whereNumber('user')
-                ->whereIn('campo', PessoaFisica::ARQUIVOS)
+                ->whereIn('campo', AnexoCadastro::valores())
                 ->name('proponentes.anexo');
         });
 
@@ -245,6 +247,17 @@ Route::prefix('retaguarda')->name('retaguarda.')->group(function () {
             Route::post('/integracao-ia/modelos', 'modelos')->name('integracao-ia.modelos');
             Route::post('/integracao-ia/teste', 'teste')->name('integracao-ia.teste');
         });
+
+        // Parametrização. Anexos do cadastro: quais arquivos da etapa Anexos do portal a IA confere e o que ela verifica.
+        Route::controller(AnexosDoCadastroController::class)->group(function () {
+            Route::get('/anexos-cadastro', 'edit')->name('anexos-cadastro.edit');
+            Route::put('/anexos-cadastro', 'update')->name('anexos-cadastro.update');
+        });
+        // "Gerar com IA" da tela; responde JSON e não grava. Cada chamada pode custar: limite próprio (o prefixo separa
+        // esta contagem da das instruções do edital e dos outros limites por usuário).
+        Route::post('/anexos-cadastro/instrucoes-ia', InstrucaoAnexoController::class)
+            ->middleware('throttle:10,1,instrucoes-anexos-ia')
+            ->name('anexos-cadastro.instrucoes-ia');
 
         // Parametrização. E-mail: servidor SMTP dos e-mails do sistema. O teste conecta no servidor e envia de verdade:
         // limite próprio, como o da IA.

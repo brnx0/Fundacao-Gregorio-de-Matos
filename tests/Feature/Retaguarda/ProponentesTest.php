@@ -2,15 +2,18 @@
 
 namespace Tests\Feature\Retaguarda;
 
+use App\Enums\AnexoCadastro;
 use App\Enums\Escolaridade;
 use App\Enums\PorteOrganizacao;
 use App\Enums\RacaCor;
 use App\Enums\TipoDeficiencia;
 use App\Models\Organizacao;
 use App\Models\PessoaFisica;
+use App\Models\PessoaFisicaAnexo;
 use App\Models\PrefeituraBairro;
 use App\Models\RepresentanteLegal;
 use App\Models\User;
+use Database\Factories\PessoaFisicaAnexoFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -31,7 +34,7 @@ class ProponentesTest extends TestCase
         $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
-    /** Usuário do portal que enviou a etapa "Seus dados". */
+    /** Usuário do portal que enviou a etapa "Meus dados". */
     private function comDados(User $user, array $dados = []): User
     {
         PessoaFisica::factory()->for($user)->create($dados);
@@ -42,6 +45,12 @@ class ProponentesTest extends TestCase
     private function maria(array $dados = []): User
     {
         return $this->comDados(User::factory()->proponente()->create(['cpf' => self::CPF_DA_MARIA, 'name' => 'Maria Proponente']), $dados);
+    }
+
+    /** Anexo enviado na etapa Anexos, com o arquivo em $arquivo no disco; cada teste completa o estado e chama create(). */
+    private function anexo(User $user, AnexoCadastro $campo, string $arquivo): PessoaFisicaAnexoFactory
+    {
+        return PessoaFisicaAnexo::factory()->for($user->pessoaFisica)->campo($campo)->state(['arquivo' => $arquivo]);
     }
 
     public function test_lista_quem_enviou_os_dados_com_cpf_mascarado_sem_gestor_nem_conta_so_com_login(): void
@@ -105,9 +114,10 @@ class ProponentesTest extends TestCase
             'escolaridade' => Escolaridade::MedioCompleto,
             'anos_atuacao' => 7,
             'telefone' => '71999998888',
-            'foto_perfil' => 'cadastros/1/foto.png',
-            'documento_cpf' => 'cadastros/1/cpf.pdf',
         ]);
+        $this->anexo($maria, AnexoCadastro::FotoPerfil, 'cadastros/1/foto.png')->create();
+        $this->anexo($maria, AnexoCadastro::DocumentoCpf, 'cadastros/1/cpf.pdf')->create();
+        $this->anexo($maria, AnexoCadastro::DocumentoRg, 'cadastros/1/rg.pdf')->reprovado('O arquivo é de outra pessoa.')->create();
         $organizacao = Organizacao::factory()->comResponsavel($maria)->create([
             'cnpj' => '11222333000181',
             'razao_social' => 'Coletivo Cultural Ltda',
@@ -126,12 +136,17 @@ class ProponentesTest extends TestCase
             ->where('secoes.4.campos.3', ['rotulo' => 'Tipo de deficiência', 'valor' => 'Outra: Baixa audição unilateral'])
             ->where('secoes.4.campos.4', ['rotulo' => 'Escolaridade', 'valor' => 'Ensino médio completo ou equivalente'])
             ->where('secoes.4.campos.7', ['rotulo' => 'Anos de atuação na área cultural', 'valor' => '7'])
+            ->has('anexos', 7)
             ->where('anexos.0.campo', 'foto_perfil')
             ->where('anexos.0.imagem', true)
             ->where('anexos.1.url', route('retaguarda.proponentes.anexo', [$maria, 'documento_cpf']))
             ->where('anexos.1.nome', 'copia-do-cpf-maria-proponente.pdf')
+            ->where('anexos.1.imagem', false)
+            ->where('anexos.1.ia', null)
+            ->where('anexos.2.ia', ['situacao' => 'reprovado', 'rotulo' => 'Reprovado', 'motivo' => 'O arquivo é de outra pessoa.'])
             ->where('anexos.3.enviado', false)
             ->where('anexos.3.url', null)
+            ->where('anexos.3.ia', null)
             ->where('organizacoes.0.razaoSocial', 'Coletivo Cultural Ltda')
             ->where('organizacoes.0.cnpj', '11.222.333/0001-81')
             ->where('organizacoes.0.porte', 'Micro')
@@ -188,7 +203,8 @@ class ProponentesTest extends TestCase
 
     public function test_anexo_abre_o_arquivo_enviado(): void
     {
-        $maria = $this->maria(['documento_cpf' => 'cadastros/1/cpf.pdf']);
+        $maria = $this->maria();
+        $this->anexo($maria, AnexoCadastro::DocumentoCpf, 'cadastros/1/cpf.pdf')->create(['arquivo_nome' => 'meu cpf.pdf']);
         Storage::disk('local')->put('cadastros/1/cpf.pdf', 'conteudo-do-pdf');
 
         $resposta = $this->get("/retaguarda/proponentes/{$maria->id}/anexos/documento_cpf");
@@ -197,9 +213,10 @@ class ProponentesTest extends TestCase
         $this->assertSame('inline; filename=copia-do-cpf-maria-proponente.pdf', $resposta->headers->get('Content-Disposition'));
     }
 
-    public function test_anexo_da_404_para_campo_vazio_arquivo_ausente_ou_coluna_que_nao_e_arquivo(): void
+    public function test_anexo_da_404_para_anexo_nao_enviado_arquivo_ausente_ou_campo_que_nao_e_anexo(): void
     {
-        $maria = $this->maria(['documento_rg' => 'cadastros/1/rg.pdf', 'documento_passaporte' => null]);
+        $maria = $this->maria();
+        $this->anexo($maria, AnexoCadastro::DocumentoRg, 'cadastros/1/rg.pdf')->create();
 
         $this->get("/retaguarda/proponentes/{$maria->id}/anexos/documento_passaporte")->assertNotFound();
         $this->get("/retaguarda/proponentes/{$maria->id}/anexos/documento_rg")->assertNotFound();
@@ -208,7 +225,8 @@ class ProponentesTest extends TestCase
 
     public function test_quem_nao_e_gestor_vai_para_o_login_da_retaguarda(): void
     {
-        $maria = $this->maria(['documento_cpf' => 'cadastros/1/cpf.pdf']);
+        $maria = $this->maria();
+        $this->anexo($maria, AnexoCadastro::DocumentoCpf, 'cadastros/1/cpf.pdf')->create();
         Storage::disk('local')->put('cadastros/1/cpf.pdf', 'conteudo-do-pdf');
         $enderecos = ['/retaguarda/proponentes', "/retaguarda/proponentes/{$maria->id}", "/retaguarda/proponentes/{$maria->id}/anexos/documento_cpf"];
 

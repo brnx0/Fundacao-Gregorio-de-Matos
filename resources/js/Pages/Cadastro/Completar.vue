@@ -2,7 +2,6 @@
 import { computed, watch } from 'vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import AvisoCamposObrigatorios from '../../Components/AvisoCamposObrigatorios.vue';
-import CampoArquivo from '../../Components/CampoArquivo.vue';
 import CampoCadastro from '../../Components/CampoCadastro.vue';
 import EtapasCadastro from '../../Components/EtapasCadastro.vue';
 import FaixaPortal from '../../Components/FaixaPortal.vue';
@@ -11,7 +10,7 @@ import Interruptor from '../../Components/Interruptor.vue';
 import SaudacaoCadastro from '../../Components/SaudacaoCadastro.vue';
 import SecaoCadastro from '../../Components/SecaoCadastro.vue';
 import PortalProponenteLayout from '../../Layouts/PortalProponenteLayout.vue';
-import type { ArquivoCadastro, CadastroCompletarProps } from '../../types';
+import type { CadastroCompletarProps } from '../../types';
 
 defineOptions({ layout: PortalProponenteLayout });
 
@@ -37,19 +36,14 @@ const formatarCep = (valor: string): string => {
 const salvo = props.cadastro;
 
 // Nome e CPF não entram no envio; e-mail e telefone do gov.br vão, mas o servidor fica com os do gov.br.
+// Os arquivos (foto e cópias dos documentos) ficam na etapa Anexos.
 const form = useForm({
     nome_social: salvo?.nome_social ?? '',
     nome_artistico: salvo?.nome_artistico ?? '',
     data_nascimento: salvo?.data_nascimento ?? '',
-    foto_perfil: null as File | null,
 
     pais_origem: salvo?.pais_origem ?? 'Brasil',
     rg: salvo?.rg ?? '',
-    documento_cpf: null as File | null,
-    documento_rg: null as File | null,
-    documento_passaporte: null as File | null,
-    documento_crnm: null as File | null,
-    documento_outros: null as File | null,
 
     drt: salvo?.drt ?? '',
     areas_atuacao: [...(salvo?.areas_atuacao ?? [])] as number[],
@@ -80,7 +74,6 @@ const form = useForm({
     cidade: salvo?.cidade ?? '',
     estado: salvo?.estado ?? '',
     territorio: salvo?.territorio ?? '',
-    comprovante_residencia: null as File | null,
 });
 
 // Área desativada com o formulário aberto: o erro do servidor traz a lista sem ela, e ela sai do que vai ser enviado
@@ -100,35 +93,19 @@ const mascarar = (evento: Event, campo: 'telefone' | 'telefone_adicional' | 'cep
     form.clearErrors(campo);
 };
 
-// O limite do servidor é 2 MB por arquivo; acima disso o arquivo nem sai do navegador.
-const LIMITE_ARQUIVO = 2 * 1024 * 1024;
-
-const escolherArquivo = (arquivo: File | null, campo: ArquivoCadastro): void => {
-    form.clearErrors(campo);
-
-    if (arquivo && arquivo.size > LIMITE_ARQUIVO) {
-        form[campo] = null;
-        form.setError(campo, 'O arquivo deve ter no máximo 2 MB.');
-        return;
-    }
-    form[campo] = arquivo;
-};
-
-const arquivoEnviado = (campo: ArquivoCadastro): boolean => props.cadastro?.arquivos[campo] ?? false;
-const tiposDocumento = 'application/pdf,image/jpeg,image/png';
-const dicaDocumento = 'PDF, JPG ou PNG, até 2 MB';
-
 // Erro do servidor: o foco vai para o primeiro campo marcado, que rola para a vista.
 const salvar = (): void => {
     form.post('/cadastro', {
-        preserveScroll: true,
+        // Na etapa Anexos a tela começa do topo; com erro (ou ao salvar o cadastro finalizado) a rolagem fica.
+        preserveScroll: (pagina) => pagina.component === 'Cadastro/Completar',
         onError: () => focarPrimeiroErro('#formulario-cadastro'),
     });
 };
 
+// No primeiro preenchimento, salvar leva à etapa Anexos.
 const textoBotao = computed(() => {
-    if (!form.processing) return 'Salvar cadastro';
-    return form.progress?.percentage !== undefined ? `Enviando ${form.progress.percentage}%` : 'Salvando…';
+    if (form.processing) return 'Salvando…';
+    return finalizado.value ? 'Salvar cadastro' : 'Salvar e continuar';
 });
 
 const classeCampo =
@@ -214,19 +191,6 @@ const classeSomenteLeitura =
                             @input="form.clearErrors('data_nascimento')"
                         />
                     </CampoCadastro>
-
-                    <CampoCadastro id="foto_perfil" rotulo="Foto de perfil" :erro="form.errors.foto_perfil" v-slot="{ descricao, invalido }">
-                        <CampoArquivo
-                            id="foto_perfil"
-                            accept="image/jpeg,image/png,image/gif"
-                            dica="JPG, PNG ou GIF, até 2 MB"
-                            :arquivo="form.foto_perfil"
-                            :enviado="arquivoEnviado('foto_perfil')"
-                            :descricao="descricao"
-                            :invalido="invalido"
-                            @escolher="escolherArquivo($event, 'foto_perfil')"
-                        />
-                    </CampoCadastro>
                 </div>
             </SecaoCadastro>
 
@@ -257,26 +221,6 @@ const classeSomenteLeitura =
                         </select>
                     </CampoCadastro>
 
-                    <CampoCadastro
-                        id="documento_cpf"
-                        rotulo="Cópia do CPF"
-                        :obrigatorio="!arquivoEnviado('documento_cpf')"
-                        :erro="form.errors.documento_cpf"
-                        v-slot="{ descricao, invalido }"
-                    >
-                        <CampoArquivo
-                            id="documento_cpf"
-                            :accept="tiposDocumento"
-                            :dica="dicaDocumento"
-                            :arquivo="form.documento_cpf"
-                            :enviado="arquivoEnviado('documento_cpf')"
-                            :obrigatorio="!arquivoEnviado('documento_cpf')"
-                            :descricao="descricao"
-                            :invalido="invalido"
-                            @escolher="escolherArquivo($event, 'documento_cpf')"
-                        />
-                    </CampoCadastro>
-
                     <CampoCadastro id="rg" rotulo="RG" obrigatorio :erro="form.errors.rg" v-slot="{ descricao, invalido }">
                         <input
                             id="rg"
@@ -292,64 +236,14 @@ const classeSomenteLeitura =
                         />
                     </CampoCadastro>
 
-                    <CampoCadastro
-                        id="documento_rg"
-                        rotulo="Cópia do RG"
-                        :obrigatorio="!arquivoEnviado('documento_rg')"
-                        :erro="form.errors.documento_rg"
-                        v-slot="{ descricao, invalido }"
-                    >
-                        <CampoArquivo
-                            id="documento_rg"
-                            :accept="tiposDocumento"
-                            :dica="dicaDocumento"
-                            :arquivo="form.documento_rg"
-                            :enviado="arquivoEnviado('documento_rg')"
-                            :obrigatorio="!arquivoEnviado('documento_rg')"
-                            :descricao="descricao"
-                            :invalido="invalido"
-                            @escolher="escolherArquivo($event, 'documento_rg')"
-                        />
-                    </CampoCadastro>
-
-                    <CampoCadastro id="documento_passaporte" rotulo="Passaporte" :erro="form.errors.documento_passaporte" v-slot="{ descricao, invalido }">
-                        <CampoArquivo
-                            id="documento_passaporte"
-                            :accept="tiposDocumento"
-                            :dica="dicaDocumento"
-                            :arquivo="form.documento_passaporte"
-                            :enviado="arquivoEnviado('documento_passaporte')"
-                            :descricao="descricao"
-                            :invalido="invalido"
-                            @escolher="escolherArquivo($event, 'documento_passaporte')"
-                        />
-                    </CampoCadastro>
-
-                    <CampoCadastro id="documento_crnm" rotulo="Registro Nacional Migratório (CRNM)" :erro="form.errors.documento_crnm" v-slot="{ descricao, invalido }">
-                        <CampoArquivo
-                            id="documento_crnm"
-                            :accept="tiposDocumento"
-                            :dica="dicaDocumento"
-                            :arquivo="form.documento_crnm"
-                            :enviado="arquivoEnviado('documento_crnm')"
-                            :descricao="descricao"
-                            :invalido="invalido"
-                            @escolher="escolherArquivo($event, 'documento_crnm')"
-                        />
-                    </CampoCadastro>
-
-                    <CampoCadastro id="documento_outros" rotulo="Outros documentos" :erro="form.errors.documento_outros" v-slot="{ descricao, invalido }">
-                        <CampoArquivo
-                            id="documento_outros"
-                            :accept="tiposDocumento"
-                            :dica="dicaDocumento"
-                            :arquivo="form.documento_outros"
-                            :enviado="arquivoEnviado('documento_outros')"
-                            :descricao="descricao"
-                            :invalido="invalido"
-                            @escolher="escolherArquivo($event, 'documento_outros')"
-                        />
-                    </CampoCadastro>
+                    <!-- Os arquivos têm etapa própria, logo depois desta (caminho da rota cadastro.anexos). -->
+                    <p class="text-[0.875rem] leading-[1.5] text-tinta-suave md:col-span-2">
+                        <template v-if="finalizado">
+                            As cópias dos documentos, o comprovante de residência e a foto de perfil ficam em
+                            <Link href="/cadastro/anexos" class="font-semibold text-acao">Anexos</Link>.
+                        </template>
+                        <template v-else>As cópias do CPF e do RG, o comprovante de residência e a foto de perfil você envia na próxima etapa, Anexos.</template>
+                    </p>
                 </div>
             </SecaoCadastro>
 
@@ -777,25 +671,6 @@ const classeSomenteLeitura =
                             <option value="" disabled>Selecione um território</option>
                             <option v-for="opcao in opcoes.territorios" :key="opcao.valor" :value="opcao.valor">{{ opcao.rotulo }}</option>
                         </select>
-                    </CampoCadastro>
-
-                    <CampoCadastro
-                        id="comprovante_residencia"
-                        class="md:col-span-6"
-                        rotulo="Comprovante de residência"
-                        :erro="form.errors.comprovante_residencia"
-                        v-slot="{ descricao, invalido }"
-                    >
-                        <CampoArquivo
-                            id="comprovante_residencia"
-                            :accept="tiposDocumento"
-                            :dica="dicaDocumento"
-                            :arquivo="form.comprovante_residencia"
-                            :enviado="arquivoEnviado('comprovante_residencia')"
-                            :descricao="descricao"
-                            :invalido="invalido"
-                            @escolher="escolherArquivo($event, 'comprovante_residencia')"
-                        />
                     </CampoCadastro>
                 </div>
             </SecaoCadastro>

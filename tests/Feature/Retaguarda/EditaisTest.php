@@ -614,12 +614,12 @@ class EditaisTest extends TestCase
 
     public function test_envio_acima_do_limite_do_php_no_portal_volta_com_aviso_geral(): void
     {
-        $this->call('POST', '/cadastro', server: [
+        $this->call('POST', '/cadastro/anexos/documento_cpf', server: [
             'CONTENT_LENGTH' => (string) (1024 ** 3),
             'HTTP_X_INERTIA' => 'true',
-            'HTTP_REFERER' => url('/cadastro/pessoa-fisica'),
+            'HTTP_REFERER' => url('/cadastro/anexos'),
         ])
-            ->assertRedirect('/cadastro/pessoa-fisica')
+            ->assertRedirect('/cadastro/anexos')
             ->assertSessionHas('erro', 'Os arquivos enviados passam do tamanho máximo permitido.');
     }
 }

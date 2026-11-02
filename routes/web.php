@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\AnexoCadastro;
 use App\Http\Controllers\Auth\FakeGovBrController;
 use App\Http\Controllers\Auth\GovBrController;
 use App\Http\Controllers\Auth\GovBrRedirectController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\CadastroAnexoController;
 use App\Http\Controllers\CadastroController;
 use App\Http\Controllers\ConsultaCadastroController;
 use App\Http\Controllers\DocumentoModeloController;
@@ -43,6 +45,24 @@ Route::controller(PaginaController::class)->group(function () {
 Route::middleware(['auth', 'nao-gestor', 'inertia.encrypt'])->controller(CadastroController::class)->group(function () {
     Route::get('/cadastro', 'completar')->name('cadastro');
     Route::post('/cadastro', 'salvar')->name('cadastro.salvar');
+});
+
+// Etapa Anexos: cada arquivo vai na hora em que é escolhido e, se a retaguarda pedir, a IA o confere. Fora de
+// cadastro-completo, que manda para cá quem ainda não concluiu a etapa.
+Route::middleware(['auth', 'nao-gestor', 'pessoa-fisica', 'inertia.encrypt'])->controller(CadastroAnexoController::class)->group(function () {
+    Route::get('/cadastro/anexos', 'index')->name('cadastro.anexos');
+    Route::get('/cadastro/anexos/situacao', 'situacao')->name('cadastro.anexos.situacao');
+    Route::post('/cadastro/anexos/concluir', 'concluir')->name('cadastro.anexos.concluir');
+    Route::post('/cadastro/anexos/{campo}', 'store')
+        ->whereIn('campo', AnexoCadastro::valores())
+        ->middleware('throttle:30,1,anexo-cadastro')
+        ->name('cadastro.anexos.store');
+    Route::delete('/cadastro/anexos/{campo}', 'destroy')->whereIn('campo', AnexoCadastro::valores())->name('cadastro.anexos.destroy');
+    Route::get('/cadastro/anexos/{campo}/arquivo', 'arquivo')->whereIn('campo', AnexoCadastro::valores())->name('cadastro.anexos.arquivo');
+    Route::post('/cadastro/anexos/{campo}/conferir', 'conferir')
+        ->whereIn('campo', AnexoCadastro::valores())
+        ->middleware('throttle:10,1,conferir-anexo')
+        ->name('cadastro.anexos.conferir');
 });
 
 Route::middleware(['auth', 'nao-gestor', 'cadastro-completo', 'inertia.encrypt'])->controller(CadastroController::class)->group(function () {

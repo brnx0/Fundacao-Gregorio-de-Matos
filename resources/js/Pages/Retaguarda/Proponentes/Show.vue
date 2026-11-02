@@ -4,7 +4,7 @@ import IconeAcao from '../../../Components/Retaguarda/IconeAcao.vue';
 import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
 import SecaoCadastro from '../../../Components/SecaoCadastro.vue';
 import RetaguardaLayout from '../../../Layouts/RetaguardaLayout.vue';
-import type { RetaguardaProponenteShowProps } from '../../../types';
+import type { RetaguardaProponenteShowProps, SituacaoConferencia } from '../../../types';
 
 defineOptions({ layout: RetaguardaLayout });
 
@@ -21,6 +21,14 @@ const ICONES: Record<string, string> = {
 };
 
 const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-hairline bg-nevoa px-4 text-base text-home-tinta';
+
+// Selo do resultado da conferência por IA, com as cores da homologação.
+const classeDoParecerDaIa = (situacao: SituacaoConferencia): string => {
+    if (situacao === 'aprovado') {
+        return 'selo-positivo';
+    }
+    return situacao === 'reprovado' || situacao === 'nao_conferido' ? 'selo-atencao' : '';
+};
 </script>
 
 <template>
@@ -71,27 +79,35 @@ const classeLeitura = 'flex min-h-12 items-center rounded-[12px] border border-h
             </template>
 
             <ul class="grid gap-4 md:grid-cols-2">
-                <li v-for="anexo in anexos" :key="anexo.campo" class="flex items-center gap-4 rounded-[16px] border border-hairline p-4">
-                    <span aria-hidden="true" class="inline-flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-nevoa text-acao">
-                        <img v-if="anexo.imagem && anexo.url" :src="anexo.url" alt="" class="size-full object-cover" loading="lazy" />
-                        <svg v-else viewBox="0 0 24 24" class="size-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M7 3h7l5 5v13H7zM14 3v5h5" />
-                        </svg>
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <p class="font-semibold">{{ anexo.rotulo }}</p>
-                        <p v-if="!anexo.enviado || !anexo.url" class="text-[0.9375rem] text-tinta-suave">Não enviado</p>
-                        <div v-else class="-ml-3 flex">
-                            <a :href="anexo.url" target="_blank" rel="noopener" class="acao-icone" data-dica="Abrir em nova aba">
-                                <IconeAcao nome="abrir" />
-                                <span class="sr-only">Abrir em nova aba: {{ anexo.rotulo }}</span>
-                            </a>
-                            <a :href="anexo.url" :download="anexo.nome ?? ''" class="acao-icone" data-dica="Baixar">
-                                <IconeAcao nome="baixar" />
-                                <span class="sr-only">Baixar {{ anexo.rotulo }}</span>
-                            </a>
+                <li v-for="anexo in anexos" :key="anexo.campo" class="flex flex-col gap-3 rounded-[16px] border border-hairline p-4">
+                    <div class="flex items-center gap-4">
+                        <span aria-hidden="true" class="inline-flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-nevoa text-acao">
+                            <img v-if="anexo.imagem && anexo.url" :src="anexo.url" alt="" class="size-full object-cover" loading="lazy" />
+                            <svg v-else viewBox="0 0 24 24" class="size-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M7 3h7l5 5v13H7zM14 3v5h5" />
+                            </svg>
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <p class="font-semibold">{{ anexo.rotulo }}</p>
+                                <span v-if="anexo.ia" class="selo" :class="classeDoParecerDaIa(anexo.ia.situacao)">IA: {{ anexo.ia.rotulo }}</span>
+                            </div>
+                            <p v-if="!anexo.enviado || !anexo.url" class="text-[0.9375rem] text-tinta-suave">Não enviado</p>
+                            <div v-else class="-ml-3 flex">
+                                <a :href="anexo.url" target="_blank" rel="noopener" class="acao-icone" data-dica="Abrir em nova aba">
+                                    <IconeAcao nome="abrir" />
+                                    <span class="sr-only">Abrir em nova aba: {{ anexo.rotulo }}</span>
+                                </a>
+                                <a :href="anexo.url" :download="anexo.nome ?? ''" class="acao-icone" data-dica="Baixar">
+                                    <IconeAcao nome="baixar" />
+                                    <span class="sr-only">Baixar {{ anexo.rotulo }}</span>
+                                </a>
+                            </div>
                         </div>
                     </div>
+                    <p v-if="anexo.ia?.motivo" class="text-[0.9375rem] leading-[1.6]">
+                        <span class="font-semibold">Parecer da IA:</span> {{ anexo.ia.motivo }}
+                    </p>
                 </li>
             </ul>
         </SecaoCadastro>

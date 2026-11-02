@@ -9,9 +9,11 @@ use App\Enums\PovoTradicional;
 use App\Enums\RacaCor;
 use App\Enums\TipoCadastro;
 use App\Enums\TipoDeficiencia;
+use App\Http\Middleware\ExigirCadastroCompleto;
 use App\Models\AreaAtuacao;
 use App\Models\Organizacao;
 use App\Models\PessoaFisica;
+use App\Models\PessoaFisicaAnexo;
 use App\Models\PrefeituraBairro;
 use App\Models\User;
 use App\Support\Cnpj;
@@ -62,15 +64,14 @@ class CadastroTest extends TestCase
             ->where('cadastro', null));
     }
 
-    public function test_formulario_traz_o_cadastro_ja_salvo_sem_os_caminhos_dos_arquivos(): void
+    public function test_formulario_traz_o_cadastro_ja_salvo_sem_os_anexos(): void
     {
-        $cadastro = PessoaFisica::factory()->create(['rg' => '1234567', 'territorio' => 'cajazeiras']);
+        $cadastro = PessoaFisica::factory()->comAnexosObrigatorios()->create(['rg' => '1234567', 'territorio' => 'cajazeiras']);
 
         $this->actingAs($cadastro->user)->get('/cadastro')->assertInertia(fn (Assert $page) => $page
             ->where('cadastro.rg', '1234567')
             ->where('cadastro.territorio', 'cajazeiras')
-            ->where('cadastro.arquivos.documento_cpf', true)
-            ->where('cadastro.arquivos.foto_perfil', false)
+            ->missing('cadastro.arquivos')
             ->missing('cadastro.documento_cpf'));
     }
 
@@ -87,7 +88,6 @@ class CadastroTest extends TestCase
 
     public function test_prefeitura_bairro_desativada_continua_valendo_para_quem_ja_a_escolheu(): void
     {
-        Storage::fake('local');
         $cadastro = PessoaFisica::factory()->create(['territorio' => 'valeria']);
         PrefeituraBairro::where('codigo', 'valeria')->update(['ativo' => false]);
 
@@ -115,9 +115,8 @@ class CadastroTest extends TestCase
         $this->assertDatabaseCount('pessoas_fisicas', 0);
     }
 
-    public function test_salva_o_cadastro_de_pessoa_fisica_e_os_arquivos(): void
+    public function test_salva_o_cadastro_de_pessoa_fisica(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['email' => 'maria@example.com', 'phone' => '71998765432']);
 
         $this->actingAs($user)->post('/cadastro', $this->dadosValidos([
@@ -125,7 +124,7 @@ class CadastroTest extends TestCase
             'telefone_adicional' => '(71) 3333-4444',
             'pcd' => true,
             'deficiencia' => 'auditiva',
-        ]))->assertRedirect(route('cadastro.organizacao'))->assertSessionHas('sucesso');
+        ]))->assertRedirect(route('cadastro.anexos'))->assertSessionHas('sucesso');
 
         $cadastro = $user->pessoaFisica()->sole();
         $this->assertSame('Maria do Samba', $cadastro->nome_artistico);
@@ -134,14 +133,25 @@ class CadastroTest extends TestCase
         $this->assertSame('centro_brotas', $cadastro->territorio);
         $this->assertTrue($cadastro->pcd);
         $this->assertFalse($cadastro->representa_coletivo);
-        Storage::disk('local')->assertExists([$cadastro->documento_cpf, $cadastro->documento_rg]);
-        $this->assertNull($cadastro->foto_perfil);
-        $this->assertNotNull($user->fresh()->profile_completed_at);
+    }
+
+    public function test_salvar_ignora_arquivos_enviados_junto_com_os_dados(): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->create(['email' => 'maria@example.com', 'phone' => '71998765432']);
+
+        $this->actingAs($user)->post('/cadastro', $this->dadosValidos([
+            'documento_cpf' => UploadedFile::fake()->create('cpf.pdf', 100, 'application/pdf'),
+            'foto_perfil' => UploadedFile::fake()->create('foto.png', 10, 'image/png'),
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('pessoas_fisicas', 1);
+        $this->assertDatabaseCount(PessoaFisicaAnexo::class, 0);
+        Storage::disk('local')->assertDirectoryEmpty('/');
     }
 
     public function test_email_e_telefone_do_govbr_nao_podem_ser_trocados_pelo_formulario(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['email' => 'maria@example.com', 'phone' => '71998765432']);
 
         $this->actingAs($user)->post('/cadastro', $this->dadosValidos([
@@ -155,7 +165,6 @@ class CadastroTest extends TestCase
 
     public function test_sem_email_e_telefone_do_govbr_eles_sao_pedidos_no_formulario(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['email' => null, 'phone' => null]);
 
         $this->actingAs($user)->post('/cadastro', $this->dadosValidos())
@@ -176,7 +185,7 @@ class CadastroTest extends TestCase
 
         $this->actingAs($user)->post('/cadastro', [])->assertSessionHasErrors([
             ...array_fill_keys([
-                'data_nascimento', 'pais_origem', 'rg', 'documento_cpf', 'documento_rg', 'identidade_genero', 'raca_cor',
+                'data_nascimento', 'pais_origem', 'rg', 'identidade_genero', 'raca_cor',
                 'cep', 'logradouro', 'bairro', 'cidade', 'estado', 'territorio',
             ], 'Este campo é obrigatório.'),
             'areas_atuacao' => 'Marque ao menos uma área de atuação.',
@@ -190,7 +199,6 @@ class CadastroTest extends TestCase
     #[DataProvider('dadosInvalidos')]
     public function test_recusa_dados_invalidos(array $dados, string $campo, string $mensagem): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['phone' => '71998765432']);
 
         $this->actingAs($user)->post('/cadastro', $this->dadosValidos($dados))
@@ -201,18 +209,6 @@ class CadastroTest extends TestCase
     public static function dadosInvalidos(): array
     {
         return [
-            'arquivo acima de 2 MB' => [
-                ['documento_cpf' => UploadedFile::fake()->create('cpf.pdf', 2049, 'application/pdf')],
-                'documento_cpf', 'O arquivo deve ter no máximo 2 MB.',
-            ],
-            'documento que não é PDF nem imagem' => [
-                ['documento_rg' => UploadedFile::fake()->create('rg.docx', 10)],
-                'documento_rg', 'Envie um PDF ou uma imagem JPG ou PNG.',
-            ],
-            'foto que não é imagem' => [
-                ['foto_perfil' => UploadedFile::fake()->create('foto.pdf', 10, 'application/pdf')],
-                'foto_perfil', 'Envie uma imagem JPG, PNG ou GIF.',
-            ],
             'país fora da lista' => [['pais_origem' => 'Atlântida'], 'pais_origem', 'Selecione uma opção da lista.'],
             'território fora da lista' => [['territorio' => 'centro'], 'territorio', 'Selecione uma opção da lista.'],
             'estado fora da lista' => [['estado' => 'XX'], 'estado', 'Selecione uma opção da lista.'],
@@ -226,7 +222,6 @@ class CadastroTest extends TestCase
 
     public function test_aceita_quem_completa_dezoito_anos_hoje(): void
     {
-        Storage::fake('local');
         $this->travelTo(Carbon::parse('2026-06-15 10:00', 'America/Bahia'));
         $user = User::factory()->create(['phone' => '71998765432']);
 
@@ -248,7 +243,6 @@ class CadastroTest extends TestCase
     #[DataProvider('menoresDeIdade')]
     public function test_recusa_quem_ainda_nao_tem_dezoito_anos(string $agora, string $nascimento): void
     {
-        Storage::fake('local');
         $this->travelTo(Carbon::parse($agora, 'America/Bahia'));
 
         $this->actingAs(User::factory()->create(['phone' => '71998765432']))
@@ -260,7 +254,6 @@ class CadastroTest extends TestCase
 
     public function test_salva_a_data_de_nascimento_e_as_areas_marcadas_no_lugar_das_de_antes(): void
     {
-        Storage::fake('local');
         $cadastro = PessoaFisica::factory()->comAreas('Teatro', 'Música')->create();
 
         $this->actingAs($cadastro->user)->post('/cadastro', $this->dadosValidos([
@@ -297,7 +290,6 @@ class CadastroTest extends TestCase
 
     public function test_area_desativada_nao_pode_ser_marcada_por_quem_nao_a_tinha(): void
     {
-        Storage::fake('local');
         AreaAtuacao::where('nome', 'Cinema')->update(['ativo' => false]);
 
         $this->actingAs(User::factory()->create(['phone' => '71998765432']))
@@ -309,7 +301,6 @@ class CadastroTest extends TestCase
 
     public function test_area_desativada_continua_valendo_para_quem_ja_a_marcou(): void
     {
-        Storage::fake('local');
         $cadastro = PessoaFisica::factory()->comAreas('Cinema')->create();
         AreaAtuacao::where('nome', 'Cinema')->update(['ativo' => false]);
         $cinema = $this->idsDasAreas('Cinema');
@@ -325,30 +316,6 @@ class CadastroTest extends TestCase
         $this->assertSame(['Cinema'], $cadastro->areasAtuacao()->pluck('nome')->all());
     }
 
-    public function test_cadastro_salvo_nao_exige_reenviar_documentos_e_troca_o_arquivo_substituido(): void
-    {
-        Storage::fake('local');
-        Storage::disk('local')->put('cadastros/cpf-antigo.pdf', 'antigo');
-        Storage::disk('local')->put('cadastros/rg-antigo.pdf', 'antigo');
-        $cadastro = PessoaFisica::factory()->create([
-            'documento_cpf' => 'cadastros/cpf-antigo.pdf',
-            'documento_rg' => 'cadastros/rg-antigo.pdf',
-        ]);
-
-        $this->actingAs($cadastro->user)->post('/cadastro', [
-            ...$this->dadosValidos(['rg' => '7654321', 'telefone' => '(71) 99876-5432']),
-            'documento_cpf' => UploadedFile::fake()->create('cpf-novo.pdf', 10, 'application/pdf'),
-            'documento_rg' => null,
-        ])->assertSessionHasNoErrors();
-
-        $cadastro->refresh();
-        $this->assertSame('7654321', $cadastro->rg);
-        $this->assertSame('cadastros/rg-antigo.pdf', $cadastro->documento_rg);
-        Storage::disk('local')->assertMissing('cadastros/cpf-antigo.pdf');
-        Storage::disk('local')->assertExists([$cadastro->documento_cpf, 'cadastros/rg-antigo.pdf']);
-        $this->assertDatabaseCount('pessoas_fisicas', 1);
-    }
-
     /**
      * @param  array<string, mixed>  $alteracoes
      * @return array<string, mixed>
@@ -359,8 +326,6 @@ class CadastroTest extends TestCase
             'data_nascimento' => '1985-04-12',
             'pais_origem' => 'Brasil',
             'rg' => '1234567',
-            'documento_cpf' => UploadedFile::fake()->create('cpf.pdf', 100, 'application/pdf'),
-            'documento_rg' => UploadedFile::fake()->create('rg.jpg', 100, 'image/jpeg'),
             'identidade_genero' => IdentidadeGenero::MulherCis->value,
             'raca_cor' => RacaCor::Preta->value,
             'escolaridade' => 'medio_completo',
@@ -391,7 +356,6 @@ class CadastroTest extends TestCase
 
     public function test_salva_o_perfil_da_pessoa_fisica(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['email' => 'maria@example.com', 'phone' => '71998765432']);
 
         $this->actingAs($user)->post('/cadastro', $this->dadosValidos([
@@ -431,7 +395,6 @@ class CadastroTest extends TestCase
 
     public function test_sem_pcd_o_tipo_de_deficiencia_nao_fica_gravado(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['email' => 'maria@example.com', 'phone' => '71998765432']);
 
         $this->actingAs($user)->post('/cadastro', $this->dadosValidos([
@@ -453,7 +416,6 @@ class CadastroTest extends TestCase
 
     public function test_deficiencia_outra_escondida_sem_pcd_nao_barra_o_salvamento(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['email' => 'maria@example.com', 'phone' => '71998765432']);
 
         $this->actingAs($user)->post('/cadastro', $this->dadosValidos([
@@ -485,7 +447,6 @@ class CadastroTest extends TestCase
 
     public function test_anos_de_atuacao_inteiro_de_zero_a_cem(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['email' => 'maria@example.com', 'phone' => '71998765432']);
 
         foreach ([-1, 101, 2.5] as $invalido) {
@@ -525,14 +486,15 @@ class CadastroTest extends TestCase
         $this->actingAs(User::factory()->create())->get('/cadastro/pessoa-fisica')->assertNotFound();
     }
 
-    public function test_primeiro_salvamento_segue_para_a_etapa_da_organizacao(): void
+    public function test_primeiro_salvamento_segue_para_a_etapa_anexos_sem_concluir_o_cadastro(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['profile_completed_at' => null, 'email' => 'maria@example.com', 'phone' => '71998765432']);
 
         $this->actingAs($user)->post('/cadastro', $this->dadosValidos())
-            ->assertRedirect(route('cadastro.organizacao'))
-            ->assertSessionHas('sucesso', 'Dados salvos. Você também pode cadastrar uma Pessoa Jurídica.');
+            ->assertRedirect(route('cadastro.anexos'))
+            ->assertSessionHas('sucesso', 'Dados salvos. Agora envie seus documentos.');
+
+        $this->assertNull($user->fresh()->profile_completed_at);
     }
 
     public function test_aviso_do_middleware_chega_a_tela_de_dados(): void
@@ -545,41 +507,35 @@ class CadastroTest extends TestCase
                 ->where('flash.aviso', 'Complete seus dados de Pessoa Física antes de cadastrar uma Pessoa Jurídica.'));
     }
 
-    public function test_primeiro_salvamento_mostra_o_sucesso_na_etapa_da_organizacao(): void
+    public function test_primeiro_salvamento_mostra_o_sucesso_na_etapa_anexos(): void
     {
-        Storage::fake('local');
         $user = User::factory()->create(['profile_completed_at' => null, 'email' => 'maria@example.com', 'phone' => '71998765432']);
 
-        $this->actingAs($user)->followingRedirects()->post('/cadastro', $this->dadosValidos())
+        $this->actingAs($user)->post('/cadastro', $this->dadosValidos())->assertRedirect(route('cadastro.anexos'));
+
+        // Segue com o usuário relido, como no navegador: o do actingAs ainda guarda que não havia pessoa física.
+        $this->actingAs($user->fresh())->get(route('cadastro.anexos'))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Cadastro/Organizacao')
-                ->where('flash.sucesso', 'Dados salvos. Você também pode cadastrar uma Pessoa Jurídica.'));
+                ->component('Cadastro/Anexos')
+                ->where('flash.sucesso', 'Dados salvos. Agora envie seus documentos.'));
     }
 
     public function test_salvamento_com_cadastro_finalizado_volta_para_o_cadastro(): void
     {
-        Storage::fake('local');
         $cadastro = PessoaFisica::factory()->create();
         $cadastro->user->forceFill(['profile_completed_at' => now(), 'tipos_cadastro' => [TipoCadastro::Proponente], 'email' => 'maria@example.com', 'phone' => '71998765432'])->save();
 
-        $this->actingAs($cadastro->user)->post('/cadastro', [
-            ...$this->dadosValidos(),
-            'documento_cpf' => null,
-            'documento_rg' => null,
-        ])->assertRedirect(route('cadastro'))->assertSessionMissing('sucesso');
+        $this->actingAs($cadastro->user)->post('/cadastro', $this->dadosValidos())
+            ->assertRedirect(route('cadastro'))->assertSessionMissing('sucesso');
     }
 
-    public function test_salvamento_sem_tipo_de_cadastro_segue_para_a_etapa_da_organizacao(): void
+    public function test_salvamento_sem_tipo_de_cadastro_segue_para_a_etapa_anexos(): void
     {
-        Storage::fake('local');
         $cadastro = PessoaFisica::factory()->create();
         $cadastro->user->forceFill(['profile_completed_at' => now(), 'email' => 'maria@example.com', 'phone' => '71998765432'])->save();
 
-        $this->actingAs($cadastro->user)->post('/cadastro', [
-            ...$this->dadosValidos(),
-            'documento_cpf' => null,
-            'documento_rg' => null,
-        ])->assertRedirect(route('cadastro.organizacao'));
+        $this->actingAs($cadastro->user)->post('/cadastro', $this->dadosValidos())
+            ->assertRedirect(route('cadastro.anexos'));
     }
 
     public function test_etapa_da_organizacao_abre_com_a_pessoa_fisica_completa(): void
@@ -615,6 +571,23 @@ class CadastroTest extends TestCase
         $this->actingAs($user)->get('/cadastro/organizacao')
             ->assertRedirect(route('cadastro'))
             ->assertSessionHas('aviso', 'Complete seus dados de Pessoa Física antes de cadastrar uma Pessoa Jurídica.');
+    }
+
+    public function test_quem_salvou_meus_dados_e_nao_concluiu_os_anexos_volta_para_anexos(): void
+    {
+        $user = User::factory()->create(['profile_completed_at' => null]);
+        PessoaFisica::factory()->for($user)->comAnexosObrigatorios()->create();
+
+        foreach (['/cadastro/organizacao', '/cadastro/tipo', '/cadastro/pessoa-juridica', '/portal/editais'] as $endereco) {
+            $this->actingAs($user)->get($endereco)
+                ->assertRedirect(route('cadastro.anexos'))
+                ->assertSessionHas('aviso', ExigirCadastroCompleto::AVISO_ANEXOS);
+        }
+
+        $this->actingAs($user)->post('/cadastro/tipo', ['tipos_cadastro' => ['proponente']])
+            ->assertRedirect(route('cadastro.anexos'));
+        $this->assertNull($user->fresh()->tipos_cadastro);
+        $this->assertNull($user->fresh()->profile_completed_at);
     }
 
     public function test_etapa_da_organizacao_exige_login(): void

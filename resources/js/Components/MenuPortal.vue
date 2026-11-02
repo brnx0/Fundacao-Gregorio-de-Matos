@@ -74,7 +74,7 @@ onMounted(() => {
 
 <template>
     <!-- Na FaixaPortal, à direita do título (no celular, acima dele). Só depois do cadastro finalizado
-         (tipo escolhido na etapa 4). -->
+         (tipo escolhido na etapa 5). -->
     <nav v-if="itens.length" aria-label="Portal" class="w-full sm:w-fit">
         <div class="vidro vidro-escuro vidro-pilula relative rounded-pill p-1.5">
             <span
