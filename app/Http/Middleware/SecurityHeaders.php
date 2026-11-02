@@ -16,6 +16,15 @@ class SecurityHeaders
     /** Tiles do mapa dos eventos (Leaflet, MapaLocal.vue): imagens do OpenStreetMap, nada de script. */
     private const TILES_DO_MAPA = 'https://tile.openstreetmap.org';
 
+    /**
+     * Páginas que mostram num quadro um arquivo do próprio site: a área do avaliador abre o PDF do documento na tela.
+     * Toda a área, porque a navegação do Inertia mantém a CSP da primeira página carregada.
+     */
+    private const PAGINAS_COM_QUADRO = ['avaliacao.*'];
+
+    /** Arquivos que essas páginas abrem no quadro: só elas (o mesmo site) podem emoldurá-los. */
+    private const ARQUIVOS_EM_QUADRO = ['avaliacao.inscricoes.arquivo'];
+
     public function handle(Request $request, Closure $next): Response
     {
         // Nonce novo a cada request; o Vite o aplica nas tags que gera e o Blade
@@ -29,8 +38,10 @@ class SecurityHeaders
 
         $response = $next($request);
 
-        $response->headers->set('Content-Security-Policy', $this->politica($nonce, $vlibras !== null));
-        $response->headers->set('X-Frame-Options', 'DENY');
+        $emQuadro = $request->routeIs(...self::ARQUIVOS_EM_QUADRO);
+
+        $response->headers->set('Content-Security-Policy', $this->politica($nonce, $vlibras !== null, $request->routeIs(...self::PAGINAS_COM_QUADRO), $emQuadro));
+        $response->headers->set('X-Frame-Options', $emQuadro ? 'SAMEORIGIN' : 'DENY');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
@@ -41,7 +52,7 @@ class SecurityHeaders
         return $response;
     }
 
-    private function politica(string $nonce, bool $comVLibras): string
+    private function politica(string $nonce, bool $comVLibras, bool $comQuadro, bool $emQuadro): string
     {
         $dev = app()->environment('local') ? ' '.self::VITE_DEV_SERVER : '';
         $devWs = app()->environment('local') ? ' ws:' : '';
@@ -61,11 +72,11 @@ class SecurityHeaders
             "font-src 'self' data:{$dev}".$vlibras('font-src'),
             "connect-src 'self'{$dev}{$devWs}".$vlibras('connect-src'),
             // Vídeos do YouTube na descrição do evento (HtmlSeguro só deixa este domínio) e o intérprete do VLibras.
-            'frame-src https://www.youtube-nocookie.com'.$vlibras('frame-src'),
+            'frame-src '.($comQuadro ? "'self' " : '').'https://www.youtube-nocookie.com'.$vlibras('frame-src'),
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'self'{$govbr}",
-            "frame-ancestors 'none'",
+            'frame-ancestors '.($emQuadro ? "'self'" : "'none'"),
         ]);
     }
 }
