@@ -49,6 +49,7 @@ const ICONE_NOTAS = 'M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4l-5.2 2.7 1-5.8-4.
                 <p class="text-[0.9375rem] leading-[1.6] font-semibold">{{ aviso }}</p>
             </div>
 
+            <!-- A inscrição em abas; a última, Notas, é a da avaliação. -->
             <InscricaoCompleta
                 :inscricao="inscricao"
                 :perfil="perfil"
@@ -56,24 +57,27 @@ const ICONE_NOTAS = 'M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4l-5.2 2.7 1-5.8-4.
                 :secoes="secoes"
                 :respostas="respostas"
                 :perguntas-visiveis="perguntasVisiveis"
-            />
+                :aba-final="{ id: 'notas', rotulo: 'Notas' }"
+            >
+                <template #notas>
+                    <SecaoCadastro id="secao-notas" :numero="4" titulo="Notas">
+                        <template #icone>
+                            <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path :d="ICONE_NOTAS" />
+                            </svg>
+                        </template>
 
-            <SecaoCadastro id="secao-notas" :numero="4" titulo="Notas">
-                <template #icone>
-                    <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <path :d="ICONE_NOTAS" />
-                    </svg>
+                        <NotasDosCriterios
+                            :inscricao-id="inscricao.id"
+                            :criterios="criterios"
+                            :notas="notas"
+                            :observacao="observacao"
+                            :pode-avaliar="podeAvaliar"
+                            :nota-final="notaFinal"
+                        />
+                    </SecaoCadastro>
                 </template>
-
-                <NotasDosCriterios
-                    :inscricao-id="inscricao.id"
-                    :criterios="criterios"
-                    :notas="notas"
-                    :observacao="observacao"
-                    :pode-avaliar="podeAvaliar"
-                    :nota-final="notaFinal"
-                />
-            </SecaoCadastro>
+            </InscricaoCompleta>
 
             <div>
                 <Link :href="INICIO" class="botao-secundario">Voltar às inscrições</Link>

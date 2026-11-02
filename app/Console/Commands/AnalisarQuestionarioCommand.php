@@ -225,6 +225,7 @@ class AnalisarQuestionarioCommand extends Command
                 'confiabilidade' => $montado['confiabilidade'],
                 'atencao' => [...$avisos, ...$montado['atencao']],
                 'situacao' => SituacaoImportacao::Concluida,
+                'concluida_em' => now(),
             ])->save();
 
             return true;

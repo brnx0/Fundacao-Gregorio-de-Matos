@@ -13,8 +13,10 @@ const props = withDefaults(
         variante?: 'topo' | 'lateral';
         /** Só para ler: os campos dos painéis ficam bloqueados; as abas continuam trocando. */
         somenteLeitura?: boolean;
+        /** Nome da lista de abas para o leitor de tela. */
+        rotulo?: string;
     }>(),
-    { variante: 'topo', somenteLeitura: false },
+    { variante: 'topo', somenteLeitura: false, rotulo: 'Seções do formulário' },
 );
 
 const ativa = defineModel<string>({ required: true });
@@ -88,7 +90,7 @@ const classeAba = computed<string>(() =>
 <template>
     <!-- Abas de um formulário longo: todos os painéis ficam no DOM (v-show), então nada do que foi digitado se perde. -->
     <div :class="lateral ? 'grid grid-cols-[14rem_minmax(0,1fr)] items-start gap-6' : 'flex flex-col gap-6'">
-        <div role="tablist" aria-label="Seções do formulário" :aria-orientation="lateral ? 'vertical' : 'horizontal'" :class="classeLista">
+        <div role="tablist" :aria-label="rotulo" :aria-orientation="lateral ? 'vertical' : 'horizontal'" :class="classeLista">
             <button
                 v-for="(aba, indice) in abas"
                 :id="idAba(aba)"

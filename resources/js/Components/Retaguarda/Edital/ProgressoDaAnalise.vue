@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
-const props = defineProps<{
-    /** Nome do PDF, para o leitor de tela saber de qual análise é a barra. */
+const props = withDefaults(
+    defineProps<{
+    /** Nome do arquivo, para o leitor de tela saber de qual análise é a barra. */
     pdfNome: string;
     /** Tempo desde o início da análise quando a página o recebeu; daí em diante o relógio daqui conta. */
     segundosDecorridos: number;
@@ -10,7 +11,15 @@ const props = defineProps<{
     segundosPrevistos: number;
     /** A análise terminou: a barra se completa antes de a linha mudar para "Concluída". */
     concluida?: boolean;
-}>();
+    /** O que está sendo analisado, ao lado do percentual (a importação do questionário usa a mesma barra). */
+    titulo?: string;
+    /** O que a conclusão fez, embaixo da barra completa. */
+    textoConcluida?: string;
+    /** Ocupa toda a largura de onde está (o cartão da importação do questionário), sem o limite da lista de editais. */
+    larga?: boolean;
+    }>(),
+    { concluida: false, titulo: 'Analisando o edital…', textoConcluida: 'Edital criado.', larga: false },
+);
 
 // A IA não informa o andamento: o progresso é estimado pelo tempo. Sobe em ritmo constante até 85% no tempo previsto
 // e depois se aproxima de 99% sem chegar; só a conclusão leva a 100%.
@@ -46,7 +55,7 @@ const percentual = computed<number>(() => {
 });
 
 const restante = computed<string>(() => {
-    if (props.concluida) return 'Edital criado.';
+    if (props.concluida) return props.textoConcluida;
 
     const segundos = previstos.value - decorridos.value;
     if (segundos <= 0) return 'Está levando um pouco mais que o normal.';
@@ -58,14 +67,14 @@ const restante = computed<string>(() => {
 </script>
 
 <template>
-    <div class="w-full @3xl:w-80">
+    <div :class="larga ? 'w-full' : 'w-full @3xl:w-80'">
         <div class="flex items-baseline justify-between gap-3">
             <p class="inline-flex items-center gap-2 text-[0.9375rem] font-semibold text-acao">
                 <span aria-hidden="true" class="relative flex size-2">
                     <span v-if="!concluida" class="absolute inline-flex size-full rounded-full bg-acao opacity-60 motion-safe:animate-ping" />
                     <span class="relative inline-flex size-2 rounded-full bg-acao" />
                 </span>
-                {{ concluida ? 'Análise concluída' : 'Analisando o edital…' }}
+                {{ concluida ? 'Análise concluída' : titulo }}
             </p>
             <span aria-hidden="true" class="font-barlow text-[1.25rem] leading-none font-extrabold text-acao tabular-nums">{{ percentual }}%</span>
         </div>

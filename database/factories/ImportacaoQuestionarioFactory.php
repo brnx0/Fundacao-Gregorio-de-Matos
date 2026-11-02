@@ -43,6 +43,7 @@ class ImportacaoQuestionarioFactory extends Factory
     {
         return $this->state([
             'situacao' => SituacaoImportacao::Concluida,
+            'concluida_em' => now(),
             'confiabilidade' => ['geral' => 85, 'blocos' => ['questionario' => ['nota' => 85, 'justificativa' => 'Formulário claro.']]],
             'atencao' => [],
         ]);

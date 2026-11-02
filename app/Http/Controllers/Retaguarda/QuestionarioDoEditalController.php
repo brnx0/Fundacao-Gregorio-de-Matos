@@ -121,7 +121,7 @@ class QuestionarioDoEditalController extends Controller
     /**
      * A importação do questionário mais recente do edital, para a linha de situação da tela (sem as colunas CLOB).
      *
-     * @return array{id: int, situacao: string, erro: ?string, arquivoNome: string, enviadaEm: string}|null
+     * @return array{id: int, situacao: string, erro: ?string, arquivoNome: string, enviadaEm: string, segundosDecorridos: ?int, segundosPrevistos: ?int}|null
      */
     private function ultimaImportacaoDoQuestionario(Edital $edital): ?array
     {
@@ -135,12 +135,17 @@ class QuestionarioDoEditalController extends Controller
             return null;
         }
 
+        $analisando = $importacao->situacaoExibida() === SituacaoImportacao::Analisando;
+
         return [
             'id' => (int) $importacao->id,
             'situacao' => $importacao->situacaoExibida()->value,
             'erro' => $importacao->erroExibido(),
             'arquivoNome' => $importacao->arquivo_nome,
             'enviadaEm' => $importacao->created_at->setTimezone(config('app.timezone'))->format('d/m/Y H:i'),
+            // Só analisando: o tempo desde o início e o previsto, para a barra de progresso estimada (como a do edital).
+            'segundosDecorridos' => $analisando ? $importacao->segundosDecorridos() : null,
+            'segundosPrevistos' => $analisando ? ImportacaoQuestionario::segundosPrevistos() : null,
         ];
     }
 

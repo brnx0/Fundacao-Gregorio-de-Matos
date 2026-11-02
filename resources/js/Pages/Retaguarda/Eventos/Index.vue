@@ -2,6 +2,7 @@
 import { reactive } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ConfirmarExclusao from '../../../Components/Retaguarda/ConfirmarExclusao.vue';
+import ConfirmarPublicacao from '../../../Components/Retaguarda/ConfirmarPublicacao.vue';
 import IconeAcao from '../../../Components/Retaguarda/IconeAcao.vue';
 import PaginaRetaguarda from '../../../Components/Retaguarda/PaginaRetaguarda.vue';
 import PainelLista from '../../../Components/Retaguarda/PainelLista.vue';
@@ -97,17 +98,12 @@ const limpar = (): void => {
                 </td>
                 <td class="px-2! py-1!">
                     <div class="flex items-center justify-end gap-1">
-                        <Link
-                            :href="`${BASE}/${evento.slug}/publicacao`"
-                            method="patch"
-                            as="button"
-                            preserve-scroll
-                            class="acao-icone"
-                            :data-dica="evento.publicado ? 'Ocultar publicação' : 'Publicar'"
-                        >
-                            <IconeAcao :nome="evento.publicado ? 'ocultar' : 'publicar'" />
-                            <span class="sr-only">{{ evento.publicado ? 'Ocultar publicação de' : 'Publicar' }} {{ evento.titulo }}</span>
-                        </Link>
+                        <ConfirmarPublicacao
+                            :url="`${BASE}/${evento.slug}/publicacao`"
+                            :nome="evento.titulo"
+                            :publicado="evento.publicado"
+                            aviso="O evento passa a aparecer no portal, na agenda de eventos."
+                        />
                         <Link :href="`${BASE}/${evento.slug}/edit`" class="acao-icone" data-dica="Editar">
                             <IconeAcao nome="editar" />
                             <span class="sr-only">Editar {{ evento.titulo }}</span>
