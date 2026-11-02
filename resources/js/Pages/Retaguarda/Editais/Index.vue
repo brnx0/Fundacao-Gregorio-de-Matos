@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ConfirmarExclusao from '../../../Components/Retaguarda/ConfirmarExclusao.vue';
+import ConfirmarPublicacao from '../../../Components/Retaguarda/ConfirmarPublicacao.vue';
 import ImportarEdital from '../../../Components/Retaguarda/Edital/ImportarEdital.vue';
 import ProgressoDaAnalise from '../../../Components/Retaguarda/Edital/ProgressoDaAnalise.vue';
 import IconeAcao from '../../../Components/Retaguarda/IconeAcao.vue';
@@ -319,17 +320,12 @@ onBeforeUnmount(pararConsulta);
                             <IconeAcao nome="questionario" />
                             <span class="sr-only">{{ questionario(edital).dica }} de {{ edital.titulo ?? 'Sem título' }}</span>
                         </Link>
-                        <Link
-                            :href="`${BASE}/${edital.slug}/publicacao`"
-                            method="patch"
-                            as="button"
-                            preserve-scroll
-                            class="acao-icone"
-                            :data-dica="edital.publicado ? 'Ocultar publicação' : 'Publicar'"
-                        >
-                            <IconeAcao :nome="edital.publicado ? 'ocultar' : 'publicar'" />
-                            <span class="sr-only">{{ edital.publicado ? 'Ocultar publicação de' : 'Publicar' }} {{ edital.titulo }}</span>
-                        </Link>
+                        <ConfirmarPublicacao
+                            :url="`${BASE}/${edital.slug}/publicacao`"
+                            :nome="edital.titulo ?? 'Sem título'"
+                            :publicado="edital.publicado"
+                            aviso="O edital passa a aparecer no portal e, no período de inscrição, recebe inscrições dos proponentes."
+                        />
                         <Link :href="`${BASE}/${edital.slug}`" class="acao-icone" data-dica="Visualizar">
                             <IconeAcao nome="ver" />
                             <span class="sr-only">Visualizar {{ edital.titulo ?? 'Sem título' }}</span>
