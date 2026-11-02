@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\TipoCadastro;
+use App\Http\Controllers\CadastroAnexoController;
+use App\Models\PessoaFisica;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -92,6 +94,30 @@ class TipoCadastroTest extends TestCase
             ->assertSessionHas('sucesso', 'Cadastro finalizado.');
 
         $this->assertSame([TipoCadastro::Proponente, TipoCadastro::Patrocinador], $user->fresh()->tipos_cadastro->all());
+    }
+
+    public function test_finalizar_com_anexo_obrigatorio_faltando_volta_para_anexos(): void
+    {
+        $semAnexos = PessoaFisica::factory()->create()->user;
+        $comAnexos = PessoaFisica::factory()->comAnexosObrigatorios()->create()->user;
+
+        $this->actingAs($semAnexos)->post('/cadastro/tipo', ['tipos_cadastro' => ['proponente']])
+            ->assertRedirect(route('cadastro.anexos'))
+            ->assertSessionHas('erro', CadastroAnexoController::ERRO_PENDENCIAS);
+        $this->actingAs($comAnexos)->post('/cadastro/tipo', ['tipos_cadastro' => ['proponente']])
+            ->assertRedirect(route('portal.editais'));
+
+        $this->assertNull($semAnexos->fresh()->tipos_cadastro);
+        $this->assertSame([TipoCadastro::Proponente], $comAnexos->fresh()->tipos_cadastro->all());
+    }
+
+    public function test_trocar_os_tipos_depois_de_finalizar_nao_confere_os_anexos_de_novo(): void
+    {
+        $user = PessoaFisica::factory()->for(User::factory()->proponente())->create()->user;
+
+        $this->actingAs($user)->post('/cadastro/tipo', ['tipos_cadastro' => ['patrocinador']])->assertRedirect(route('portal.projetos'));
+
+        $this->assertSame([TipoCadastro::Patrocinador], $user->fresh()->tipos_cadastro->all());
     }
 
     public function test_tipos_podem_ser_trocados_depois(): void

@@ -15,9 +15,11 @@ defineProps<{
 </script>
 
 <template>
-    <!-- Lista da retaguarda num painel só: filtros no alto (slot "filtros"), a tabela e a paginação no pé.
+    <!-- Lista da retaguarda num painel só: abas e filtros no alto (slots "abas" e "filtros"), a tabela e a paginação no pé.
          A TabelaPaginada continua para o portal; esta é a versão da retaguarda. -->
     <section :aria-label="legenda" class="painel-retaguarda overflow-hidden">
+        <slot name="abas" />
+
         <div v-if="$slots.filtros" class="border-b border-hairline bg-superficie p-4 @3xl:p-5">
             <slot name="filtros" />
         </div>

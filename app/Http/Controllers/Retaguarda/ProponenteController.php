@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Retaguarda;
 
+use App\Enums\AnexoCadastro;
 use App\Enums\TipoCadastro;
 use App\Http\Controllers\Controller;
 use App\Models\AreaAtuacao;
 use App\Models\Organizacao;
 use App\Models\PessoaFisica;
+use App\Models\PessoaFisicaAnexo;
 use App\Models\PrefeituraBairro;
 use App\Models\RepresentanteLegal;
 use App\Models\User;
@@ -22,25 +24,11 @@ use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Cadastros feitos no portal (quem enviou a etapa "Seus dados" e não é usuário da retaguarda), só para consulta.
+ * Cadastros feitos no portal (quem enviou a etapa "Meus dados" e não é usuário da retaguarda), só para consulta.
  * O CPF aparece sempre mascarado, e os anexos saem só pela rota de anexo, nunca pelo caminho no disco.
  */
 class ProponenteController extends Controller
 {
-    /** Rótulos dos anexos, na ordem e com os nomes do formulário do portal (Cadastro/Completar.vue). */
-    private const array ROTULOS_DOS_ANEXOS = [
-        'foto_perfil' => 'Foto de perfil',
-        'documento_cpf' => 'Cópia do CPF',
-        'documento_rg' => 'Cópia do RG',
-        'documento_passaporte' => 'Passaporte',
-        'documento_crnm' => 'Registro Nacional Migratório (CRNM)',
-        'documento_outros' => 'Outros documentos',
-        'comprovante_residencia' => 'Comprovante de residência',
-    ];
-
-    /** Extensões aceitas no envio que o navegador mostra como imagem. */
-    private const array EXTENSOES_DE_IMAGEM = ['jpg', 'jpeg', 'png', 'gif'];
-
     private const array SITUACOES = ['finalizado' => 'Finalizado', 'andamento' => 'Em andamento'];
 
     public function index(Request $request): Response
@@ -84,6 +72,7 @@ class ProponenteController extends Controller
     public function show(User $user): Response
     {
         $pessoa = $this->pessoaDoPortal($user);
+        $pessoa->load('anexos');
 
         return Inertia::render('Retaguarda/Proponentes/Show', [
             'proponente' => [
@@ -103,14 +92,14 @@ class ProponenteController extends Controller
     /** Abre o arquivo na aba (a tela oferece também "Baixar", com o nome sugerido em show). */
     public function anexo(User $user, string $campo): StreamedResponse
     {
-        $caminho = $this->pessoaDoPortal($user)->{$campo};
+        $anexo = $this->pessoaDoPortal($user)->anexos()->where('campo', AnexoCadastro::from($campo)->value)->first();
 
-        abort_unless(filled($caminho) && Storage::disk('local')->exists($caminho), 404);
+        abort_unless($anexo !== null && Storage::disk(PessoaFisicaAnexo::DISCO)->exists($anexo->arquivo), 404);
 
-        return Storage::disk('local')->response($caminho, $this->nomeDoAnexo($user, $campo, $caminho));
+        return Storage::disk(PessoaFisicaAnexo::DISCO)->response($anexo->arquivo, $this->nomeDoAnexo($user, $anexo));
     }
 
-    /** Quem tem os dados da etapa "Seus dados" e não é usuário da retaguarda (com papel). */
+    /** Quem tem os dados da etapa "Meus dados" e não é usuário da retaguarda (com papel). */
     private function doPortal(): Builder
     {
         return User::query()->doPortal();
@@ -210,25 +199,29 @@ class ProponenteController extends Controller
     }
 
     /**
-     * Os sete anexos, enviados ou não. Sai a URL da rota de anexo, nunca o caminho no disco.
+     * Os sete anexos, na ordem da etapa Anexos, enviados ou não, com o parecer da IA. Sai a URL da rota de anexo,
+     * nunca o caminho no disco.
      *
-     * @return list<array{campo: string, rotulo: string, enviado: bool, imagem: bool, url: ?string, nome: ?string}>
+     * @return list<array{campo: string, rotulo: string, enviado: bool, imagem: bool, url: ?string, nome: ?string, ia: array{situacao: string, rotulo: string, motivo: ?string}|null}>
      */
     private function anexos(User $user, PessoaFisica $pessoa): array
     {
-        return array_map(function (string $campo) use ($user, $pessoa): array {
-            $caminho = $pessoa->{$campo};
-            $enviado = filled($caminho);
+        $enviados = $pessoa->anexos->keyBy(fn (PessoaFisicaAnexo $anexo): string => $anexo->campo->value);
+
+        return array_map(function (AnexoCadastro $campo) use ($user, $enviados): array {
+            /** @var PessoaFisicaAnexo|null $anexo */
+            $anexo = $enviados->get($campo->value);
 
             return [
-                'campo' => $campo,
-                'rotulo' => self::ROTULOS_DOS_ANEXOS[$campo],
-                'enviado' => $enviado,
-                'imagem' => $enviado && in_array(mb_strtolower(pathinfo($caminho, PATHINFO_EXTENSION)), self::EXTENSOES_DE_IMAGEM, true),
-                'url' => $enviado ? route('retaguarda.proponentes.anexo', [$user, $campo]) : null,
-                'nome' => $enviado ? $this->nomeDoAnexo($user, $campo, $caminho) : null,
+                'campo' => $campo->value,
+                'rotulo' => $campo->rotulo(),
+                'enviado' => $anexo !== null,
+                'imagem' => $anexo?->ehImagem() ?? false,
+                'url' => $anexo !== null ? route('retaguarda.proponentes.anexo', [$user, $campo->value]) : null,
+                'nome' => $anexo !== null ? $this->nomeDoAnexo($user, $anexo) : null,
+                'ia' => $anexo?->parecerDaIa(),
             ];
-        }, PessoaFisica::ARQUIVOS);
+        }, AnexoCadastro::cases());
     }
 
     /**
@@ -259,10 +252,10 @@ class ProponenteController extends Controller
             ->all();
     }
 
-    /** Os nomes originais não são guardados no envio: o nome sai do tipo de anexo e da pessoa. */
-    private function nomeDoAnexo(User $user, string $campo, string $caminho): string
+    /** Para a equipe, o nome sai do tipo de anexo e da pessoa, e não do nome original do arquivo. */
+    private function nomeDoAnexo(User $user, PessoaFisicaAnexo $anexo): string
     {
-        return Str::slug(self::ROTULOS_DOS_ANEXOS[$campo].' '.$user->name).'.'.mb_strtolower(pathinfo($caminho, PATHINFO_EXTENSION));
+        return Str::slug($anexo->campo->rotulo().' '.$user->name).'.'.mb_strtolower(pathinfo($anexo->arquivo, PATHINFO_EXTENSION));
     }
 
     private function cidadeUf(?string $cidade, ?string $uf): ?string

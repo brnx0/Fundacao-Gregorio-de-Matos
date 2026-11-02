@@ -80,7 +80,7 @@ class OrganizacaoController extends Controller
             throw $erro;
         }
 
-        // Durante o cadastro, a Pessoa Jurídica é a etapa 3: segue para a escolha do tipo.
+        // Durante o cadastro, a Pessoa Jurídica é a etapa 4: segue para a escolha do tipo.
         if (! $user->cadastroFinalizado()) {
             return redirect()->route('cadastro.tipo')->with('sucesso', 'Pessoa Jurídica salva.');
         }

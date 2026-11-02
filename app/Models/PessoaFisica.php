@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\AnexoCadastro;
 use App\Enums\Escolaridade;
 use App\Enums\FaixaDeRenda;
 use App\Enums\IdentidadeGenero;
 use App\Enums\PovoTradicional;
 use App\Enums\RacaCor;
+use App\Enums\SituacaoConferencia;
 use App\Enums\TipoDeficiencia;
 use App\Models\Concerns\UsaDiaCivil;
 use BackedEnum;
@@ -17,6 +19,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PessoaFisica extends Model
 {
@@ -27,12 +30,6 @@ class PessoaFisica extends Model
 
     /** Idade, em anos completos, a partir da qual a pessoa pode se cadastrar. */
     public const int IDADE_MINIMA = 18;
-
-    /** Colunas com o caminho de um arquivo enviado, no disco local. */
-    public const array ARQUIVOS = [
-        'foto_perfil', 'documento_cpf', 'documento_rg', 'documento_passaporte',
-        'documento_crnm', 'documento_outros', 'comprovante_residencia',
-    ];
 
     /**
      * Campos do perfil que o questionário do edital reaproveita. A data de nascimento fica de fora: não muda com o
@@ -46,12 +43,12 @@ class PessoaFisica extends Model
     protected $table = 'pessoas_fisicas';
 
     protected $fillable = [
-        'nome_social', 'nome_artistico', 'data_nascimento', 'foto_perfil',
-        'pais_origem', 'rg', 'documento_cpf', 'documento_rg', 'documento_passaporte', 'documento_crnm', 'documento_outros',
+        'nome_social', 'nome_artistico', 'data_nascimento',
+        'pais_origem', 'rg',
         'drt', 'cultura_principal_renda', 'ja_foi_avaliador', 'interesse_avaliador', 'representa_coletivo',
         'telefone', 'telefone_adicional', 'email',
         'identidade_genero', 'raca_cor', 'pcd', 'deficiencia', 'deficiencia_outra', 'escolaridade', 'renda', 'povo_tradicional', 'anos_atuacao',
-        'cep', 'logradouro', 'numero', 'bairro', 'complemento', 'cidade', 'estado', 'territorio', 'comprovante_residencia',
+        'cep', 'logradouro', 'numero', 'bairro', 'complemento', 'cidade', 'estado', 'territorio',
     ];
 
     protected function casts(): array
@@ -152,5 +149,46 @@ class PessoaFisica extends Model
     public function idsDasAreas(): array
     {
         return $this->areasAtuacao()->pluck('areas_atuacao.id')->map(fn (mixed $id): int => (int) $id)->all();
+    }
+
+    /** @return HasMany<PessoaFisicaAnexo, $this> */
+    public function anexos(): HasMany
+    {
+        return $this->hasMany(PessoaFisicaAnexo::class);
+    }
+
+    /**
+     * O que ainda impede concluir a etapa Anexos, na ordem da tela: CPF ou RG sem arquivo, um arquivo ainda em
+     * conferência e um arquivo recusado pela IA enquanto o campo continua conferido. Não conferido (IA fora do ar)
+     * não impede: ninguém fica preso por uma falha do serviço.
+     *
+     * @return list<array{campo: string, texto: string}>
+     */
+    public function pendenciasDosAnexos(?CarbonInterface $agora = null): array
+    {
+        $enviados = $this->anexos()->get()->keyBy(fn (PessoaFisicaAnexo $anexo): string => $anexo->campo->value);
+        $configuracoes = ConfiguracaoAnexo::porCampo();
+        $validacaoLigada = ConfiguracaoIa::validacaoLigada();
+        $pendencias = [];
+
+        foreach (AnexoCadastro::cases() as $campo) {
+            /** @var PessoaFisicaAnexo|null $anexo */
+            $anexo = $enviados->get($campo->value);
+            $rotulo = $campo->rotulo();
+
+            $texto = match (true) {
+                $anexo === null => $campo->obrigatorio() ? "Anexe \"{$rotulo}\"." : null,
+                $anexo->situacaoExibida($agora) === SituacaoConferencia::Conferindo => "Aguarde a conferência de \"{$rotulo}\".",
+                $anexo->situacao === SituacaoConferencia::Reprovado
+                    && $configuracoes[$campo->value]->confereNoCadastro($validacaoLigada) => "Envie outro arquivo para \"{$rotulo}\": o atual foi recusado na conferência.",
+                default => null,
+            };
+
+            if ($texto !== null) {
+                $pendencias[] = ['campo' => $campo->value, 'texto' => $texto];
+            }
+        }
+
+        return $pendencias;
     }
 }

@@ -44,7 +44,7 @@ class AvaliacaoAvaliadoresTest extends TestCase
         };
         $this->app->instance(LancadorDeConvite::class, $this->lancador);
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     /** Edital publicado com avaliação de 15 a 20/12/2026 na chamada. */

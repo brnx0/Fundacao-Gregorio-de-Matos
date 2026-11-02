@@ -59,26 +59,39 @@ class GeradorDeInstrucoes
      */
     public function gerar(array $edital, array $documentos): array
     {
-        $provedores = ConfiguracaoIa::atual()->provedoresDaImportacao();
         $contexto = self::contextoDoEdital($edital);
         $instrucoes = [];
 
         foreach (array_chunk($documentos, self::DOCUMENTOS_POR_LOTE) as $lote) {
-            $resultado = $this->analise->analisar(
-                $provedores,
-                null,
-                self::PROMPT."\n\n".$contexto."\n\n".self::listaDeDocumentos($lote),
-                self::TEMPERATURA,
-                self::ESQUEMA,
-                fn (array $dados) => self::conferir($dados, count($lote)),
-            );
-
-            foreach ($resultado['dados']['instrucoes'] as $instrucao) {
-                $instrucoes[] = mb_strcut($instrucao, 0, self::TAMANHO_MAXIMO_EM_BYTES, 'UTF-8');
-            }
+            array_push($instrucoes, ...$this->pedir(self::PROMPT."\n\n".$contexto."\n\n".self::listaDeDocumentos($lote), count($lote)));
         }
 
         return $instrucoes;
+    }
+
+    /**
+     * Um pedido à IA, só texto, pelos provedores da importação: a resposta só vale com $quantidade instruções, cada uma
+     * cortada em TAMANHO_MAXIMO_EM_BYTES. Também usado pelo GeradorDeInstrucoesDosAnexos (anexos do cadastro).
+     *
+     * @return list<string> As instruções na ordem do prompt.
+     *
+     * @throws FalhaNaIa sem provedores configurados ou quando nenhum responde no formato esperado
+     */
+    public function pedir(string $prompt, int $quantidade): array
+    {
+        $resultado = $this->analise->analisar(
+            ConfiguracaoIa::atual()->provedoresDaImportacao(),
+            null,
+            $prompt,
+            self::TEMPERATURA,
+            self::ESQUEMA,
+            fn (array $dados) => self::conferir($dados, $quantidade),
+        );
+
+        return array_map(
+            fn (string $instrucao): string => mb_strcut($instrucao, 0, self::TAMANHO_MAXIMO_EM_BYTES, 'UTF-8'),
+            $resultado['dados']['instrucoes'],
+        );
     }
 
     /**

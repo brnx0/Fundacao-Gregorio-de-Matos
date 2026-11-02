@@ -3,6 +3,7 @@
 use App\Http\Middleware\BloquearGestorNoCadastro;
 use App\Http\Middleware\EncerrarSessaoDoProponente;
 use App\Http\Middleware\ExigirCadastroCompleto;
+use App\Http\Middleware\ExigirPessoaFisica;
 use App\Http\Middleware\ExigirTipoCadastro;
 use App\Http\Middleware\GarantirAvaliador;
 use App\Http\Middleware\GarantirGestor;
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'avaliador' => GarantirAvaliador::class,
             'nao-gestor' => BloquearGestorNoCadastro::class,
             'cadastro-completo' => ExigirCadastroCompleto::class,
+            'pessoa-fisica' => ExigirPessoaFisica::class,
             'tipo-cadastro' => ExigirTipoCadastro::class,
             'encerra-sessao-proponente' => EncerrarSessaoDoProponente::class,
         ]);

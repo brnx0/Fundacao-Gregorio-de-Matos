@@ -71,7 +71,7 @@ class VLibrasNoPortalTest extends TestCase
 
     public function test_telas_da_retaguarda_ficam_sem_vlibras(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->get('/retaguarda/editais');
 

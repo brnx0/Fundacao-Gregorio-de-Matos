@@ -55,7 +55,7 @@ class ConfiguracaoVLibrasCacheTest extends TestCase
         ConfiguracaoVLibras::factory()->create(['avatar' => AvatarVLibras::Icaro]);
         $this->get('/')->assertSee("avatar: 'icaro'", false);
 
-        $this->actingAs(User::factory()->gestor()->create())
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda')
             ->put('/retaguarda/vlibras', ['ativo' => true, 'lado' => 'R', 'avatar' => 'hosana'])
             ->assertSessionHasNoErrors();
 
@@ -67,7 +67,7 @@ class ConfiguracaoVLibrasCacheTest extends TestCase
     {
         ConfiguracaoVLibras::atual();
 
-        $this->actingAs(User::factory()->gestor()->create())
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda')
             ->put('/retaguarda/vlibras', ['ativo' => false, 'lado' => 'L', 'avatar' => 'guga'])
             ->assertSessionHasNoErrors();
 

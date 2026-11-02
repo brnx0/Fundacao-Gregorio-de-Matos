@@ -52,7 +52,7 @@ class ConexaoIaTest extends TestCase
             ['id' => 'o3-deep-research', 'object' => 'model', 'created' => 1770000000, 'owned_by' => 'system'],
             ['id' => 'o4-mini', 'object' => 'model', 'created' => 1700000000, 'owned_by' => 'system'],
         ]])]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->postJson(self::URL_MODELOS, ['provedor' => 'openai', 'chave_api' => self::CHAVE_DIGITADA]);
 
@@ -71,7 +71,7 @@ class ConexaoIaTest extends TestCase
             ['name' => 'models/imagen-5', 'supportedGenerationMethods' => ['predict']],
             ['name' => 'models/gemini-3.5-pro', 'supportedGenerationMethods' => ['generateContent']],
         ]])]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->postJson(self::URL_MODELOS, ['provedor' => 'gemini']);
 
@@ -106,7 +106,7 @@ class ConexaoIaTest extends TestCase
     public function test_teste_de_conexao_faz_uma_pergunta_curta_ao_modelo_escolhido(string $provedor, string $modelo, string $endereco, string $rotulo, array $corpo): void
     {
         Http::fake([$endereco => Http::response(['resposta' => 'OK'])]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->postJson(self::URL_TESTE, ['provedor' => $provedor, 'modelo' => $modelo, 'chave_api' => self::CHAVE_DIGITADA]);
 
@@ -167,7 +167,7 @@ class ConexaoIaTest extends TestCase
     public function test_falha_do_provedor_volta_com_o_motivo_em_portugues(string $provedor, string $modelo, string $endereco, int $status, array $corpo, string $mensagem): void
     {
         Http::fake([$endereco => Http::response($corpo, $status)]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->postJson(self::URL_TESTE, ['provedor' => $provedor, 'modelo' => $modelo, 'chave_api' => self::CHAVE_DIGITADA]);
 
@@ -177,7 +177,7 @@ class ConexaoIaTest extends TestCase
     public function test_provedor_sem_resposta_volta_com_o_motivo(): void
     {
         Http::fake([self::TESTE_OPENAI => Http::failedConnection()]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->postJson(self::URL_TESTE, ['provedor' => 'openai', 'modelo' => 'gpt-5.4', 'chave_api' => self::CHAVE_DIGITADA]);
 
@@ -190,7 +190,7 @@ class ConexaoIaTest extends TestCase
     public function test_lista_fora_do_formato_esperado_volta_com_aviso(): void
     {
         Http::fake([self::MODELOS_OPENAI => Http::response('<html>Proxy da rede</html>')]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->postJson(self::URL_MODELOS, ['provedor' => 'openai', 'chave_api' => self::CHAVE_DIGITADA]);
 
@@ -204,7 +204,7 @@ class ConexaoIaTest extends TestCase
     {
         Log::spy();
         Http::fake([self::TESTE_OPENAI => Http::response(['error' => ['message' => 'Incorrect API key provided.']], 401)]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $this->postJson(self::URL_TESTE, ['provedor' => 'openai', 'modelo' => 'gpt-5.4', 'chave_api' => self::CHAVE_DIGITADA]);
 
@@ -216,7 +216,7 @@ class ConexaoIaTest extends TestCase
     public function test_sem_chave_digitada_nem_guardada_nao_chama_o_provedor(): void
     {
         Http::fake();
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->postJson(self::URL_MODELOS, ['provedor' => 'gemini']);
 
@@ -227,7 +227,7 @@ class ConexaoIaTest extends TestCase
     public function test_teste_sem_modelo_nao_chama_o_provedor(): void
     {
         Http::fake();
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->postJson(self::URL_TESTE, ['provedor' => 'openai', 'chave_api' => self::CHAVE_DIGITADA]);
 
@@ -259,7 +259,7 @@ class ConexaoIaTest extends TestCase
     public function test_limita_as_chamadas_ao_provedor_a_dez_por_minuto(): void
     {
         Http::fake([self::MODELOS_OPENAI => Http::response(['object' => 'list', 'data' => []])]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
         for ($chamada = 1; $chamada <= 10; $chamada++) {
             $this->postJson(self::URL_MODELOS, ['provedor' => 'openai', 'chave_api' => self::CHAVE_DIGITADA])->assertOk();
         }

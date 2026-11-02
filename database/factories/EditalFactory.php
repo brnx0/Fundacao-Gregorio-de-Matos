@@ -22,7 +22,8 @@ class EditalFactory extends Factory
             'categoria' => fake()->randomElement(['Fomento', 'Audiovisual', 'Rede municipal']),
             'inscricoes_inicio' => now()->subDays(5)->toDateString(),
             'inscricoes_fim' => now()->addDays(20)->toDateString(),
-            'imagem' => null,
+            // Publicado precisa de imagem da vitrine (Edital::PENDENCIA_IMAGEM).
+            'imagem' => 'editais/teste.jpg',
             'pdf' => 'editais/teste.pdf',
             'publicado' => true,
         ];
@@ -33,7 +34,7 @@ class EditalFactory extends Factory
         return $this->state(['pdf' => null]);
     }
 
-    /** Rascunho incompleto (ex.: importação recém-criada): sem título, categoria, resumo, datas e PDF, não publicado. */
+    /** Rascunho incompleto (ex.: importação recém-criada): sem título, categoria, resumo, datas, imagem e PDF, não publicado. */
     public function rascunho(): static
     {
         return $this->state([
@@ -43,6 +44,7 @@ class EditalFactory extends Factory
             'categoria' => null,
             'inscricoes_inicio' => null,
             'inscricoes_fim' => null,
+            'imagem' => null,
             'pdf' => null,
             'publicado' => false,
         ]);

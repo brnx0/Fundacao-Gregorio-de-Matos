@@ -121,7 +121,9 @@ const estiloCaixa = computed(() => {
             <!-- Uma linha só. Para o leitor de tela, o estado chega pelo aria-describedby do campo. -->
             <p aria-hidden="true" class="flex min-w-0 flex-1 items-baseline gap-1.5 text-[0.9375rem] whitespace-nowrap">
                 <template v-if="arquivo">
-                    <span :id="idEstado" class="truncate font-semibold text-home-tinta">
+                    <!-- relative: o sr-only (absoluto) fica contido no nome cortado; sem isso ele vai para o fim do nome
+                         inteiro e cria rolagem horizontal na janela. -->
+                    <span :id="idEstado" class="relative truncate font-semibold text-home-tinta">
                         {{ arquivo.name }}<span class="sr-only">, {{ tamanho(arquivo.size) }}</span>
                     </span>
                     <span class="shrink-0 text-[0.8125rem] text-tinta-suave">{{ tamanho(arquivo.size) }}</span>

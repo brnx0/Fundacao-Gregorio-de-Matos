@@ -26,7 +26,7 @@ class HomologacaoDecisaoTest extends TestCase
 
         $this->travelTo(Carbon::parse('2026-12-05 10:00', 'America/Bahia'));
         $this->gestor = User::factory()->gestor()->create();
-        $this->actingAs($this->gestor);
+        $this->actingAs($this->gestor, 'retaguarda');
     }
 
     /** @param array<string, mixed> $dados */

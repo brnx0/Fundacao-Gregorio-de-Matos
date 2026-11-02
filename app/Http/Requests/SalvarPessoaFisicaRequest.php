@@ -25,9 +25,6 @@ use Illuminate\Validation\Rules\Enum;
  */
 class SalvarPessoaFisicaRequest extends FormRequest
 {
-    /** Imagem ou PDF de até 2 MB (max em KB). */
-    private const array DOCUMENTO = ['file', 'mimes:pdf,jpg,jpeg,png', 'max:2048'];
-
     public function authorize(): bool
     {
         return true;
@@ -41,26 +38,13 @@ class SalvarPessoaFisicaRequest extends FormRequest
         $user = $this->user();
         $salvo = $user->pessoaFisica;
 
-        // Documentos obrigatórios só precisam ser reenviados se ainda não houver um salvo.
-        $documentoObrigatorio = fn (string $coluna): array => [
-            Rule::requiredIf(fn (): bool => $salvo?->{$coluna} === null),
-            'nullable',
-            ...self::DOCUMENTO,
-        ];
-
         return [
             'nome_social' => ['nullable', 'string', 'max:255'],
             'nome_artistico' => ['nullable', 'string', 'max:255'],
             'data_nascimento' => ['required', 'date_format:Y-m-d', 'after:1900-01-01', 'before:today', 'before_or_equal:'.PessoaFisica::nascimentoMaximo()],
-            'foto_perfil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,gif', 'max:2048'],
 
             'pais_origem' => ['required', Rule::in(Paises::TODOS)],
             'rg' => ['required', 'string', 'max:20'],
-            'documento_cpf' => $documentoObrigatorio('documento_cpf'),
-            'documento_rg' => $documentoObrigatorio('documento_rg'),
-            'documento_passaporte' => ['nullable', ...self::DOCUMENTO],
-            'documento_crnm' => ['nullable', ...self::DOCUMENTO],
-            'documento_outros' => ['nullable', ...self::DOCUMENTO],
 
             'drt' => ['nullable', 'string', 'max:30'],
             // Áreas ativas (Parametrização) e as já marcadas, mesmo se desativadas depois; com array, o in vale para cada uma.
@@ -98,7 +82,6 @@ class SalvarPessoaFisicaRequest extends FormRequest
             'estado' => ['required', Rule::in(array_keys(Estados::TODOS))],
             // Prefeituras-Bairro ativas (Parametrização), a já escolhida mesmo se desativada depois, ou fora de Salvador.
             'territorio' => ['required', Rule::in(PrefeituraBairro::codigosAceitos($this->user()?->pessoaFisica?->territorio))],
-            'comprovante_residencia' => ['nullable', ...self::DOCUMENTO],
         ];
     }
 
@@ -109,7 +92,7 @@ class SalvarPessoaFisicaRequest extends FormRequest
      */
     public function messages(): array
     {
-        $mensagens = [
+        return [
             'required' => 'Este campo é obrigatório.',
             'string' => 'Digite um texto.',
             'max' => 'Use no máximo :max caracteres.',
@@ -131,18 +114,7 @@ class SalvarPessoaFisicaRequest extends FormRequest
             'telefone.digits_between' => 'Digite o telefone com DDD.',
             'telefone_adicional.digits_between' => 'Digite o telefone com DDD.',
             'cep.digits' => 'Digite os 8 números do CEP.',
-            'foto_perfil.image' => 'Envie uma imagem JPG, PNG ou GIF.',
-            'foto_perfil.mimes' => 'Envie uma imagem JPG, PNG ou GIF.',
         ];
-
-        foreach (PessoaFisica::ARQUIVOS as $campo) {
-            $mensagens["{$campo}.uploaded"] = 'Não foi possível enviar o arquivo. Ele deve ter no máximo 2 MB.';
-            $mensagens["{$campo}.file"] = 'Envie um arquivo.';
-            $mensagens["{$campo}.mimes"] ??= 'Envie um PDF ou uma imagem JPG ou PNG.';
-            $mensagens["{$campo}.max"] = 'O arquivo deve ter no máximo 2 MB.';
-        }
-
-        return $mensagens;
     }
 
     /** Telefones e CEP chegam com máscara; ficam só os números. */

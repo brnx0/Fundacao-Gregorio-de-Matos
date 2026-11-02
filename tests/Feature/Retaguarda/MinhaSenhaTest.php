@@ -33,7 +33,7 @@ class MinhaSenhaTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create();
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados())
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados())
             ->assertSessionHasNoErrors()
             ->assertRedirect(self::URL)
             ->assertSessionHas('sucesso', 'Senha alterada.');
@@ -48,7 +48,7 @@ class MinhaSenhaTest extends TestCase
 
     public function test_troca_de_senha_renova_o_id_da_sessao(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
         $this->startSession();
         $antes = session()->getId();
 
@@ -59,11 +59,11 @@ class MinhaSenhaTest extends TestCase
 
     public function test_tela_informa_se_o_usuario_ja_tem_senha(): void
     {
-        $this->actingAs(User::factory()->gestor()->create())->get(self::URL)
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda')->get(self::URL)
             ->assertOk()
             ->assertInertia(fn (Assert $p) => $p->component('Retaguarda/MinhaSenha')->where('temSenha', true));
 
-        $this->actingAs(User::factory()->gestor()->create(['password' => null]))->get(self::URL)
+        $this->actingAs(User::factory()->gestor()->create(['password' => null]), 'retaguarda')->get(self::URL)
             ->assertInertia(fn (Assert $p) => $p->where('temSenha', false));
     }
 
@@ -71,7 +71,7 @@ class MinhaSenhaTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create();
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados(['senha_atual' => 'errada']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados(['senha_atual' => 'errada']))
             ->assertSessionHasErrors(['senha_atual' => 'A senha atual está incorreta.']);
 
         $this->assertTrue(Hash::check('123456', $usuario->fresh()->password));
@@ -81,7 +81,7 @@ class MinhaSenhaTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create();
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados(['nova_senha_confirmation' => 'outra-coisa']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados(['nova_senha_confirmation' => 'outra-coisa']))
             ->assertSessionHasErrors(['nova_senha' => 'A confirmação não confere.']);
 
         $this->assertTrue(Hash::check('123456', $usuario->fresh()->password));
@@ -89,7 +89,7 @@ class MinhaSenhaTest extends TestCase
 
     public function test_nova_senha_curta_e_recusada(): void
     {
-        $this->actingAs(User::factory()->gestor()->create())
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda')
             ->put(self::URL, $this->dados(['nova_senha' => 'curta', 'nova_senha_confirmation' => 'curta']))
             ->assertSessionHasErrors(['nova_senha' => 'A nova senha precisa ter ao menos 8 caracteres.']);
     }
@@ -98,7 +98,7 @@ class MinhaSenhaTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create(['password' => 'senha-atual-forte']);
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados([
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados([
             'senha_atual' => 'senha-atual-forte',
             'nova_senha' => 'senha-atual-forte',
             'nova_senha_confirmation' => 'senha-atual-forte',
@@ -109,7 +109,7 @@ class MinhaSenhaTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create(['password' => null]);
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados(['senha_atual' => null]))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados(['senha_atual' => null]))
             ->assertSessionHasNoErrors()
             ->assertRedirect(self::URL)
             ->assertSessionHas('sucesso', 'Senha alterada.');
@@ -132,7 +132,7 @@ class MinhaSenhaTest extends TestCase
 
     public function test_limite_de_tentativas(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         for ($tentativa = 1; $tentativa <= 6; $tentativa++) {
             $this->put(self::URL, $this->dados(['senha_atual' => 'errada']))

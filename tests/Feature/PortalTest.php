@@ -28,8 +28,11 @@ class PortalTest extends TestCase
             'titulo' => 'PNAB Salvador — Ciclo II',
             'slug' => 'pnab-ii',
             'categoria' => 'Fomento',
+            'resumo' => 'Apoio a projetos culturais da cidade.',
             'inscricoes_inicio' => '2026-11-01',
             'inscricoes_fim' => '2026-11-15',
+            // Publicado antes de a imagem ser exigida: o carrossel usa as fotos fixas da vitrine.
+            'imagem' => null,
         ]);
         Edital::factory()->create(['inscricoes_inicio' => '2026-11-05', 'inscricoes_fim' => '2026-11-30']);
         Edital::factory()->create(['inscricoes_inicio' => '2026-12-01', 'inscricoes_fim' => '2026-12-20']);
@@ -42,6 +45,7 @@ class PortalTest extends TestCase
             ->has('editais', 3)
             ->has('editais.0', fn (Assert $e) => $e
                 ->where('titulo', 'PNAB Salvador — Ciclo II')
+                ->where('resumo', 'Apoio a projetos culturais da cidade.')
                 ->where('slug', 'pnab-ii')
                 ->where('pdf', route('editais.pdf', 'pnab-ii'))
                 ->where('categoria', 'Fomento')

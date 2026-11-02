@@ -50,7 +50,7 @@ class IntegracaoIaTest extends TestCase
 
     public function test_tela_mostra_os_provedores_sem_configuracao_antes_da_primeira_gravacao(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->get(self::URL);
 
@@ -68,7 +68,7 @@ class IntegracaoIaTest extends TestCase
         ConexaoIa::factory()->create(['chave_api' => self::CHAVE_OPENAI]);
         ConexaoIa::factory()->gemini()->create(['chave_api' => self::CHAVE_GEMINI]);
         ConfiguracaoIa::factory()->comRedundancia()->create();
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->get(self::URL);
 
@@ -89,7 +89,7 @@ class IntegracaoIaTest extends TestCase
 
     public function test_salva_o_provedor_principal_com_a_chave_cifrada_no_banco(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal());
 
@@ -115,7 +115,7 @@ class IntegracaoIaTest extends TestCase
     public function test_chave_do_tamanho_maximo_cabe_cifrada_na_coluna(): void
     {
         $chave = 'sk-teste-'.str_repeat('a', 291);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal(['chave_api' => $chave]));
 
@@ -126,7 +126,7 @@ class IntegracaoIaTest extends TestCase
     public function test_chave_em_branco_mantem_a_guardada_e_troca_o_modelo(): void
     {
         ConexaoIa::factory()->create(['chave_api' => self::CHAVE_OPENAI]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal(['modelo' => 'gpt-5.4-mini', 'chave_api' => '']));
 
@@ -138,7 +138,7 @@ class IntegracaoIaTest extends TestCase
 
     public function test_exige_a_chave_quando_o_provedor_ainda_nao_tem_uma(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal(['chave_api' => '']));
 
@@ -149,7 +149,7 @@ class IntegracaoIaTest extends TestCase
 
     public function test_chave_digitada_nao_volta_para_a_sessao_quando_a_validacao_falha(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal(['modelo' => '../modelo']));
 
@@ -160,7 +160,7 @@ class IntegracaoIaTest extends TestCase
 
     public function test_recusa_envio_sem_os_campos(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, []);
 
@@ -193,7 +193,7 @@ class IntegracaoIaTest extends TestCase
     #[DataProvider('valoresInvalidos')]
     public function test_recusa_valor_invalido_com_a_mensagem_do_campo(array $alteracoes, string $campo, string $mensagem): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal($alteracoes));
 
@@ -206,7 +206,7 @@ class IntegracaoIaTest extends TestCase
         ConexaoIa::factory()->create(['chave_api' => self::CHAVE_OPENAI]);
         ConexaoIa::factory()->gemini()->create(['chave_api' => self::CHAVE_GEMINI]);
         ConfiguracaoIa::factory()->create(['provedor_principal' => ProvedorIa::Gemini]);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal(['chave_api' => '']));
 
@@ -221,7 +221,7 @@ class IntegracaoIaTest extends TestCase
         ConexaoIa::factory()->create();
         ConexaoIa::factory()->gemini()->create();
         ConfiguracaoIa::factory()->comRedundancia()->create();
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal(['provedor' => 'gemini', 'modelo' => 'gemini-3.8-flash', 'chave_api' => '']));
 
@@ -237,7 +237,7 @@ class IntegracaoIaTest extends TestCase
     {
         ConexaoIa::factory()->create(['chave_api' => self::CHAVE_OPENAI]);
         ConfiguracaoIa::factory()->create();
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL_REDUNDANCIA, $this->redundancia());
 
@@ -257,7 +257,7 @@ class IntegracaoIaTest extends TestCase
 
     public function test_redundancia_exige_o_principal_salvo_antes(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL_REDUNDANCIA, $this->redundancia());
 
@@ -270,7 +270,7 @@ class IntegracaoIaTest extends TestCase
     {
         ConexaoIa::factory()->create();
         ConfiguracaoIa::factory()->create();
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL_REDUNDANCIA, $this->redundancia(['provedor' => 'openai', 'modelo' => 'gpt-5.4', 'chave_api' => '']));
 
@@ -283,7 +283,7 @@ class IntegracaoIaTest extends TestCase
         ConexaoIa::factory()->create();
         ConexaoIa::factory()->gemini()->create(['chave_api' => self::CHAVE_GEMINI]);
         ConfiguracaoIa::factory()->comRedundancia()->create();
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL_REDUNDANCIA, ['provedor' => '', 'modelo' => 'gemini-3.8-flash', 'chave_api' => '']);
 
@@ -298,7 +298,7 @@ class IntegracaoIaTest extends TestCase
     {
         $conexao = ConexaoIa::factory()->create();
         DB::table('conexoes_ia')->where('id', $conexao->id)->update(['chave_api' => 'cifrada-com-outra-app-key']);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->get(self::URL);
 
@@ -311,7 +311,7 @@ class IntegracaoIaTest extends TestCase
     {
         $conexao = ConexaoIa::factory()->create();
         DB::table('conexoes_ia')->where('id', $conexao->id)->update(['chave_api' => 'cifrada-com-outra-app-key']);
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->put(self::URL, $this->principal(['chave_api' => '']));
 
@@ -346,14 +346,14 @@ class IntegracaoIaTest extends TestCase
 
     public function test_tela_nao_traz_mais_a_importacao(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $this->get(self::URL)->assertInertia(fn (Assert $page) => $page->missing('importacao'));
     }
 
     public function test_rotas_da_importacao_nao_existem_mais(): void
     {
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $this->put(self::URL.'/importacao', [])->assertNotFound();
         $this->put(self::URL.'/importacao/prompt-modelo')->assertNotFound();

@@ -32,7 +32,7 @@ class EditalCriteriosTravadosTest extends TestCase
     {
         parent::setUp();
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $this->edital = Edital::factory()->create();
         $this->teatro = EditalCategoria::factory()->for($this->edital)->create(['nome' => 'Teatro', 'ordem' => 1]);

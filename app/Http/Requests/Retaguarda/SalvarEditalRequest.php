@@ -22,7 +22,8 @@ use Illuminate\Validation\Validator;
 
 /**
  * Criação e edição de edital na retaguarda. Tudo é opcional no rascunho; publicado (também o que já estava) exige
- * título, resumo, categoria, PDF e o edital completo (Edital::pendenciasPorCampo()). Tudo é conferido de uma vez, cada
+ * título, resumo (a descrição do card), categoria, PDF, imagem da vitrine e o edital completo
+ * (Edital::pendenciasPorCampo()). Tudo é conferido de uma vez, cada
  * pendência no campo da sua aba, para a tela marcar juntas todas as abas que faltam.
  * Sem novo upload, o PDF, a imagem e os arquivos-modelo atuais ficam.
  * As listas (chamadas, categorias, documentos, critérios) só são tocadas com o marcador `com_listas`;
@@ -187,6 +188,7 @@ class SalvarEditalRequest extends FormRequest
         return [
             ...$this->mensagensDosCampos(),
             'required_if_accepted' => 'Este campo é obrigatório.',
+            'resumo.required_if_accepted' => 'Informe a descrição do card para publicar.',
             'pdf.file' => 'O arquivo precisa ser um PDF.',
             'pdf.mimes' => 'O arquivo precisa ser um PDF.',
             'pdf.mimetypes' => 'O arquivo precisa ser um PDF.',
@@ -253,8 +255,9 @@ class SalvarEditalRequest extends FormRequest
     }
 
     /**
-     * Edital publicado precisa de PDF (o enviado agora ou o já salvo) e do edital completo, também o que já estava
-     * publicado: ele está no portal, e sem chamada, natureza ou categoria ninguém consegue se inscrever.
+     * Edital publicado precisa de PDF e de imagem da vitrine (os enviados agora ou os já salvos; a imagem marcada para
+     * remover não conta) e do edital completo, também o que já estava publicado: ele está no portal, e sem chamada,
+     * natureza ou categoria ninguém consegue se inscrever.
      *
      * @return array<int, callable(Validator): void>
      */
@@ -264,9 +267,14 @@ class SalvarEditalRequest extends FormRequest
             function (Validator $validator): void {
                 $edital = $this->route('edital');
                 $temPdf = $this->hasFile('pdf') || ($edital instanceof Edital && filled($edital->pdf));
+                $temImagem = $this->hasFile('imagem')
+                    || ($edital instanceof Edital && filled($edital->imagem) && ! $this->boolean('remover_imagem'));
 
                 if ($this->boolean('publicado') && ! $temPdf) {
                     $validator->errors()->add('pdf', 'Envie o PDF do edital para publicar.');
+                }
+                if ($this->boolean('publicado') && ! $temImagem) {
+                    $validator->errors()->add('imagem', 'Envie a imagem da vitrine para publicar.');
                 }
             },
             function (Validator $validator): void {

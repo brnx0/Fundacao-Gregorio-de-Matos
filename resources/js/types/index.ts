@@ -40,6 +40,8 @@ export interface EditalResumo {
     inscricoesFim: string;
     /** Imagem enviada na retaguarda (URL relativa); null usa as fotos fixas da vitrine. */
     imagem: string | null;
+    /** Descrição do card (o resumo do edital). */
+    resumo: string | null;
 }
 
 /** Edital em EditalController@show. */
@@ -189,7 +191,7 @@ export type ArquivoCadastro =
     | 'documento_outros'
     | 'comprovante_residencia';
 
-/** Cadastro de pessoa física já salvo. Dos arquivos, só se cada um já foi enviado. */
+/** Cadastro de pessoa física já salvo (os arquivos ficam na etapa Anexos). */
 export interface CadastroPessoaFisica {
     nome_social: string | null;
     nome_artistico: string | null;
@@ -224,7 +226,6 @@ export interface CadastroPessoaFisica {
     cidade: string;
     estado: string;
     territorio: string;
-    arquivos: Record<ArquivoCadastro, boolean>;
 }
 
 /** Cadastro/Completar: o formulário de pessoa física, em CadastroController@completar. */
@@ -331,7 +332,7 @@ export interface OrganizacaoFormProps {
         estados: OpcaoCadastro[];
     };
     representanteInicial: { cpf: string; nome: string } | null;
-    /** Verdadeiro só quando a pessoa ainda não tem organização: o formulário é a etapa 3 do cadastro inicial. */
+    /** Verdadeiro só quando a pessoa ainda não tem organização: o formulário é a etapa 4 do cadastro inicial. */
     noCadastroInicial: boolean;
 }
 
@@ -431,7 +432,7 @@ export interface EditalRetaguarda {
     perguntas: number;
 }
 
-/** Etapa 4 do cadastro (CadastroController@tipo). */
+/** Etapa 5 do cadastro (CadastroController@tipo). */
 export interface CadastroTipoProps {
     tiposAtuais: TipoCadastro[];
     opcoes: { valor: TipoCadastro; rotulo: string }[];
@@ -441,6 +442,8 @@ export interface CadastroTipoProps {
 export interface EditalPortal {
     slug: string;
     titulo: string;
+    /** Descrição do card (o resumo do edital). */
+    resumo: string | null;
     categoria: string;
     periodo: string;
     situacao: SituacaoEdital;
@@ -538,6 +541,48 @@ export interface ArquivoEnviado extends SituacaoDoDocumento {
     nome: string;
     /** Download do arquivo (rota portal.inscricoes.documentos.arquivo). */
     url: string;
+}
+
+/** Arquivo já enviado na etapa Anexos do cadastro. */
+export interface AnexoEnviado extends SituacaoDoDocumento {
+    nome: string;
+    /** O arquivo, aberto no navegador (rota cadastro.anexos.arquivo). */
+    url: string;
+    /** JPG, PNG (ou GIF antigo): mostrado em miniatura. */
+    imagem: boolean;
+}
+
+/** Um anexo da etapa Anexos do cadastro (CadastroAnexoController@index), na ordem de App\Enums\AnexoCadastro. */
+export interface AnexoDoCadastro {
+    campo: ArquivoCadastro;
+    rotulo: string;
+    /** CPF e RG: sem eles a etapa não é concluída. */
+    obrigatorio: boolean;
+    /** Foto de perfil: só JPG ou PNG. */
+    somenteImagem: boolean;
+    /** "Validar com IA" na retaguarda e a validação por IA ligada. */
+    conferidoPelaIa: boolean;
+    enviado: AnexoEnviado | null;
+}
+
+/** O que impede concluir a etapa Anexos, com o campo para levar até o anexo. */
+export interface PendenciaDoAnexo {
+    campo: ArquivoCadastro;
+    texto: string;
+}
+
+/** Cadastro/Anexos: a etapa Anexos (CadastroAnexoController@index). */
+export interface CadastroAnexosProps {
+    anexos: AnexoDoCadastro[];
+    pendencias: PendenciaDoAnexo[];
+    podeContinuar: boolean;
+}
+
+/** Consulta periódica enquanto algum anexo está em conferência (CadastroAnexoController@situacao). Só os enviados. */
+export interface SituacaoDosAnexos {
+    anexos: (SituacaoDoDocumento & { campo: ArquivoCadastro })[];
+    pendencias: PendenciaDoAnexo[];
+    podeContinuar: boolean;
 }
 
 export interface DocumentoDaInscricao {
@@ -700,7 +745,10 @@ export interface SituacaoDaInscricao {
 
 export interface RetaguardaEditaisIndexProps {
     editais: Paginado<EditalRetaguarda>;
-    filtros: { busca: string; situacao: SituacaoEdital | ''; publicado: 'sim' | 'nao' | '' };
+    /** publicado é a aba aberta: "nao" (Não publicados, a padrão) ou "sim" (Publicados). */
+    filtros: { busca: string; situacao: SituacaoEdital | ''; publicado: 'sim' | 'nao' };
+    /** Editais de cada aba com a busca e a situação aplicadas. */
+    totais: { sim: number; nao: number };
     situacoes: { valor: SituacaoEdital; rotulo: string }[];
     /** Provedor principal com modelo e chave na Integração com IA. "Importar com IA" aparece sempre; sem isso, o envio é recusado. */
     importacaoConfigurada: boolean;
@@ -712,15 +760,20 @@ export interface RetaguardaEditaisIndexProps {
 /** Situação de uma importação para a tela (análise sem término há mais de 10 min já vem como "erro"). */
 export type SituacaoImportacao = 'analisando' | 'concluida' | 'erro';
 
-/** Importação no painel da lista de editais (EditalController@index); a consulta JSON devolve situacao, erro e editalUrl. */
+/**
+ * Importação no painel da lista de editais (EditalController@index): analisando ou com erro recente; a concluída sai do
+ * painel. A consulta JSON devolve situacao e erro.
+ */
 export interface ImportacaoResumo {
     id: number;
     pdfNome: string;
     situacao: SituacaoImportacao;
     erro: string | null;
-    editalUrl: string | null;
     /** dd/mm/aaaa hh:mm */
     enviadaEm: string;
+    /** Só analisando: tempo desde o início da análise e o previsto pelo histórico, para a barra de progresso estimada. */
+    segundosDecorridos: number | null;
+    segundosPrevistos: number | null;
 }
 
 /** Ponto de atenção da importação; bloco nulo = sem bloco (rótulo "Geral"). */
@@ -1566,6 +1619,8 @@ export interface AnexoProponente {
     url: string | null;
     /** Nome sugerido para baixar. */
     nome: string | null;
+    /** Resultado da conferência por IA; nulo sem arquivo ou com o arquivo só recebido. */
+    ia: { situacao: SituacaoConferencia; rotulo: string; motivo: string | null } | null;
 }
 
 /** Pessoa Jurídica vinculada ao CPF do proponente. CPF dos representantes já mascarado. */
@@ -1761,6 +1816,24 @@ export interface ProvedorIaRetaguarda {
 export interface RetaguardaIntegracaoIaProps {
     configuracao: { ativo: boolean; principal: ProvedorIa | null; redundancia: ProvedorIa | null };
     provedores: ProvedorIaRetaguarda[];
+}
+
+/** Um anexo do cadastro na Parametrização (Retaguarda\AnexosDoCadastroController@edit). */
+export interface AnexoDoCadastroRetaguarda {
+    campo: ArquivoCadastro;
+    rotulo: string;
+    descricao: string;
+    obrigatorio: boolean;
+    validar_ia: boolean;
+    /** O que a IA confere; vazio quando não foi escrito. */
+    instrucao_ia: string;
+}
+
+/** Parametrização > Anexos do cadastro (Retaguarda\AnexosDoCadastroController@edit). */
+export interface RetaguardaAnexosDoCadastroProps {
+    anexos: AnexoDoCadastroRetaguarda[];
+    /** A chave geral da Integração com IA: desligada, nada é conferido. */
+    validacaoLigada: boolean;
 }
 
 /** Fatia de uma distribuição do Painel: total e percentual (uma casa) sobre a base da distribuição. */

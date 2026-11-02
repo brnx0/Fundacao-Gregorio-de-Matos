@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Auth\GovBr\GovBrClient;
-use App\Http\Middleware\GarantirGestor;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -20,7 +19,7 @@ class TrocaDeAreaTest extends TestCase
     public function test_visita_do_site_para_a_retaguarda_recarrega_a_pagina(): void
     {
         $versaoDoSite = $this->versaoDa('/privacidade');
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
 
         $resposta = $this->get('/retaguarda/editais', $this->visitaInertia($versaoDoSite));
 
@@ -39,26 +38,26 @@ class TrocaDeAreaTest extends TestCase
     public function test_visita_dentro_da_mesma_area_segue_pelo_inertia(): void
     {
         $versaoDoSite = $this->versaoDa('/privacidade');
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
         $versaoDaRetaguarda = $this->versaoDa('/retaguarda/editais');
 
         $this->get('/a-fgm', $this->visitaInertia($versaoDoSite))->assertOk()->assertHeader('X-Inertia', 'true');
         $this->get('/retaguarda/eventos', $this->visitaInertia($versaoDaRetaguarda))->assertOk()->assertHeader('X-Inertia', 'true');
     }
 
-    public function test_gestor_desativado_que_volta_para_a_retaguarda_ve_o_aviso_no_login(): void
+    public function test_gestor_desativado_que_volta_para_a_retaguarda_vai_ao_login_sem_aviso(): void
     {
         $versaoDoSite = $this->versaoDa('/privacidade');
         $gestor = User::factory()->gestor()->create();
-        $this->actingAs($gestor)->get('/retaguarda/editais')->assertOk();
+        $this->actingAs($gestor, 'retaguarda')->get('/retaguarda/editais')->assertOk();
         $gestor->update(['ativo' => false]);
 
         $resposta = $this->get('/retaguarda/editais', $this->visitaInertia($versaoDoSite));
 
         $resposta->assertConflict()->assertHeader('X-Inertia-Location', url('/retaguarda/login'));
-        $this->assertGuest();
+        $this->assertGuest('retaguarda');
         $this->get('/retaguarda/login')
-            ->assertInertia(fn (Assert $p) => $p->where('flash.erro', GarantirGestor::ERRO));
+            ->assertInertia(fn (Assert $p) => $p->where('flash.erro', null));
     }
 
     public function test_proponente_do_govbr_que_volta_da_retaguarda_para_a_home_sai_tambem_do_govbr(): void

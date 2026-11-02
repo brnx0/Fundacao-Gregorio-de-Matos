@@ -28,7 +28,7 @@ class HomologacaoConferenciaTest extends TestCase
 
         Storage::fake('local');
         $this->travelTo(Carbon::parse('2026-12-05 10:00', 'America/Bahia'));
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     public function test_conferencia_traz_documentos_com_ia_respostas_e_marcacoes(): void

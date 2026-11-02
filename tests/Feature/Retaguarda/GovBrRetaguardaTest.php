@@ -38,7 +38,7 @@ class GovBrRetaguardaTest extends TestCase
         $this->get('/auth/govbr/redirect?destino=retaguarda')->assertRedirect('/auth/govbr/fake');
         $this->post('/auth/govbr/fake', ['cpf' => self::CPF])->assertRedirect('/retaguarda');
 
-        $this->assertAuthenticatedAs($gestor);
+        $this->assertAuthenticatedAs($gestor, 'retaguarda');
         $this->assertTrue(session('retaguarda.via_govbr'));
         $this->assertNull(session('govbr.destino'));
         $this->assertNotNull($gestor->fresh()->last_login_at);
@@ -53,6 +53,7 @@ class GovBrRetaguardaTest extends TestCase
             ->assertSessionHas('erro', self::SEM_ACESSO);
 
         $this->assertDatabaseMissing('users', ['cpf' => self::CPF]);
+        $this->assertGuest('retaguarda');
         $this->assertGuest();
     }
 
@@ -66,6 +67,7 @@ class GovBrRetaguardaTest extends TestCase
             ->assertRedirect('/retaguarda/login')
             ->assertSessionHas('erro', self::SEM_ACESSO);
 
+        $this->assertGuest('retaguarda');
         $this->assertGuest();
     }
 
@@ -93,6 +95,7 @@ class GovBrRetaguardaTest extends TestCase
             ->assertRedirect('/retaguarda/login')
             ->assertSessionHas('erro', self::SEM_ACESSO);
 
+        $this->assertGuest('retaguarda');
         $this->assertGuest();
     }
 
@@ -108,7 +111,7 @@ class GovBrRetaguardaTest extends TestCase
             ->where('contas.0.cpf', self::CPF_DO_ADMINISTRADOR));
         $this->post('/auth/govbr/fake', ['cpf' => '000.000.000-00'])->assertRedirect('/retaguarda');
 
-        $this->assertAuthenticatedAs($admin);
+        $this->assertAuthenticatedAs($admin, 'retaguarda');
         $this->assertTrue(session('retaguarda.via_govbr'));
     }
 
@@ -125,6 +128,7 @@ class GovBrRetaguardaTest extends TestCase
         $this->post('/auth/govbr/fake', ['cpf' => '000.000.000-00'])
             ->assertSessionHasErrors(['cpf' => 'CPF inválido.']);
 
+        $this->assertGuest('retaguarda');
         $this->assertGuest();
     }
 
@@ -137,6 +141,7 @@ class GovBrRetaguardaTest extends TestCase
         $this->post('/auth/govbr/fake', ['cpf' => '0'])
             ->assertSessionHasErrors(['cpf' => 'CPF inválido.']);
 
+        $this->assertGuest('retaguarda');
         $this->assertGuest();
     }
 
@@ -187,7 +192,7 @@ class GovBrRetaguardaTest extends TestCase
 
         $this->get('/auth/govbr/callback?code=abc&state='.session('govbr.state'))->assertRedirect('/retaguarda');
 
-        $this->assertAuthenticatedAs($gestor);
+        $this->assertAuthenticatedAs($gestor, 'retaguarda');
         $this->assertTrue(session('retaguarda.via_govbr'));
         $this->assertSame('Fulana Gestora', $gestor->fresh()->name);
     }
@@ -203,6 +208,7 @@ class GovBrRetaguardaTest extends TestCase
             ->assertRedirect('/retaguarda/login')
             ->assertSessionHas('erro', self::SEM_ACESSO);
 
+        $this->assertGuest('retaguarda');
         $this->assertGuest();
         $this->assertDatabaseCount('users', 0);
     }

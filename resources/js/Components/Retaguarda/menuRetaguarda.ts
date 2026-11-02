@@ -3,7 +3,8 @@ export type GrupoMenu = { id: string; texto: string; icone: string; itens: ItemM
 
 // Caminhos das rotas retaguarda.painel, retaguarda.editais.index, retaguarda.eventos.index, retaguarda.vlibras.edit,
 // retaguarda.homologacao.index, retaguarda.avaliacao.index, retaguarda.proponentes.index, retaguarda.avaliadores.index, retaguarda.prefeituras-bairro.index, retaguarda.areas-atuacao.index,
-// retaguarda.integracao-ia.edit, retaguarda.email.edit e retaguarda.usuarios.index (o front não tem helper de rotas nomeadas).
+// retaguarda.integracao-ia.edit, retaguarda.anexos-cadastro.edit, retaguarda.email.edit e retaguarda.usuarios.index (o front não tem
+// helper de rotas nomeadas).
 // O menu lateral (MenuRetaguarda) e a trilha do topo de cada página (PaginaRetaguarda) saem daqui.
 
 /** Tela inicial da retaguarda: fica no topo do menu, fora dos grupos. */
@@ -87,6 +88,11 @@ export const gruposMenu: GrupoMenu[] = [
                 href: '/retaguarda/integracao-ia',
                 texto: 'Integração com IA',
                 icone: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 15v4M17 17h4M5 3v3M3.5 4.5h3',
+            },
+            {
+                href: '/retaguarda/anexos-cadastro',
+                texto: 'Anexos do cadastro',
+                icone: 'M7 3h7l5 5v13H7zM14 3v5h5M10 15l2 2 4-4',
             },
             {
                 href: '/retaguarda/email',

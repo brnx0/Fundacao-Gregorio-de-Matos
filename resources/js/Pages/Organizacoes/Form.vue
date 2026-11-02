@@ -354,7 +354,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                     </svg>
                     Voltar para Minhas Pessoas Jurídicas
                 </Link>
-                <p v-else class="text-[0.75rem] font-semibold tracking-[0.24em] text-white/75 uppercase">Etapa 3 de 4 · Pessoa Jurídica</p>
+                <p v-else class="text-[0.75rem] font-semibold tracking-[0.24em] text-white/75 uppercase">Etapa 4 de 5 · Pessoa Jurídica</p>
                 <h1 id="organizacao-titulo" class="font-barlow text-[2.6rem] leading-[0.95] font-extrabold tracking-[0.01em] break-words uppercase md:text-[3.5rem]">
                     {{ titulo }}
                 </h1>
@@ -363,7 +363,7 @@ const classeCaixa = 'mt-0.5 size-5 shrink-0 cursor-pointer accent-acao';
                 </p>
             </div>
             <template v-if="!editando && noCadastroInicial" #abaixo>
-                <EtapasCadastro :atual="3" :navegavel="finalizado" />
+                <EtapasCadastro :atual="4" :navegavel="finalizado" />
             </template>
         </FaixaPortal>
 

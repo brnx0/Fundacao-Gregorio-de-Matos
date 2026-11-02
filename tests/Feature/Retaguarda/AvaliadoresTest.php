@@ -18,7 +18,7 @@ class AvaliadoresTest extends TestCase
     {
         parent::setUp();
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     /** @return array<string, string> */

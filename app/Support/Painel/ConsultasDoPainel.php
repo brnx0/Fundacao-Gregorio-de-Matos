@@ -34,7 +34,10 @@ final class ConsultasDoPainel
 
     public function __construct(public readonly FiltrosDoPainel $filtros) {}
 
-    /** Pessoas do portal (users + pessoas_fisicas), com os filtros de público, território, edital e período do cadastro. */
+    /**
+     * Pessoas do portal (users + pessoas_fisicas), com os filtros de público, território, edital e período do cadastro.
+     * Só os cadastros concluídos (Meus dados e Anexos): quem parou na etapa Anexos ainda não tem a data do cadastro.
+     */
     public function pessoas(): Consulta
     {
         $filtros = $this->filtros;
@@ -42,6 +45,7 @@ final class ConsultasDoPainel
         return User::query()
             ->doPortal()
             ->join('pessoas_fisicas', 'pessoas_fisicas.user_id', '=', 'users.id')
+            ->whereNotNull('users.profile_completed_at')
             ->when($filtros->publico, fn (Builder $q, TipoCadastro $tipo) => $q->where('users.tipos_cadastro', 'like', self::naLista($tipo->value)))
             ->when($filtros->territorio, fn (Builder $q, string $codigo) => $q->where('pessoas_fisicas.territorio', $codigo))
             ->when($filtros->editalId, fn (Builder $q, int $edital) => $q->whereExists(

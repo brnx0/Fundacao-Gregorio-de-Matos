@@ -5,7 +5,10 @@ namespace App\Actions;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
-/** Entrada na retaguarda pelo gov.br: só quem já é gestor; nunca cria usuário nem altera seus dados. */
+/**
+ * Entrada na retaguarda pelo gov.br: só quem já é gestor; nunca cria usuário nem altera seus dados. Entra no login
+ * da retaguarda, sem mexer no do portal.
+ */
 class EntrarNaRetaguardaPorGovBr
 {
     public function handle(string $cpf): ?User
@@ -16,7 +19,7 @@ class EntrarNaRetaguardaPorGovBr
             return null;
         }
 
-        Auth::login($user);
+        Auth::guard('retaguarda')->login($user);
         session()->regenerate();
         session(['retaguarda.via_govbr' => true]);
 
