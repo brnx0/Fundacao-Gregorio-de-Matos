@@ -30,7 +30,9 @@ const indiceDoMaior = computed<number>(() => props.itens.findIndex((item) => ite
             >
                 <span class="text-center leading-tight tabular-nums">
                     <strong class="block text-[0.8125rem] font-semibold text-home-tinta">{{ numero(item.total) }}</strong>
-                    <span v-if="item.percentual !== undefined" class="block text-[0.6875rem] text-tinta-suave">{{ percentual(item.percentual) }}</span>
+                    <!-- A linha do percentual existe sempre (vazia sem percentual): os números ficam na mesma altura em todos
+                         os gráficos de colunas, com ou sem percentual. -->
+                    <span class="block text-[0.6875rem] text-tinta-suave">{{ item.percentual === undefined ? ' ' : percentual(item.percentual) }}</span>
                 </span>
                 <span class="flex h-32 w-full items-end justify-center">
                     <span
