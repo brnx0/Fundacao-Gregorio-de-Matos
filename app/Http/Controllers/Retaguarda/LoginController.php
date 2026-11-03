@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** Entrada da retaguarda por e-mail e senha, e saída. */
+/** Entrada da retaguarda por e-mail e senha, e saída. O login é o da retaguarda, separado do login do portal. */
 class LoginController extends Controller
 {
     private const ERRO = 'E-mail ou senha inválidos.';
@@ -23,7 +23,7 @@ class LoginController extends Controller
 
     public function create(Request $request): Response|RedirectResponse
     {
-        if ($request->user()?->ehGestor()) {
+        if ($request->user('retaguarda')?->ehGestor()) {
             // Mantém avisos (ex.: limite de tentativas) até o início.
             $request->session()->reflash();
 
@@ -51,17 +51,20 @@ class LoginController extends Controller
             throw ValidationException::withMessages(['email' => self::ERRO]);
         }
 
-        Auth::login($user);
+        Auth::guard('retaguarda')->login($user);
         $request->session()->regenerate();
         $user->forceFill(['last_login_at' => now()])->save();
 
         return redirect()->route('retaguarda.inicio');
     }
 
-    /** Como no portal: limpa o histórico (as telas de proponentes não reabrem pelo Voltar) e sai também do gov.br. */
+    /**
+     * Como no portal: limpa o histórico (as telas de proponentes não reabrem pelo Voltar) e sai também do gov.br.
+     * Sai só da retaguarda: o login do portal, se houver, continua.
+     */
     public function destroy(Request $request, EncerrarSessao $encerrarSessao): RedirectResponse
     {
-        $saidaDoGovBr = $encerrarSessao->handle($request);
+        $saidaDoGovBr = $encerrarSessao->handle($request, 'retaguarda');
 
         return $saidaDoGovBr !== null ? redirect()->away($saidaDoGovBr) : redirect()->route('retaguarda.login');
     }

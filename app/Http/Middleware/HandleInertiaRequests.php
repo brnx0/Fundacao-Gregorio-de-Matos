@@ -99,17 +99,19 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Cada área mostra só o seu usuário: a retaguarda, o gestor; o portal, o proponente. Gestor logado que
-     * abre o portal (para conferir o que publicou) o vê como visitante, sem caminho para a retaguarda. A área do
-     * avaliador não mostra usuário: o avaliador vem na prop `avaliador`.
+     * Cada área mostra só o usuário do seu login: a retaguarda, o gestor (guard 'retaguarda'); o portal, o
+     * proponente (guard 'web'). Gestor logado na retaguarda que abre o portal (para conferir o que publicou) o vê
+     * como visitante, sem caminho para a retaguarda. A área do avaliador não mostra usuário: o avaliador vem na
+     * prop `avaliador`.
      *
      * @return array{nome: string, cpfMascarado: string, tiposCadastro: list<string>}|null
      */
     private function usuarioDaArea(Request $request): ?array
     {
-        $user = $request->user();
+        $naRetaguarda = $request->is('retaguarda', 'retaguarda/*');
+        $user = $request->user($naRetaguarda ? 'retaguarda' : 'web');
 
-        if ($user === null || $request->is('avaliacao', 'avaliacao/*') || $user->ehGestor() !== $request->is('retaguarda', 'retaguarda/*')) {
+        if ($user === null || $request->is('avaliacao', 'avaliacao/*') || $user->ehGestor() !== $naRetaguarda) {
             return null;
         }
 

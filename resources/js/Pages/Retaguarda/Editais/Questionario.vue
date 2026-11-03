@@ -19,6 +19,8 @@ const props = defineProps<RetaguardaEditalQuestionarioProps>();
 // Caminhos das rotas retaguarda.editais.* (o front não tem helper de rotas nomeadas).
 const BASE = '/retaguarda/editais';
 const URL_EDITAL = `${BASE}/${props.edital.slug}`;
+// "Voltar para a lista" e "Cancelar" voltam para a aba do edital na lista.
+const LISTA = props.edital.publicado ? `${BASE}?publicado=sim` : BASE;
 
 // Categorias gravadas, na ordem: o servidor fala em posições; a tela, nas chaves dos cartões.
 const categorias: CategoriaDoQuestionario[] = props.edital.categorias.map((categoria) => ({
@@ -108,9 +110,9 @@ const salvar = (): void => {
 
             <!-- Travado, não há o que salvar: só volta para a lista. -->
             <div v-if="questionarioTravado">
-                <Link :href="BASE" class="botao-secundario">Voltar para a lista</Link>
+                <Link :href="LISTA" class="botao-secundario">Voltar para a lista</Link>
             </div>
-            <BarraAcoes v-else :cancelar="BASE" :salvar="form.processing ? 'Salvando…' : 'Salvar questionário'" :processando="form.processing" :com-erros="form.hasErrors" />
+            <BarraAcoes v-else :cancelar="LISTA" :salvar="form.processing ? 'Salvando…' : 'Salvar questionário'" :processando="form.processing" :com-erros="form.hasErrors" />
         </form>
     </PaginaRetaguarda>
 </template>

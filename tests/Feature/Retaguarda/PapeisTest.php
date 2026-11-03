@@ -67,7 +67,7 @@ class PapeisTest extends TestCase
         $this->seed(PrimeiroGestorSeeder::class);
         $admin = User::where('email', 'admin@admin')->firstOrFail();
 
-        $this->actingAs($admin)
+        $this->actingAs($admin, 'retaguarda')
             ->put("/retaguarda/usuarios/{$admin->id}", [
                 'name' => 'Maria Gestora',
                 'email' => 'maria@fgm.test',

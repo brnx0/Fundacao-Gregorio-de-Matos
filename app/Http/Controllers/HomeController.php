@@ -13,8 +13,10 @@ class HomeController extends Controller
     {
         return Inertia::render('Home', [
             'totalAbertos' => Edital::contarAbertos(),
-            'editais' => Edital::naVitrine()->paraListagem()->get()->map(fn (Edital $edital) => [
+            // Com o resumo (CLOB), que é a descrição do card; a vitrine tem poucos editais.
+            'editais' => Edital::naVitrine()->paraListagem()->addSelect('resumo')->get()->map(fn (Edital $edital) => [
                 'titulo' => $edital->titulo,
+                'resumo' => $edital->resumo,
                 'slug' => $edital->slug,
                 'pdf' => $edital->pdfUrl(),
                 'categoria' => $edital->categoria,

@@ -31,6 +31,9 @@ class ImportacaoQuestionario extends Model
 
     public const string PASTA = 'editais/questionarios';
 
+    /** Quantas análises concluídas, das mais recentes, entram na previsão da barra de progresso. */
+    private const int ANALISES_NA_PREVISAO = 10;
+
     /** Aviso quando o questionário mudou por uma importação depois que a página foi aberta. */
     public const string ERRO_VERSAO = 'O questionário foi substituído por uma importação depois que esta página foi aberta. Recarregue a página para ver o questionário atual.';
 
@@ -47,7 +50,7 @@ class ImportacaoQuestionario extends Model
     protected $fillable = [
         'user_id', 'edital_id', 'situacao', 'arquivo', 'arquivo_nome', 'tipo_arquivo', 'substituir', 'provedor', 'modelo',
         'tokens_entrada', 'tokens_saida', 'tokens_total', 'erro', 'resposta', 'confiabilidade', 'atencao',
-        'conferida_em', 'iniciada_em', 'execucao',
+        'conferida_em', 'iniciada_em', 'concluida_em', 'execucao',
     ];
 
     /**
@@ -67,7 +70,37 @@ class ImportacaoQuestionario extends Model
             'atencao' => 'array',
             'conferida_em' => 'datetime',
             'iniciada_em' => 'datetime',
+            'concluida_em' => 'datetime',
         ];
+    }
+
+    /**
+     * Quanto uma análise do questionário costuma levar, para a barra de progresso da tela: a mediana das últimas
+     * concluídas, do início ao fim da análise, nos mesmos limites da importação do edital; sem histórico, o padrão.
+     */
+    public static function segundosPrevistos(): int
+    {
+        $duracoes = static::query()
+            ->select(['id', 'iniciada_em', 'concluida_em'])
+            ->where('situacao', SituacaoImportacao::Concluida->value)
+            ->whereNotNull('concluida_em')
+            ->latest('id')
+            ->limit(self::ANALISES_NA_PREVISAO)
+            ->get()
+            ->map(fn (ImportacaoQuestionario $importacao): float => $importacao->iniciada_em->diffInSeconds($importacao->concluida_em))
+            ->filter(fn (float $segundos): bool => $segundos > 0);
+
+        if ($duracoes->isEmpty()) {
+            return ImportacaoEdital::SEGUNDOS_PREVISTOS_PADRAO;
+        }
+
+        return (int) min(ImportacaoEdital::SEGUNDOS_PREVISTOS_MAXIMO, max(ImportacaoEdital::SEGUNDOS_PREVISTOS_MINIMO, round($duracoes->median())));
+    }
+
+    /** Segundos desde o início da análise em curso. */
+    public function segundosDecorridos(?CarbonInterface $agora = null): int
+    {
+        return max(0, (int) $this->iniciada_em->diffInSeconds($agora ?? now()));
     }
 
     /** @return BelongsTo<User, $this> */

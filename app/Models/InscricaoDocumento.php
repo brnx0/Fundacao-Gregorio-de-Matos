@@ -4,9 +4,8 @@ namespace App\Models;
 
 use App\Enums\ProvedorIa;
 use App\Enums\SituacaoConferencia;
-use Carbon\CarbonInterface;
+use App\Models\Concerns\ConferidoPelaIa;
 use Database\Factories\InscricaoDocumentoFactory;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,11 +18,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class InscricaoDocumento extends Model
 {
+    use ConferidoPelaIa;
+
     /** @use HasFactory<InscricaoDocumentoFactory> */
     use HasFactory;
-
-    /** Depois disso, uma conferência que não terminou é mostrada como não conferida (o processo morreu). */
-    public const int MINUTOS_LIMITE = 5;
 
     protected $table = 'inscricao_documentos';
 
@@ -55,23 +53,5 @@ class InscricaoDocumento extends Model
     public function documento(): BelongsTo
     {
         return $this->belongsTo(EditalDocumento::class, 'edital_documento_id');
-    }
-
-    /** A situação para a tela: "conferindo" há mais de 5 minutos é mostrada como não conferida. */
-    public function situacaoExibida(?CarbonInterface $agora = null): SituacaoConferencia
-    {
-        if ($this->situacao === SituacaoConferencia::Conferindo
-            && $this->iniciada_em->lt(($agora ?? now())->copy()->subMinutes(self::MINUTOS_LIMITE))) {
-            return SituacaoConferencia::NaoConferido;
-        }
-
-        return $this->situacao;
-    }
-
-    /** Só o documento ainda na conferência $execucao. */
-    public function scopeDaExecucao(Builder $consulta, string $execucao): void
-    {
-        $consulta->where('execucao', $execucao)
-            ->where('situacao', SituacaoConferencia::Conferindo->value);
     }
 }

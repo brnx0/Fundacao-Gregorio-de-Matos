@@ -14,6 +14,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
+/**
+ * profile_completed_at: quando a pessoa concluiu as etapas Meus dados e Anexos do cadastro (o Continuar de Anexos).
+ * Sem ele, cadastro-completo não deixa seguir para Pessoa Jurídica, tipo de cadastro e portal; quem salvou Meus
+ * dados e parou nos anexos já tem a pessoa física, mas ainda não esta data.
+ */
 #[Fillable(['cpf', 'name', 'email', 'email_verified', 'phone', 'password', 'ativo'])]
 #[Hidden(['password'])]
 class User extends Authenticatable
@@ -108,7 +113,7 @@ class User extends Authenticatable
         return $this->ativo && $this->papeis()->exists();
     }
 
-    /** Pessoas do portal: enviaram a etapa "Seus dados" e não são usuárias da retaguarda. */
+    /** Pessoas do portal: enviaram a etapa "Meus dados" e não são usuárias da retaguarda. */
     public function scopeDoPortal(Builder $query): void
     {
         $query->whereHas('pessoaFisica')->whereDoesntHave('papeis');

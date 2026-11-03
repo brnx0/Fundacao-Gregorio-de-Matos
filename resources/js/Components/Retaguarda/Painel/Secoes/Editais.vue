@@ -128,7 +128,7 @@ const ICONES = {
                     <tbody class="divide-y divide-hairline">
                         <tr v-for="edital in dados.demanda" :key="edital.id">
                             <th scope="row" class="max-w-72 py-2.5 pr-3 text-left font-semibold text-home-tinta">
-                                <Link :href="`/retaguarda/editais?busca=${encodeURIComponent(edital.titulo)}`" class="hover:underline">{{ edital.titulo }}</Link>
+                                <Link :href="`/retaguarda/editais?busca=${encodeURIComponent(edital.titulo)}${edital.publicado ? '&publicado=sim' : ''}`" class="hover:underline">{{ edital.titulo }}</Link>
                                 <span v-if="!edital.publicado" class="ml-1 text-[0.75rem] font-normal text-tinta-suave">(não publicado)</span>
                             </th>
                             <td class="px-3 py-2.5 whitespace-nowrap text-tinta-suave">

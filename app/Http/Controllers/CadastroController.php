@@ -22,7 +22,6 @@ use BackedEnum;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,12 +47,10 @@ class CadastroController extends Controller
                 'telefone' => $user->phone !== null ? preg_replace('/\D/', '', $user->phone) : null,
             ],
             'cadastro' => $salvo ? [
-                ...$salvo->only(array_diff($salvo->getFillable(), PessoaFisica::ARQUIVOS)),
+                ...$salvo->only($salvo->getFillable()),
                 // No formato do campo de data; o cast viraria data e hora em UTC.
                 'data_nascimento' => $salvo->data_nascimento?->toDateString(),
                 'areas_atuacao' => $areasMarcadas,
-                // Dos arquivos, a tela só precisa saber se já foram enviados.
-                'arquivos' => collect(PessoaFisica::ARQUIVOS)->mapWithKeys(fn (string $campo): array => [$campo => $salvo->{$campo} !== null]),
             ] : null,
             'opcoes' => [
                 'paises' => Paises::TODOS,
@@ -71,13 +68,14 @@ class CadastroController extends Controller
         ]);
     }
 
+    /** Grava a etapa Meus dados. Os arquivos vão na etapa seguinte, Anexos, e é ela que marca os dados como concluídos. */
     public function salvar(SalvarPessoaFisicaRequest $request): RedirectResponse
     {
         $user = $request->user();
         $cadastro = $user->pessoaFisica ?? $user->pessoaFisica()->make();
 
         $cadastro->fill([
-            ...$request->safe()->except([...PessoaFisica::ARQUIVOS, 'telefone', 'email', 'areas_atuacao']),
+            ...$request->safe()->except(['telefone', 'email', 'areas_atuacao']),
             ...collect(self::MARCACOES)->mapWithKeys(fn (string $campo): array => [$campo => $request->boolean($campo)]),
             // Quando o gov.br informa e-mail e telefone, valem esses, e não o que veio no formulário.
             'telefone' => $user->phone !== null ? preg_replace('/\D/', '', $user->phone) : $request->validated('telefone'),
@@ -92,33 +90,23 @@ class CadastroController extends Controller
             $cadastro->deficiencia_outra = null;
         }
 
-        $substituidos = [];
-        foreach (PessoaFisica::ARQUIVOS as $campo) {
-            if ($request->hasFile($campo)) {
-                $substituidos[] = $cadastro->{$campo};
-                $cadastro->{$campo} = $request->file($campo)->store("cadastros/{$user->id}", 'local');
-            }
-        }
-
         DB::transaction(function () use ($cadastro, $request): void {
             $cadastro->save();
             $cadastro->areasAtuacao()->sync($request->validated('areas_atuacao'));
         });
-        Storage::disk('local')->delete(array_filter($substituidos));
-
-        $user->profile_completed_at ??= now();
-        $user->save();
 
         // Enquanto o tipo de cadastro não é escolhido, o cadastro segue pelas etapas seguintes.
         if (! $user->cadastroFinalizado()) {
-            return redirect()->route('cadastro.organizacao')->with('sucesso', 'Dados salvos. Você também pode cadastrar uma Pessoa Jurídica.');
+            return redirect()->route('cadastro.anexos')->with('sucesso', 'Dados salvos. Agora envie seus documentos.');
         }
 
         return redirect()->route('cadastro');
     }
 
-    /** Etapa opcional: depois da pessoa física, a pessoa decide se cadastra uma organização. */
-    /** Etapa da Pessoa Jurídica: quem já tem alguma vê as suas, em vez do convite para cadastrar. */
+    /**
+     * Etapa opcional: depois dos anexos, a pessoa decide se cadastra uma organização. Quem já tem alguma vê as suas,
+     * em vez do convite para cadastrar.
+     */
     public function organizacao(Request $request): Response
     {
         return Inertia::render('Cadastro/Organizacao', [
@@ -138,6 +126,12 @@ class CadastroController extends Controller
     public function salvarTipo(SalvarTipoCadastroRequest $request): RedirectResponse
     {
         $user = $request->user();
+
+        // A primeira escolha finaliza o cadastro: com anexo faltando, em conferência ou recusado, volta para Anexos.
+        if (! $user->cadastroFinalizado() && ($user->pessoaFisica?->pendenciasDosAnexos() ?? []) !== []) {
+            return redirect()->route('cadastro.anexos')->with('erro', CadastroAnexoController::ERRO_PENDENCIAS);
+        }
+
         $marcados = $request->validated('tipos_cadastro');
         // Guardados na ordem do enum: a tela em que o portal abre não depende da ordem das marcações.
         $user->tipos_cadastro = array_values(array_filter(

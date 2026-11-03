@@ -6,6 +6,7 @@ import CampoArquivo from '../../CampoArquivo.vue';
 import CampoCadastro from '../../CampoCadastro.vue';
 import Interruptor from '../../Interruptor.vue';
 import { focarPrimeiroErro } from '../../focarPrimeiroErro';
+import ProgressoDaAnalise from './ProgressoDaAnalise.vue';
 import type { ImportacaoDoQuestionario } from '../../../types';
 
 /**
@@ -36,6 +37,9 @@ const ERRO_CONFIRMAR = 'Confirme que o questionário atual será substituído.';
 const SEM_CONFIGURACAO = 'Serviço de IA indisponível no momento. Caso persista, contate o administrador.';
 const URL_CONSULTA = '/retaguarda/editais/questionario/importacoes';
 const INTERVALO_CONSULTA_MS = 5_000;
+// Na conclusão, a barra chega a 100% (a transição da largura leva 1 s) antes de a tela recarregar com o questionário
+// importado: o mesmo tempo da lista de editais (BARRA_COMPLETA_MS em Editais/Index).
+const ESPERA_DA_BARRA_MS = 1_200;
 const FORMULARIO = '#formulario-importar-questionario';
 const TIPOS_ACEITOS = '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -157,7 +161,13 @@ const consultar = async (): Promise<void> => {
         if (concluidaAgora.value) {
             emit('concluida');
             // Sem nada pendente no formulário, já mostra o questionário importado; com alterações, espera a pessoa decidir.
-            if (!props.alteracoesNaoSalvas) recarregarNoQuestionario();
+            // A espera é da barra: quem editou algo nesse meio-tempo também não perde a alteração.
+            if (!props.alteracoesNaoSalvas) {
+                recarga = setTimeout(() => {
+                    recarga = undefined;
+                    if (!props.alteracoesNaoSalvas) recarregarNoQuestionario();
+                }, ESPERA_DA_BARRA_MS);
+            }
         }
     } catch {
         // Sem conexão: tenta de novo na próxima rodada.
@@ -165,6 +175,12 @@ const consultar = async (): Promise<void> => {
 };
 
 let temporizador: ReturnType<typeof setInterval> | undefined;
+// Recarga depois da barra completa; cancelada se a pessoa recarregar antes ("Ver o questionário importado") ou sair.
+let recarga: ReturnType<typeof setTimeout> | undefined;
+const cancelarRecarga = (): void => {
+    clearTimeout(recarga);
+    recarga = undefined;
+};
 const pararConsulta = (): void => {
     clearInterval(temporizador);
     temporizador = undefined;
@@ -180,10 +196,14 @@ watch(
     },
     { immediate: true },
 );
-onBeforeUnmount(pararConsulta);
+onBeforeUnmount(() => {
+    pararConsulta();
+    cancelarRecarga();
+});
 
 // Recarrega a página já na aba Questionário (?aba=), com o formulário refeito a partir do que o servidor gravou.
 const recarregarNoQuestionario = (): void => {
+    cancelarRecarga();
     router.visit(window.location.pathname, { preserveState: false, preserveScroll: true });
 };
 
@@ -195,12 +215,14 @@ const verQuestionario = (): void => {
 </script>
 
 <template>
-    <div class="flex flex-col gap-2 sm:max-w-80">
+    <!-- Sem caixa própria: o botão e a situação entram na grade do cabeçalho do QuestionarioEdital (o botão ao lado do
+         "Vincular em lote", a situação embaixo dos dois). -->
+    <div class="contents">
         <button
             type="button"
             :disabled="motivoDoBloqueio !== null"
-            :aria-describedby="motivoDoBloqueio !== null ? 'importar-questionario-motivo' : undefined"
-            class="pressionavel inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-pill border border-acao bg-superficie px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-acao uppercase hover:bg-nevoa disabled:cursor-not-allowed disabled:opacity-50"
+            :aria-describedby="motivoDoBloqueio === null ? undefined : analisando ? 'importar-questionario-situacao' : 'importar-questionario-motivo'"
+            class="pressionavel inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-pill border border-acao bg-superficie px-6 text-[0.8125rem] font-bold tracking-[0.12em] text-acao uppercase hover:bg-nevoa disabled:cursor-not-allowed disabled:opacity-50 @lg:col-start-1 @lg:row-start-2 @4xl:col-start-2 @4xl:row-start-1"
             @click="abrir"
         >
             <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -209,27 +231,72 @@ const verQuestionario = (): void => {
             Importar com IA
         </button>
 
-        <p v-if="motivoDoBloqueio !== null" id="importar-questionario-motivo" class="text-[0.8125rem] leading-[1.5] text-tinta-suave">{{ motivoDoBloqueio }}</p>
+        <!-- Em análise, o motivo do botão travado é o próprio cartão da análise (aria-describedby aponta para ele). -->
+        <p
+            v-if="motivoDoBloqueio !== null && !analisando"
+            id="importar-questionario-motivo"
+            class="order-1 text-[0.8125rem] leading-[1.5] text-tinta-suave @lg:col-span-2 @lg:w-0 @lg:min-w-full @4xl:col-start-2"
+        >
+            {{ motivoDoBloqueio }}
+        </p>
 
-        <div ref="areaDeSituacao" tabindex="-1" role="status" class="flex flex-col items-start gap-1 text-[0.8125rem] leading-[1.5] outline-offset-4">
+        <!-- Vazia, não ocupa a linha da grade; fica no DOM para o leitor de tela anunciar a situação que entrar. Com
+             w-0 e min-w-full, o texto longo quebra na largura dos dois botões em vez de alargar as colunas deles. -->
+        <div
+            id="importar-questionario-situacao"
+            ref="areaDeSituacao"
+            tabindex="-1"
+            role="status"
+            class="order-1 flex flex-col items-stretch text-[0.8125rem] leading-[1.5] outline-offset-4 empty:hidden @lg:col-span-2 @lg:w-0 @lg:min-w-full @4xl:col-start-2"
+        >
             <template v-if="atual">
-                <template v-if="analisando">
-                    <p class="text-tinta-suave">Analisando “{{ atual.arquivoNome }}”, enviado em {{ atual.enviadaEm }}. Você pode continuar usando o sistema.</p>
-                    <p v-if="consultaInterrompida" class="font-semibold text-aviso-texto">Não foi possível acompanhar a análise. Recarregue a página para ver a situação.</p>
-                </template>
-                <template v-else-if="atual.situacao === 'concluida'">
-                    <p v-if="concluidaAgora" class="font-semibold text-texto-verde">Questionário importado. Como há alterações não salvas, ele aparece quando você recarregar.</p>
-                    <p v-else class="text-tinta-suave">Última importação: “{{ atual.arquivoNome }}”, concluída (enviada em {{ atual.enviadaEm }}).</p>
-                    <button
-                        v-if="concluidaAgora"
-                        type="button"
-                        class="pressionavel inline-flex min-h-11 items-center rounded-pill px-3 text-[0.8125rem] font-bold text-acao hover:bg-nevoa"
-                        @click="verQuestionario"
-                    >
-                        Ver o questionário importado
-                    </button>
-                </template>
-                <p v-else class="font-semibold text-erro-texto">Erro na importação de “{{ atual.arquivoNome }}”: {{ atual.erro }}</p>
+                <!-- Análise em curso (ou que acabou de terminar): um cartão com a barra estimada, a mesma da importação do
+                     edital (a IA não informa o andamento), e o arquivo. A barra continua na conclusão e se completa. -->
+                <div v-if="analisando || concluidaAgora" class="flex flex-col gap-3 rounded-[16px] border border-hairline bg-nevoa/60 p-4">
+                    <ProgressoDaAnalise
+                        larga
+                        :pdf-nome="atual.arquivoNome"
+                        :segundos-decorridos="atual.segundosDecorridos ?? 0"
+                        :segundos-previstos="atual.segundosPrevistos ?? 120"
+                        :concluida="!analisando"
+                        titulo="Analisando o questionário…"
+                        texto-concluida="Questionário importado."
+                    />
+
+                    <div class="flex min-w-0 items-start gap-2 border-t border-hairline pt-3 text-tinta-suave">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" class="mt-0.5 size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                            <path d="M14 3v5h5" />
+                        </svg>
+                        <p class="min-w-0">
+                            <span class="block truncate font-semibold text-home-tinta" :title="atual.arquivoNome">{{ atual.arquivoNome }}</span>
+                            <span>Enviado em {{ atual.enviadaEm }}.</span>
+                            <span v-if="analisando"> Você pode continuar usando o sistema.</span>
+                        </p>
+                    </div>
+
+                    <p v-if="analisando && consultaInterrompida" class="font-semibold text-aviso-texto">Não foi possível acompanhar a análise. Recarregue a página para ver a situação.</p>
+
+                    <div v-if="concluidaAgora" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <p v-if="alteracoesNaoSalvas" class="font-semibold text-texto-verde">Como há alterações não salvas, ele aparece quando você recarregar.</p>
+                        <button
+                            type="button"
+                            class="pressionavel -ml-3 inline-flex min-h-11 items-center rounded-pill px-3 text-[0.8125rem] font-bold text-acao hover:bg-superficie"
+                            @click="verQuestionario"
+                        >
+                            Ver o questionário importado
+                        </button>
+                    </div>
+                </div>
+
+                <!-- A concluída antes de abrir a tela não aparece: o questionário importado já está na lista (e o quadro
+                     "Importado pela IA" mostra a importação enquanto não for conferida). -->
+                <p v-else-if="atual.situacao === 'erro'" class="flex min-w-0 items-start gap-2 font-semibold text-erro-texto">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" class="mt-0.5 size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v5M12 16h.01" />
+                    </svg>
+                    <span class="min-w-0 break-words">Erro na importação de “{{ atual.arquivoNome }}”: {{ atual.erro }}</span>
+                </p>
             </template>
         </div>
 

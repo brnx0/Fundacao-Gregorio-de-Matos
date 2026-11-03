@@ -27,7 +27,7 @@ const editais: ItemMenu = {
 // Também fica em destaque dentro de uma inscrição (/portal/inscricoes/{id}).
 const minhasInscricoes: ItemMenu = {
     href: '/portal/inscricoes',
-    texto: 'Minhas inscrições',
+    texto: 'Inscrições',
     ativoEm: ['/portal/inscricoes'],
     icone: 'M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1zM8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 14l2 2 4-4',
 };
@@ -41,7 +41,7 @@ const projetos: ItemMenu = {
 const page = usePage();
 const tiposCadastro = computed(() => page.props.auth.user?.tiposCadastro ?? []);
 
-// Editais e Minhas inscrições são do proponente e Projetos, do patrocinador (quem marcou os dois vê os dois); Cadastro,
+// Editais e Inscrições são do proponente e Projetos, do patrocinador (quem marcou os dois vê os dois); Cadastro,
 // comum a todos, vem por último.
 const itens = computed<ItemMenu[]>(() => {
     if (!tiposCadastro.value.length) return [];
@@ -74,7 +74,7 @@ onMounted(() => {
 
 <template>
     <!-- Na FaixaPortal, à direita do título (no celular, acima dele). Só depois do cadastro finalizado
-         (tipo escolhido na etapa 4). -->
+         (tipo escolhido na etapa 5). -->
     <nav v-if="itens.length" aria-label="Portal" class="w-full sm:w-fit">
         <div class="vidro vidro-escuro vidro-pilula relative rounded-pill p-1.5">
             <span

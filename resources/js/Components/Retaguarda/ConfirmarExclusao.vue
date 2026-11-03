@@ -21,7 +21,10 @@ const props = withDefaults(defineProps<{
     desabilitado?: boolean;
     /** Botão só com a lixeira e a dica (listas da retaguarda); o padrão mostra o ícone e o texto. */
     icone?: boolean;
-}>(), { manterRolagem: true, desabilitado: false, icone: false });
+    /** No botão só com ícone: o desenho ("fechar" para cancelar algo em andamento) e a cor (cinza até o hover). */
+    simbolo?: 'lixeira' | 'fechar';
+    neutro?: boolean;
+}>(), { manterRolagem: true, desabilitado: false, icone: false, simbolo: 'lixeira', neutro: false });
 
 const dialogo = ref<HTMLDialogElement | null>(null);
 const excluindo = ref<boolean>(false);
@@ -52,12 +55,13 @@ const excluir = (): void => {
             v-if="icone"
             type="button"
             :disabled="desabilitado"
-            class="acao-icone acao-icone-perigo"
+            :class="['acao-icone', neutro ? 'acao-icone-neutro hover:text-erro-texto' : 'acao-icone-perigo']"
             :data-dica="acao ?? 'Excluir'"
             @click="abrir"
         >
             <svg aria-hidden="true" viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                <path v-if="simbolo === 'fechar'" d="M18 6 6 18M6 6l12 12" />
+                <path v-else d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
             </svg>
             <span class="sr-only">{{ acao ?? 'Excluir' }} {{ nome }}</span>
         </button>

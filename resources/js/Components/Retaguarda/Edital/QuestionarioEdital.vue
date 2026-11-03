@@ -135,23 +135,26 @@ const aplicarEmLote = (chaves: string[], vinculo: VinculoEditavel): void => {
 
         <p v-if="erroGeral" id="questionario-erro" role="alert" class="rounded-[12px] bg-erro-fundo px-4 py-3 text-[0.9375rem] font-semibold text-invalido-texto">{{ erroGeral }}</p>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-            <p class="text-[0.9375rem] leading-[1.6] text-tinta-suave">
+        <!-- Grade do cabeçalho: a descrição; os dois botões lado a lado, da mesma altura; e, embaixo deles, a situação da
+             importação. O ImportarQuestionario (slot) põe o botão e a situação direto nesta grade (raiz "contents"). As
+             quebras seguem a largura da página (@container de PaginaRetaguarda, que muda com o menu lateral): com espaço, a
+             descrição fica à esquerda dos botões; antes disso, em cima. -->
+        <div class="grid gap-3 @lg:grid-cols-[auto_auto] @lg:justify-start @lg:gap-x-3 @4xl:grid-cols-[minmax(0,1fr)_auto_auto] @4xl:items-center">
+            <p class="text-[0.9375rem] leading-[1.6] text-tinta-suave @lg:col-span-2 @4xl:col-span-1 @4xl:row-start-1 @4xl:mr-3">
                 Perguntas que o proponente responde na inscrição.
                 <template v-if="quantasSemVinculo > 0">
                     <span class="font-semibold text-aviso-texto">{{ plural(quantasSemVinculo, 'pergunta está sem vínculo', 'perguntas estão sem vínculo') }}</span>: o edital
                     não publica até vincular.
                 </template>
             </p>
-            <div class="flex shrink-0 flex-col gap-3 sm:flex-row">
-                <slot name="importar" />
-                <VincularEmLote
-                    :secoes="secoes"
-                    :categorias="categorias"
-                    :desabilitado="travado || todas.length === 0"
-                    @aplicar="aplicarEmLote"
-                />
-            </div>
+            <slot name="importar" />
+            <VincularEmLote
+                class="@lg:col-start-2 @lg:row-start-2 @4xl:col-start-3 @4xl:row-start-1"
+                :secoes="secoes"
+                :categorias="categorias"
+                :desabilitado="travado || todas.length === 0"
+                @aplicar="aplicarEmLote"
+            />
         </div>
 
         <!-- A região fica sempre no DOM (o leitor de tela só anuncia o que muda numa região que já existe); vazia, não ocupa espaço. -->

@@ -5,7 +5,7 @@ import { Link } from '@inertiajs/vue3';
 type Etapa = { numero: number; texto: string; href: string | null };
 
 const props = defineProps<{
-    // Etapa em que a pessoa está, de 1 a 4; as anteriores aparecem como concluídas.
+    // Etapa em que a pessoa está, de 1 a 5; as anteriores aparecem como concluídas.
     atual: number;
     // Cadastro já finalizado (modo edição): as etapas viram abas, todas concluídas, para revisar os dados
     // ou trocar o tipo de cadastro. A conta gov.br sai da linha do tempo: não há o que revisar nela.
@@ -14,9 +14,10 @@ const props = defineProps<{
 
 const etapas: Etapa[] = [
     { numero: 1, texto: 'Conta gov.br', href: null },
-    { numero: 2, texto: 'Seus dados', href: '/cadastro' },
-    { numero: 3, texto: 'Pessoa Jurídica (opcional)', href: '/cadastro/organizacao' },
-    { numero: 4, texto: 'Tipo de Cadastro', href: '/cadastro/tipo' },
+    { numero: 2, texto: 'Meus dados', href: '/cadastro' },
+    { numero: 3, texto: 'Anexos', href: '/cadastro/anexos' },
+    { numero: 4, texto: 'Pessoa Jurídica (opcional)', href: '/cadastro/organizacao' },
+    { numero: 5, texto: 'Tipo de Cadastro', href: '/cadastro/tipo' },
 ];
 
 const visiveis = computed(() => (props.navegavel ? etapas.slice(1) : etapas));
@@ -27,9 +28,10 @@ const linkDaEtapa = (etapa: Etapa): string | null => (props.navegavel && !ehAtua
 </script>
 
 <template>
-    <!-- Fica sobre a faixa azul-marinho do portal, em vidro. -->
+    <!-- Fica sobre a faixa azul-marinho do portal, em vidro. Cinco etapas: 3 + 2 no tablet, para nenhuma ficar sozinha
+         numa linha; as quatro abas do modo edição, 2 + 2. -->
     <nav aria-label="Etapas do cadastro">
-        <ol class="vidro grid gap-1 rounded-[22px] p-1.5" :class="navegavel ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'">
+        <ol class="vidro grid gap-1 rounded-[22px] p-1.5" :class="navegavel ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3 lg:grid-cols-5'">
             <li v-for="(etapa, i) in visiveis" :key="etapa.texto">
                 <component
                     :is="linkDaEtapa(etapa) ? Link : 'div'"

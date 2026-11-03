@@ -32,7 +32,7 @@ class EditalEstruturaSalvarTest extends TestCase
 
         Storage::fake('public');
         Storage::fake('local');
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     /** Arquivo com o tipo vindo do conteúdo, como num upload real. */
@@ -42,6 +42,15 @@ class EditalEstruturaSalvarTest extends TestCase
         file_put_contents($caminho, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
 
         return new UploadedFile($caminho, $nome, null, null, true);
+    }
+
+    /** Imagem da vitrine: PNG de 1×1 pixel (o container não tem GD para UploadedFile::fake()->image()). */
+    private function imagem(): UploadedFile
+    {
+        $caminho = tempnam(sys_get_temp_dir(), 'upl');
+        file_put_contents($caminho, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='));
+
+        return new UploadedFile($caminho, 'vitrine.png', null, null, true);
     }
 
     /**
@@ -193,7 +202,7 @@ class EditalEstruturaSalvarTest extends TestCase
                 ->has('basesCota', 2)
                 ->has('alcancesCota', 3)
                 ->has('tiposEdital', 2)
-                ->where('pendencias', ['Envie o PDF do edital.']));
+                ->where('pendencias', ['Envie o PDF do edital.', 'Envie a imagem da vitrine.']));
     }
 
     public function test_datas_do_edital_vem_das_chamadas(): void
@@ -298,6 +307,7 @@ class EditalEstruturaSalvarTest extends TestCase
                 ->where('pendencias', [
                     'Informe o título do edital.',
                     'Envie o PDF do edital.',
+                    'Envie a imagem da vitrine.',
                     'Cadastre ao menos uma chamada com início e fim das inscrições.',
                     'Marque ao menos uma natureza que pode se inscrever.',
                     'Cadastre ao menos uma categoria.',
@@ -400,7 +410,7 @@ class EditalEstruturaSalvarTest extends TestCase
 
     public function test_publica_sem_validacao_e_homologacao(): void
     {
-        $this->post('/retaguarda/editais', $this->dadosCompletos(['publicado' => '1', 'pdf' => $this->modelo('edital.pdf')]))
+        $this->post('/retaguarda/editais', $this->dadosCompletos(['publicado' => '1', 'pdf' => $this->modelo('edital.pdf'), 'imagem' => $this->imagem()]))
             ->assertSessionHasNoErrors();
 
         $edital = Edital::sole();
@@ -472,7 +482,7 @@ class EditalEstruturaSalvarTest extends TestCase
         $this->put("/retaguarda/editais/{$edital->slug}", ['titulo' => '', 'resumo' => '', 'categoria' => '', 'publicado' => '1'])
             ->assertSessionHasErrors([
                 'titulo' => 'Este campo é obrigatório.',
-                'resumo' => 'Este campo é obrigatório.',
+                'resumo' => 'Informe a descrição do card para publicar.',
                 'categoria' => 'Este campo é obrigatório.',
             ]);
 
@@ -481,6 +491,20 @@ class EditalEstruturaSalvarTest extends TestCase
         $this->assertNotNull($edital->resumo);
         $this->assertNotNull($edital->categoria);
         $this->assertTrue($edital->publicado);
+    }
+
+    public function test_descricao_do_card_aceita_ate_o_que_cabe_nos_cards(): void
+    {
+        $rascunho = Edital::factory()->rascunho()->create(['resumo' => 'Antiga.']);
+        $limite = Edital::TAMANHO_DO_RESUMO;
+
+        $this->put("/retaguarda/editais/{$rascunho->slug}", ['resumo' => str_repeat('ã', $limite + 1)])
+            ->assertSessionHasErrors(['resumo' => "Use no máximo {$limite} caracteres."]);
+        $this->assertSame('Antiga.', $rascunho->refresh()->resumo);
+
+        // Conta caracteres, não bytes: acentuado no limite passa.
+        $this->put("/retaguarda/editais/{$rascunho->slug}", ['resumo' => str_repeat('ã', $limite)])->assertSessionHasNoErrors();
+        $this->assertSame(str_repeat('ã', $limite), $rascunho->refresh()->resumo);
     }
 
     public function test_texto_acentuado_que_cabe_em_caracteres_mas_nao_em_bytes_e_recusado(): void
@@ -508,7 +532,7 @@ class EditalEstruturaSalvarTest extends TestCase
 
     public function test_publicar_incompleto_pela_tela_recusa_com_as_pendencias_e_completo_publica(): void
     {
-        $rascunho = Edital::factory()->rascunho()->create(['titulo' => 'Rascunho', 'pdf' => 'editais/r.pdf']);
+        $rascunho = Edital::factory()->rascunho()->create(['titulo' => 'Rascunho', 'pdf' => 'editais/r.pdf', 'imagem' => 'editais/r.png']);
 
         $this->patch("/retaguarda/editais/{$rascunho->slug}/publicacao")
             ->assertSessionHas('erro', 'Cadastre ao menos uma chamada com início e fim das inscrições. Marque ao menos uma natureza que pode se inscrever. Cadastre ao menos uma categoria.');
@@ -526,7 +550,7 @@ class EditalEstruturaSalvarTest extends TestCase
     {
         $pdf = $this->modelo('edital.pdf');
 
-        $this->post('/retaguarda/editais', ['titulo' => 'Incompleto', 'resumo' => 'R', 'categoria' => 'C', 'publicado' => '1', 'pdf' => $pdf])
+        $this->post('/retaguarda/editais', ['titulo' => 'Incompleto', 'resumo' => 'R', 'categoria' => 'C', 'publicado' => '1', 'pdf' => $pdf, 'imagem' => $this->imagem()])
             ->assertSessionHasErrors([
                 'chamadas' => 'Cadastre ao menos uma chamada com início e fim das inscrições.',
                 'naturezas' => 'Marque ao menos uma natureza que pode se inscrever.',
@@ -535,9 +559,31 @@ class EditalEstruturaSalvarTest extends TestCase
         $this->assertSame(0, Edital::count());
         $this->assertSame([], Storage::disk('local')->allFiles());
 
-        $this->post('/retaguarda/editais', $this->dadosCompletos(['publicado' => '1', 'pdf' => $this->modelo('edital.pdf')]))
+        $this->post('/retaguarda/editais', $this->dadosCompletos(['publicado' => '1', 'pdf' => $this->modelo('edital.pdf'), 'imagem' => $this->imagem()]))
             ->assertSessionHasNoErrors();
         $this->assertTrue(Edital::sole()->publicado);
+    }
+
+    public function test_publicar_exige_a_imagem_da_vitrine_enviada_ou_ja_salva_e_nao_removida(): void
+    {
+        $semImagem = $this->dadosCompletos(['publicado' => '1', 'pdf' => $this->modelo('edital.pdf')]);
+        $this->post('/retaguarda/editais', $semImagem)
+            ->assertSessionHasErrors(['imagem' => 'Envie a imagem da vitrine para publicar.']);
+        $this->assertSame(0, Edital::count());
+
+        // Rascunho salva sem imagem; ao publicar depois, vale a imagem já salva, se não for marcada para remover.
+        $this->post('/retaguarda/editais', $this->dadosCompletos(['pdf' => $this->modelo('edital.pdf'), 'imagem' => $this->imagem()]))
+            ->assertSessionHasNoErrors();
+        $edital = Edital::sole();
+
+        $this->put("/retaguarda/editais/{$edital->slug}", $this->dadosCompletos(['publicado' => '1', 'remover_imagem' => '1']))
+            ->assertSessionHasErrors(['imagem' => 'Envie a imagem da vitrine para publicar.']);
+        $this->assertFalse($edital->refresh()->publicado);
+        $this->assertNotNull($edital->imagem);
+
+        $this->put("/retaguarda/editais/{$edital->slug}", $this->dadosCompletos(['publicado' => '1']))
+            ->assertSessionHasNoErrors();
+        $this->assertTrue($edital->refresh()->publicado);
     }
 
     public function test_publicar_vazio_devolve_de_uma_vez_as_pendencias_de_todas_as_abas(): void
@@ -545,9 +591,10 @@ class EditalEstruturaSalvarTest extends TestCase
         $this->post('/retaguarda/editais', ['com_listas' => '1', 'publicado' => '1'])
             ->assertSessionHasErrors([
                 'titulo' => 'Este campo é obrigatório.',
-                'resumo' => 'Este campo é obrigatório.',
+                'resumo' => 'Informe a descrição do card para publicar.',
                 'categoria' => 'Este campo é obrigatório.',
                 'pdf' => 'Envie o PDF do edital para publicar.',
+                'imagem' => 'Envie a imagem da vitrine para publicar.',
                 'chamadas' => 'Cadastre ao menos uma chamada com início e fim das inscrições.',
                 'naturezas' => 'Marque ao menos uma natureza que pode se inscrever.',
                 'categorias' => 'Cadastre ao menos uma categoria.',
@@ -590,14 +637,14 @@ class EditalEstruturaSalvarTest extends TestCase
         $this->post('/retaguarda/editais', ['com_listas' => '1', 'titulo' => 'Rascunho', 'publicado' => '0'])
             ->assertSessionHasNoErrors()
             ->assertRedirect('/retaguarda/editais')
-            ->assertSessionHas('aviso', 'Rascunho salvo. Para publicar, ainda falta: Envie o PDF do edital. Cadastre ao menos uma chamada com início e fim das inscrições. Marque ao menos uma natureza que pode se inscrever. Cadastre ao menos uma categoria.');
+            ->assertSessionHas('aviso', 'Rascunho salvo. Para publicar, ainda falta: Envie o PDF do edital. Envie a imagem da vitrine. Cadastre ao menos uma chamada com início e fim das inscrições. Marque ao menos uma natureza que pode se inscrever. Cadastre ao menos uma categoria.');
 
         $this->assertFalse(Edital::sole()->publicado);
     }
 
     public function test_rascunho_completo_salva_sem_aviso(): void
     {
-        $this->post('/retaguarda/editais', $this->dadosCompletos(['pdf' => $this->modelo('edital.pdf')]))
+        $this->post('/retaguarda/editais', $this->dadosCompletos(['pdf' => $this->modelo('edital.pdf'), 'imagem' => $this->imagem()]))
             ->assertSessionHasNoErrors()
             ->assertSessionHas('sucesso', 'Edital salvo.')
             ->assertSessionMissing('aviso');

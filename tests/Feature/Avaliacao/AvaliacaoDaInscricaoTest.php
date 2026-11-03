@@ -170,6 +170,36 @@ class AvaliacaoDaInscricaoTest extends TestCase
         $this->get("/avaliacao/inscricoes/{$inscricao->id}/documentos/{$naoEnviado->id}/arquivo")->assertNotFound();
     }
 
+    public function test_so_a_area_do_avaliador_abre_o_arquivo_num_quadro_da_propria_pagina(): void
+    {
+        $inscricao = $this->inscricaoDaAna();
+        $rg = $this->documentoEnviado($inscricao, 'RG', arquivo: 'inscricoes/1/rg.pdf');
+        Storage::disk('local')->put('inscricoes/1/rg.pdf', 'rg-original');
+
+        $arquivo = $this->get("/avaliacao/inscricoes/{$inscricao->id}/documentos/{$rg->id}/arquivo")->assertOk();
+        $arquivo->assertHeader('X-Frame-Options', 'SAMEORIGIN');
+        $this->assertStringContainsString("frame-ancestors 'self'", $arquivo->headers->get('Content-Security-Policy'));
+
+        $pagina = $this->get("/avaliacao/inscricoes/{$inscricao->id}")->assertOk();
+        $pagina->assertHeader('X-Frame-Options', 'DENY');
+        $this->assertStringContainsString("frame-src 'self' ", $pagina->headers->get('Content-Security-Policy'));
+        $this->assertStringContainsString("frame-ancestors 'none'", $pagina->headers->get('Content-Security-Policy'));
+
+        // Fora da área do avaliador, nada muda: nenhum quadro do próprio site.
+        $this->assertStringNotContainsString("frame-src 'self'", $this->get('/')->headers->get('Content-Security-Policy'));
+    }
+
+    public function test_tipo_do_arquivo_sai_da_extensao_guardada_e_nao_do_nome_enviado(): void
+    {
+        $inscricao = $this->inscricaoDaAna();
+        $this->documentoEnviado($inscricao, 'RG', arquivo: 'inscricoes/1/rg.pdf');
+        $this->documentoEnviado($inscricao, 'Foto', arquivo: 'inscricoes/1/foto.PNG');
+
+        $this->get("/avaliacao/inscricoes/{$inscricao->id}")->assertInertia(fn (Assert $p) => $p
+            ->where('documentos.0.enviado.tipo', 'pdf')
+            ->where('documentos.1.enviado.tipo', 'imagem'));
+    }
+
     public function test_props_sem_caminho_de_arquivo(): void
     {
         $inscricao = $this->inscricaoDaAna();

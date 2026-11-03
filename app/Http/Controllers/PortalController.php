@@ -27,6 +27,8 @@ class PortalController extends Controller
     {
         $editais = Edital::visiveis()
             ->paraListagem()
+            // O resumo (CLOB) é a descrição do card; são 15 por página.
+            ->addSelect('resumo')
             ->naSituacao(SituacaoEdital::Aberto)
             ->orderByDesc('inscricoes_inicio')
             ->orderByDesc('id')
@@ -40,6 +42,7 @@ class PortalController extends Controller
             return [
                 'slug' => $edital->slug,
                 'titulo' => $edital->titulo,
+                'resumo' => $edital->resumo,
                 'categoria' => $edital->categoria,
                 'periodo' => $edital->inscricoes_inicio->format('d/m/Y').' a '.$edital->inscricoes_fim->format('d/m/Y'),
                 'situacao' => $situacao->value,

@@ -18,6 +18,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -34,7 +35,7 @@ class EditaisTest extends TestCase
 
         Storage::fake('public');
         Storage::fake('local');
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     /**
@@ -96,7 +97,7 @@ class EditaisTest extends TestCase
         EditalPergunta::factory()->count(2)->create(['edital_id' => $comPerguntas->id, 'edital_questionario_secao_id' => $secao->id]);
         Edital::factory()->create(['titulo' => 'Sem categoria', 'inscricoes_inicio' => '2026-11-01']);
 
-        $this->get('/retaguarda/editais')
+        $this->get('/retaguarda/editais?publicado=sim')
             ->assertOk()
             ->assertInertia(fn (Assert $p) => $p
                 ->where('editais.data.0.titulo', 'Com perguntas')
@@ -107,22 +108,48 @@ class EditaisTest extends TestCase
                 ->where('editais.data.1.perguntas', 0));
     }
 
-    public function test_lista_com_busca_e_filtros(): void
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function abasDaLista(): array
+    {
+        return [
+            'sem parâmetro, Não publicados' => ['', 'Rede de Leitura', 'nao'],
+            'Não publicados' => ['?publicado=nao', 'Rede de Leitura', 'nao'],
+            'Publicados' => ['?publicado=sim', 'Prêmio Cultura Viva', 'sim'],
+            'valor inválido cai em Não publicados' => ['?publicado=todos', 'Rede de Leitura', 'nao'],
+        ];
+    }
+
+    #[DataProvider('abasDaLista')]
+    public function test_lista_mostra_so_os_editais_da_aba_e_o_total_de_cada_aba(string $consulta, string $titulo, string $aba): void
+    {
+        Edital::factory()->create(['titulo' => 'Prêmio Cultura Viva']);
+        Edital::factory()->rascunho()->create(['titulo' => 'Rede de Leitura']);
+        Edital::factory()->create(['titulo' => 'Publicado excluído'])->delete();
+        Edital::factory()->rascunho()->create(['titulo' => 'Rascunho excluído'])->delete();
+
+        $resposta = $this->get("/retaguarda/editais{$consulta}");
+
+        $resposta->assertOk()
+            ->assertInertia(fn (Assert $p) => $p
+                ->component('Retaguarda/Editais/Index')
+                ->has('editais.data', 1)
+                ->where('editais.data.0.titulo', $titulo)
+                ->where('editais.per_page', 15)
+                ->where('filtros.publicado', $aba)
+                ->where('totais', ['sim' => 1, 'nao' => 1]));
+    }
+
+    public function test_busca_e_situacao_filtram_a_aba_aberta_e_os_totais(): void
     {
         $this->travelTo(Carbon::parse('2026-11-10 10:00', 'America/Bahia'));
         Edital::factory()->create(['titulo' => 'Prêmio Cultura Viva', 'inscricoes_inicio' => '2026-11-01', 'inscricoes_fim' => '2026-11-30']);
         Edital::factory()->create(['titulo' => 'Edital de Audiovisual', 'inscricoes_inicio' => '2026-12-01', 'inscricoes_fim' => '2026-12-20']);
         Edital::factory()->semPdf()->create(['titulo' => 'Rede de Leitura', 'publicado' => false, 'inscricoes_inicio' => '2026-10-01', 'inscricoes_fim' => '2026-11-09']);
-        Edital::factory()->create(['titulo' => 'Cultura excluída'])->delete();
+        Edital::factory()->create(['titulo' => 'Cultura em rascunho', 'publicado' => false, 'inscricoes_inicio' => '2026-11-05', 'inscricoes_fim' => '2026-11-20']);
 
-        $this->get('/retaguarda/editais')
-            ->assertOk()
-            ->assertInertia(fn (Assert $p) => $p
-                ->component('Retaguarda/Editais/Index')
-                ->has('editais.data', 3)
-                ->where('editais.per_page', 15));
-
-        $this->get('/retaguarda/editais?busca=CULTURA')
+        $this->get('/retaguarda/editais?publicado=sim&busca=CULTURA')
             ->assertInertia(fn (Assert $p) => $p
                 ->has('editais.data', 1)
                 ->where('editais.data.0.titulo', 'Prêmio Cultura Viva')
@@ -130,25 +157,29 @@ class EditaisTest extends TestCase
                 ->where('editais.data.0.situacao', 'aberto')
                 ->where('editais.data.0.publicado', true)
                 ->where('editais.data.0.temPdf', true)
-                ->where('filtros.busca', 'CULTURA'));
+                ->where('filtros.busca', 'CULTURA')
+                ->where('totais', ['sim' => 1, 'nao' => 1]));
 
-        $this->get('/retaguarda/editais?situacao=em_breve')
-            ->assertInertia(fn (Assert $p) => $p->has('editais.data', 1)->where('editais.data.0.titulo', 'Edital de Audiovisual'));
+        $this->get('/retaguarda/editais?publicado=sim&situacao=em_breve')
+            ->assertInertia(fn (Assert $p) => $p
+                ->has('editais.data', 1)
+                ->where('editais.data.0.titulo', 'Edital de Audiovisual')
+                ->where('totais', ['sim' => 1, 'nao' => 0]));
+
+        $this->get('/retaguarda/editais?publicado=sim&situacao=aberto')
+            ->assertInertia(fn (Assert $p) => $p
+                ->has('editais.data', 1)
+                ->where('editais.data.0.titulo', 'Prêmio Cultura Viva')
+                ->where('totais', ['sim' => 1, 'nao' => 1]));
 
         $this->get('/retaguarda/editais?situacao=encerrado')
-            ->assertInertia(fn (Assert $p) => $p->has('editais.data', 1)->where('editais.data.0.titulo', 'Rede de Leitura'));
-
-        $this->get('/retaguarda/editais?situacao=aberto')
-            ->assertInertia(fn (Assert $p) => $p->has('editais.data', 1)->where('editais.data.0.titulo', 'Prêmio Cultura Viva'));
-
-        $this->get('/retaguarda/editais?publicado=nao')
             ->assertInertia(fn (Assert $p) => $p
                 ->has('editais.data', 1)
                 ->where('editais.data.0.titulo', 'Rede de Leitura')
-                ->where('editais.data.0.temPdf', false));
-
-        $this->get('/retaguarda/editais?publicado=sim')
-            ->assertInertia(fn (Assert $p) => $p->has('editais.data', 2));
+                ->where('editais.data.0.temPdf', false)
+                ->where('filtros.publicado', 'nao')
+                ->where('filtros.situacao', 'encerrado')
+                ->where('totais', ['sim' => 0, 'nao' => 1]));
     }
 
     public function test_cria_edital_com_pdf_e_imagem(): void
@@ -163,7 +194,7 @@ class EditaisTest extends TestCase
             'imagem' => $this->imagem(),
         ]))
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/retaguarda/editais')
+            ->assertRedirect('/retaguarda/editais?publicado=sim')
             ->assertSessionHas('sucesso', 'Edital salvo.');
 
         $edital = Edital::sole();
@@ -205,7 +236,7 @@ class EditaisTest extends TestCase
 
         $this->put("/retaguarda/editais/{$edital->slug}", $this->dados(['titulo' => 'Título novo', 'publicado' => '1']))
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/retaguarda/editais')
+            ->assertRedirect('/retaguarda/editais?publicado=sim')
             ->assertSessionHas('sucesso', 'Edital salvo.');
 
         $edital->refresh();
@@ -290,11 +321,22 @@ class EditaisTest extends TestCase
         Storage::disk('local')->put('editais/fica.pdf', 'pdf');
 
         $this->delete("/retaguarda/editais/{$edital->slug}")
-            ->assertRedirect('/retaguarda/editais')
+            ->assertRedirect('/retaguarda/editais?publicado=sim')
             ->assertSessionHas('sucesso', 'Edital excluído.');
 
         $this->assertSoftDeleted($edital);
         Storage::disk('local')->assertExists('editais/fica.pdf');
+    }
+
+    public function test_excluir_edital_nao_publicado_volta_para_a_aba_nao_publicados(): void
+    {
+        $rascunho = Edital::factory()->rascunho()->create();
+
+        $this->delete("/retaguarda/editais/{$rascunho->slug}")
+            ->assertRedirect('/retaguarda/editais')
+            ->assertSessionHas('sucesso', 'Edital excluído.');
+
+        $this->assertSoftDeleted($rascunho);
     }
 
     public function test_alterna_publicacao(): void
@@ -325,7 +367,7 @@ class EditaisTest extends TestCase
         $this->get("/editais/{$edital->slug}/pdf")->assertNotFound();
     }
 
-    public function test_lista_mostra_as_importacoes_em_andamento_com_erro_e_as_concluidas_do_ultimo_dia(): void
+    public function test_painel_mostra_as_importacoes_analisando_e_as_com_erro_recente_sem_as_concluidas(): void
     {
         $this->travelTo(Carbon::parse('2026-10-28 15:00'));
         $configuracao = ConfiguracaoIa::factory()->create([
@@ -333,31 +375,35 @@ class EditaisTest extends TestCase
             'provedor_principal' => ProvedorIa::Gemini,
         ]);
         ConexaoIa::factory()->gemini()->create();
+        $minutos = ImportacaoEdital::MINUTOS_ERRO_NO_PAINEL;
         $analisando = ImportacaoEdital::factory()->create(['iniciada_em' => now()->subMinutes(2)]);
+        // Sem término: vira erro aos 15 minutos e fica no painel pelo mesmo prazo do erro gravado.
         $semTermino = ImportacaoEdital::factory()->create(['iniciada_em' => now()->subMinutes(16)]);
-        $comErro = ImportacaoEdital::factory()->comErro('Chave inválida.')->create();
-        $concluida = ImportacaoEdital::factory()->concluida()->create();
-        ImportacaoEdital::factory()->concluida()->create(['created_at' => now()->subHours(25), 'updated_at' => now()->subHours(25)]);
+        ImportacaoEdital::factory()->create(['iniciada_em' => now()->subMinutes(ImportacaoEdital::MINUTOS_LIMITE + $minutos + 1)]);
+        $comErro = ImportacaoEdital::factory()->comErro('Chave inválida.')->create(['updated_at' => now()->subMinutes($minutos - 1)]);
+        ImportacaoEdital::factory()->comErro()->create(['updated_at' => now()->subMinutes($minutos + 1)]);
+        ImportacaoEdital::factory()->concluida()->create();
 
-        $linha = fn (ImportacaoEdital $importacao, string $situacao, ?string $erro = null, ?string $editalUrl = null): array => [
+        $linha = fn (ImportacaoEdital $importacao, string $situacao, ?string $erro = null, ?int $decorridos = null, ?int $previstos = null): array => [
             'id' => (int) $importacao->id,
             'pdfNome' => $importacao->pdf_nome,
             'situacao' => $situacao,
             'erro' => $erro,
-            'editalUrl' => $editalUrl,
             'enviadaEm' => '28/10/2026 15:00',
+            'segundosDecorridos' => $decorridos,
+            'segundosPrevistos' => $previstos,
         ];
 
-        // Mais recentes primeiro; a concluída há mais de 24 h fica de fora.
+        // Mais recentes primeiro. Só a que está analisando leva o tempo da barra de progresso (sem histórico de
+        // duração, o previsto é o padrão).
         $this->get('/retaguarda/editais')->assertInertia(fn (Assert $p) => $p
             ->where('importacaoConfigurada', true)
             ->missing('importacaoAtiva')
             ->where('tamanhoMaximoPdfMb', 14)
             ->where('importacoes', [
-                $linha($concluida, 'concluida', editalUrl: route('retaguarda.editais.edit', $concluida->edital)),
                 $linha($comErro, 'erro', 'Chave inválida.'),
                 $linha($semTermino, 'erro', 'A análise não terminou. Tente de novo.'),
-                $linha($analisando, 'analisando'),
+                $linha($analisando, 'analisando', decorridos: 120, previstos: ImportacaoEdital::SEGUNDOS_PREVISTOS_PADRAO),
             ]));
 
         // Sem o principal, a importação continua na tela (o envio é que é recusado, com o que fazer).
@@ -365,7 +411,30 @@ class EditaisTest extends TestCase
         $this->get('/retaguarda/editais')->assertInertia(fn (Assert $p) => $p
             ->where('importacaoConfigurada', false)
             ->where('tamanhoMaximoPdfMb', 14)
-            ->has('importacoes', 4));
+            ->has('importacoes', 3));
+    }
+
+    public function test_tempo_previsto_da_analise_e_a_mediana_das_ultimas_concluidas_dentro_dos_limites(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-28 15:00'));
+        $concluidaEm = fn (int $segundos): ImportacaoEdital => ImportacaoEdital::factory()->concluida()->create([
+            'iniciada_em' => now()->subSeconds($segundos),
+        ]);
+
+        $concluidaEm(60);
+        $concluidaEm(300);
+        // O edital excluído depois ainda conta.
+        $concluidaEm(90)->edital->delete();
+        $this->assertSame(90, ImportacaoEdital::segundosPrevistos());
+
+        foreach (range(1, 4) as $_) {
+            $concluidaEm(5);
+        }
+        $this->assertSame(ImportacaoEdital::SEGUNDOS_PREVISTOS_MINIMO, ImportacaoEdital::segundosPrevistos());
+
+        ImportacaoEdital::query()->delete();
+        $concluidaEm(3600);
+        $this->assertSame(ImportacaoEdital::SEGUNDOS_PREVISTOS_MAXIMO, ImportacaoEdital::segundosPrevistos());
     }
 
     public function test_importacao_antiga_com_bloco_homologacao_nao_oferece_a_aba_extinta(): void
@@ -545,12 +614,12 @@ class EditaisTest extends TestCase
 
     public function test_envio_acima_do_limite_do_php_no_portal_volta_com_aviso_geral(): void
     {
-        $this->call('POST', '/cadastro', server: [
+        $this->call('POST', '/cadastro/anexos/documento_cpf', server: [
             'CONTENT_LENGTH' => (string) (1024 ** 3),
             'HTTP_X_INERTIA' => 'true',
-            'HTTP_REFERER' => url('/cadastro/pessoa-fisica'),
+            'HTTP_REFERER' => url('/cadastro/anexos'),
         ])
-            ->assertRedirect('/cadastro/pessoa-fisica')
+            ->assertRedirect('/cadastro/anexos')
             ->assertSessionHas('erro', 'Os arquivos enviados passam do tamanho máximo permitido.');
     }
 }

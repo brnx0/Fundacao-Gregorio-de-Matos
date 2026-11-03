@@ -31,10 +31,10 @@ class PainelTest extends TestCase
     {
         parent::setUp();
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
-    /** Pessoa do portal: usuário que enviou a etapa "Seus dados" (proponente, se não vier outro usuário). */
+    /** Pessoa do portal: usuário que enviou a etapa "Meus dados" (proponente, se não vier outro usuário). */
     private function pessoa(array $dados = [], ?User $user = null): User
     {
         $user ??= User::factory()->proponente()->create();
@@ -84,6 +84,18 @@ class PainelTest extends TestCase
                     ['rotulo' => 'Escolheram o tipo de cadastro', 'total' => 2, 'percentual' => 66.7],
                     ['rotulo' => 'Enviaram inscrição', 'total' => 0, 'percentual' => 0],
                 ])));
+    }
+
+    public function test_quem_parou_na_etapa_anexos_nao_conta_como_pessoa_cadastrada(): void
+    {
+        $this->travelTo(Carbon::parse('2026-06-15 10:00', 'America/Bahia'));
+        $this->pessoa(user: User::factory()->proponente()->create(['profile_completed_at' => '2026-06-02 09:00']));
+        $this->pessoa(user: User::factory()->create(['profile_completed_at' => null]));
+
+        $this->get('/retaguarda/painel')->assertInertia(fn (Assert $p) => $p
+            ->loadDeferredProps('visao', fn (Assert $p) => $p
+                ->where('visao.indicadores.pessoas.total', 1)
+                ->where('visao.indicadores.pessoas.serie', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])));
     }
 
     public function test_perfil_conta_so_pessoas_do_portal_na_ordem_do_enum(): void

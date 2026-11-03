@@ -24,7 +24,7 @@ class UsuariosTest extends TestCase
         parent::setUp();
 
         $this->admin = User::factory()->gestor()->create(['name' => 'Ana Administradora']);
-        $this->actingAs($this->admin);
+        $this->actingAs($this->admin, 'retaguarda');
     }
 
     /**
@@ -210,7 +210,7 @@ class UsuariosTest extends TestCase
         $editor->papeis()->attach($papelDeTeste);
         User::factory()->gestor()->create(['cpf' => '39053344705', 'ativo' => false]);
 
-        $this->actingAs($editor)
+        $this->actingAs($editor, 'retaguarda')
             ->patch("/retaguarda/usuarios/{$this->admin->id}/ativo")
             ->assertSessionHas('erro', self::ERRO_ULTIMO_ADMIN);
         $this->assertTrue($this->admin->fresh()->ativo);
@@ -242,7 +242,7 @@ class UsuariosTest extends TestCase
             ->assertSessionHasErrors('email');
         $this->assertGuest();
 
-        $this->actingAs($this->admin);
+        $this->actingAs($this->admin, 'retaguarda');
         $this->patch("/retaguarda/usuarios/{$outro->id}/ativo")->assertSessionHas('sucesso', 'Usuário ativado.');
         $this->assertTrue($outro->fresh()->ativo);
     }

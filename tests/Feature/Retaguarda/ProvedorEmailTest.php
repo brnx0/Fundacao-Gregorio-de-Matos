@@ -27,7 +27,7 @@ class ProvedorEmailTest extends TestCase
         parent::setUp();
 
         $this->gestor = User::factory()->gestor()->create(['email' => 'gestor@fgm.salvador.ba.gov.br']);
-        $this->actingAs($this->gestor);
+        $this->actingAs($this->gestor, 'retaguarda');
     }
 
     /** Carrega o envio de e-mail de novo, como na primeira mensagem de uma requisição. */

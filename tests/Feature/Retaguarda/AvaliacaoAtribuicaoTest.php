@@ -34,7 +34,7 @@ class AvaliacaoAtribuicaoTest extends TestCase
         parent::setUp();
 
         $this->gestor = User::factory()->gestor()->create();
-        $this->actingAs($this->gestor);
+        $this->actingAs($this->gestor, 'retaguarda');
         $this->edital = $this->editalEmHomologacao(['validacao_inicio' => '2026-12-15', 'validacao_fim' => '2026-12-20']);
         $this->criterio = EditalCriterio::factory()->for($this->edital)->create(['pontos_maximos' => 10]);
     }

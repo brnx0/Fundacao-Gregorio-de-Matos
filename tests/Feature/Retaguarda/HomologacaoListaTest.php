@@ -23,7 +23,7 @@ class HomologacaoListaTest extends TestCase
     {
         parent::setUp();
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     private function maria(string $nome = 'MARIA PROPONENTE'): User

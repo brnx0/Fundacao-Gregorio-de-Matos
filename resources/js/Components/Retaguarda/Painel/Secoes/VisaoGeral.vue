@@ -103,14 +103,14 @@ const ICONES = {
                     :valor="numero(dados.editais.abertos)"
                     :icone="ICONES.editais"
                     :rodape="`${numero(dados.editais.emBreve)} em breve no portal`"
-                    href="/retaguarda/editais?situacao=aberto"
+                    href="/retaguarda/editais?publicado=sim&situacao=aberto"
                 />
                 <CartaoIndicador
                     rotulo="Investimento oferecido"
                     :valor="reaisCurto(dados.investimento.centavos)"
                     :icone="ICONES.investimento"
                     :rodape="`${numero(dados.investimento.vagas)} vagas nos editais publicados`"
-                    href="/retaguarda/editais"
+                    href="/retaguarda/editais?publicado=sim"
                 />
                 <CartaoIndicador
                     rotulo="Avaliadores ativos"

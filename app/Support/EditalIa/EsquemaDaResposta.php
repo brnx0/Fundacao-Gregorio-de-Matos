@@ -52,7 +52,7 @@ final class EsquemaDaResposta
                 'tipo' => self::enum(TipoEdital::class, 'edital ou chamamento (chamamento público).'),
                 'titulo' => self::texto(),
                 'objeto' => self::texto('Objeto do edital, em texto curto.'),
-                'resumo' => self::texto('Apresentação curta do edital para a vitrine, em até 3 frases.'),
+                'resumo' => self::texto(sprintf('Apresentação do edital para os cards da vitrine, em uma frase curta de até %d caracteres.', RedatorDaDescricao::TAMANHO_IDEAL)),
                 'categoria' => self::texto('Área cultural do edital, ex.: Audiovisual, Música, Artes cênicas.'),
                 'dom_data' => self::data('Data de publicação no Diário Oficial do Município.'),
                 'dom_numero' => self::texto('Número da edição do Diário Oficial do Município.'),

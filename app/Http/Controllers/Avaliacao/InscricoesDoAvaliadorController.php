@@ -272,15 +272,26 @@ class InscricoesDoAvaliadorController extends Controller
     }
 
     /**
-     * Nome e URL (rota do avaliador) do arquivo enviado; nulo sem envio.
+     * Nome, URL (rota do avaliador) e tipo do arquivo enviado; nulo sem envio. O tipo sai da extensão do arquivo
+     * guardado (dada pelo conteúdo no envio, não pelo nome que a pessoa deu): a tela mostra a miniatura da imagem e
+     * abre o PDF na própria página.
      *
-     * @return array{nome: string, url: string}|null
+     * @return array{nome: string, url: string, tipo: 'imagem'|'pdf'|'outro'}|null
      */
     private function arquivoEnviado(Inscricao $inscricao, EditalDocumento $documento, ?InscricaoDocumento $enviado): ?array
     {
-        return $enviado === null ? null : [
+        if ($enviado === null) {
+            return null;
+        }
+
+        return [
             'nome' => $enviado->arquivo_nome,
             'url' => route('avaliacao.inscricoes.arquivo', [$inscricao, $documento]),
+            'tipo' => match (strtolower(pathinfo($enviado->arquivo, PATHINFO_EXTENSION))) {
+                'jpg', 'jpeg', 'png' => 'imagem',
+                'pdf' => 'pdf',
+                default => 'outro',
+            },
         ];
     }
 

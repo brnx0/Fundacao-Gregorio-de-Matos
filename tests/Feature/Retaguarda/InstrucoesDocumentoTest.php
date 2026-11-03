@@ -40,7 +40,7 @@ class InstrucoesDocumentoTest extends TestCase
         ConexaoIa::factory()->create(['modelo' => 'gpt-5.4']);
         ConexaoIa::factory()->gemini()->create(['modelo' => 'gemini-2.5-pro']);
 
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     /**

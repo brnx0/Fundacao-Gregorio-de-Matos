@@ -53,6 +53,18 @@ class Edital extends Model
 
     public const string PENDENCIA_CATEGORIA = 'Cadastre ao menos uma categoria.';
 
+    /** A imagem aparece em todas as vitrines do portal: sem ela o edital não é publicado. */
+    public const string PENDENCIA_IMAGEM = 'Envie a imagem da vitrine.';
+
+    /**
+     * Limite da descrição do card (resumo): o que cabe inteiro nas três linhas do card da lista de editais e nas duas
+     * do card da vitrine da página inicial no computador. No carrossel do celular, o card corta a partir de ~55.
+     */
+    public const int TAMANHO_DO_RESUMO = 70;
+
+    /** Parâmetros da lista da retaguarda na aba Publicados; sem eles, a lista abre em Não publicados. */
+    public const array ABA_PUBLICADOS = ['publicado' => 'sim'];
+
     /** Seções de texto informativas (coluna `informacoes`), na ordem de exibição: chave => rótulo. */
     public const array SECOES_INFORMATIVAS = [
         'recursos_pagamento' => 'Recursos e pagamento',
@@ -275,6 +287,9 @@ class Edital extends Model
         if (blank($this->pdf)) {
             $pendencias['pdf'] = 'Envie o PDF do edital.';
         }
+        if (blank($this->imagem)) {
+            $pendencias['imagem'] = self::PENDENCIA_IMAGEM;
+        }
         if (! $this->chamadas()->whereNotNull('inicio')->whereNotNull('fim')->exists()) {
             $pendencias['chamadas'] = self::PENDENCIA_CHAMADA;
         }
@@ -319,6 +334,16 @@ class Edital extends Model
     public function estaVisivel(): bool
     {
         return $this->publicado && filled($this->pdf) && $this->temPeriodo();
+    }
+
+    /**
+     * Parâmetros da lista da retaguarda que abrem a aba deste edital: Não publicados (a padrão) ou Publicados.
+     *
+     * @return array<string, string>
+     */
+    public function abaDaLista(): array
+    {
+        return $this->publicado ? self::ABA_PUBLICADOS : [];
     }
 
     /** Sem as colunas CLOB (resumo, cotas, pontuação extra, informações): o que listagens e cards precisam. */

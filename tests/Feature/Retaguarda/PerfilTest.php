@@ -36,7 +36,7 @@ class PerfilTest extends TestCase
             'phone' => '71998765432',
         ]);
 
-        $this->actingAs($usuario)->get(self::URL)
+        $this->actingAs($usuario, 'retaguarda')->get(self::URL)
             ->assertOk()
             ->assertInertia(fn (Assert $p) => $p
                 ->component('Retaguarda/Perfil')
@@ -52,7 +52,7 @@ class PerfilTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create();
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario))
             ->assertSessionHasNoErrors()
             ->assertRedirect(self::URL)
             ->assertSessionHas('sucesso', 'Perfil atualizado.');
@@ -66,7 +66,7 @@ class PerfilTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create(['phone' => '71998765432']);
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario, ['telefone' => '']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario, ['telefone' => '']))
             ->assertSessionHasNoErrors();
 
         $this->assertNull($usuario->fresh()->phone);
@@ -76,10 +76,10 @@ class PerfilTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create();
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario, ['email' => 'novo@gestor.test']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario, ['email' => 'novo@gestor.test']))
             ->assertSessionHasErrors(['senha_atual' => 'Informe sua senha atual para trocar o e-mail.']);
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario, ['email' => 'novo@gestor.test', 'senha_atual' => 'errada']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario, ['email' => 'novo@gestor.test', 'senha_atual' => 'errada']))
             ->assertSessionHasErrors(['senha_atual' => 'A senha atual está incorreta.']);
 
         $this->assertNotSame('novo@gestor.test', $usuario->fresh()->email);
@@ -89,7 +89,7 @@ class PerfilTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create();
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario, ['email' => 'Novo@Gestor.test', 'senha_atual' => '123456']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario, ['email' => 'Novo@Gestor.test', 'senha_atual' => '123456']))
             ->assertSessionHasNoErrors()
             ->assertSessionHas('sucesso', 'Perfil atualizado.');
 
@@ -100,7 +100,7 @@ class PerfilTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create(['password' => null]);
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario, ['email' => 'govbr@gestor.test']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario, ['email' => 'govbr@gestor.test']))
             ->assertSessionHasNoErrors();
 
         $this->assertSame('govbr@gestor.test', $usuario->fresh()->email);
@@ -111,7 +111,7 @@ class PerfilTest extends TestCase
         $outro = User::factory()->gestor()->create();
         $usuario = User::factory()->gestor()->create();
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario, ['email' => $outro->email, 'senha_atual' => '123456']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario, ['email' => $outro->email, 'senha_atual' => '123456']))
             ->assertSessionHasErrors(['email' => 'Este e-mail já está em uso.']);
     }
 
@@ -119,7 +119,7 @@ class PerfilTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create();
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario, ['name' => '', 'email' => '', 'telefone' => '123']))
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario, ['name' => '', 'email' => '', 'telefone' => '123']))
             ->assertSessionHasErrors([
                 'name' => 'Este campo é obrigatório.',
                 'email' => 'Este campo é obrigatório.',
@@ -131,7 +131,7 @@ class PerfilTest extends TestCase
     {
         $usuario = User::factory()->gestor()->create(['cpf' => '52998224725']);
 
-        $this->actingAs($usuario)->put(self::URL, $this->dados($usuario, [
+        $this->actingAs($usuario, 'retaguarda')->put(self::URL, $this->dados($usuario, [
             'cpf' => '11144477735',
             'ativo' => false,
             'papeis' => [],

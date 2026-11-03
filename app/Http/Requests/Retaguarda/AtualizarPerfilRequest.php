@@ -30,7 +30,7 @@ class AtualizarPerfilRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($usuario->id)],
             'telefone' => ['nullable', 'digits_between:10,11'],
-            'senha_atual' => $pedeSenha ? ['required', 'string', 'current_password:web'] : ['nullable'],
+            'senha_atual' => $pedeSenha ? ['required', 'string', 'current_password:retaguarda'] : ['nullable'],
         ];
     }
 

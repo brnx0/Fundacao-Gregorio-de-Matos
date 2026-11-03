@@ -21,7 +21,7 @@ class LocalizacaoEventoTest extends TestCase
 
         Cache::flush();
         Http::preventStrayRequests();
-        $this->actingAs(User::factory()->gestor()->create());
+        $this->actingAs(User::factory()->gestor()->create(), 'retaguarda');
     }
 
     private function localizar(string $endereco = self::ENDERECO): string
