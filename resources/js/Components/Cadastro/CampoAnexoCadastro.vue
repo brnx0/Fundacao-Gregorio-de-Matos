@@ -167,14 +167,13 @@ const selo = computed<Selo | null>(() => {
             return props.anexo.obrigatorio ? { tom: 'neutro', texto: 'Pendente' } : null;
         case 'conferindo':
             return { tom: 'andamento', texto: 'Verificando' };
-        case 'aprovado':
-            return { tom: 'ok', texto: 'Aprovado' };
         case 'reprovado':
             return { tom: 'erro', texto: 'Recusado' };
         case 'nao_conferido':
             return { tom: 'aviso', texto: 'Não conferido' };
         default:
-            return { tom: 'neutro', texto: 'Recebido' };
+            // Aprovado pela IA ou enviado sem conferência: para a pessoa, os dois são só "Recebido".
+            return { tom: 'ok', texto: 'Recebido' };
     }
 });
 
