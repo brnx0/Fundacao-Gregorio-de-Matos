@@ -96,10 +96,8 @@ const edital = computed(() => ({
 
             <figure class="flex w-full max-w-[380px] flex-col gap-2">
                 <figcaption class="text-[0.75rem] font-semibold tracking-[0.16em] text-tinta-suave uppercase">Vitrine da página inicial</figcaption>
-                <!-- Sem a classe slide-edital (posição e animação do carrossel): o miolo fica como o do card em destaque. -->
-                <article class="home-escuro relative grid overflow-hidden rounded-[28px] bg-[#0d1117] text-white shadow-[0_50px_90px_-40px_rgba(10,20,40,0.6)]">
-                    <ConteudoSlideEdital :edital="edital" :foto="{ src: imagem, enquadramento: 'center' }" />
-                </article>
+                <!-- O mesmo card do carrossel, sem a classe slide-edital (posição e animação): fica como o card em destaque. -->
+                <ConteudoSlideEdital :edital="edital" :foto="{ src: imagem, enquadramento: 'center' }" />
             </figure>
         </div>
     </div>

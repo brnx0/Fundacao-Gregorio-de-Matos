@@ -190,9 +190,9 @@ onBeforeUnmount(() => {
         @focusout="aoSairFoco"
     >
         <!-- A partir de md o card acompanha a largura da tela (até 500px) para o leque caber inteiro, com espaço branco dos lados;
-             o palco acompanha a altura dele (20/27). -->
+             o palco acompanha a altura dele (20/29). -->
         <div
-            class="relative h-[520px] touch-pan-y select-none md:h-[calc(var(--largura-card)*1.35_+_65px)] md:[--largura-card:clamp(360px,26vw,500px)]"
+            class="relative h-[540px] touch-pan-y select-none md:h-[calc(var(--largura-card)*1.45_+_65px)] md:[--largura-card:clamp(360px,26vw,500px)]"
             @pointerdown="aoPressionar"
             @pointerup="aoSoltar"
             @pointercancel="cancelarArrasto"
@@ -228,7 +228,7 @@ onBeforeUnmount(() => {
                 <article
                     v-for="({ edital, indiceEdital, chave }, i) in slides"
                     :key="chave"
-                    class="slide-edital home-escuro absolute top-1/2 left-1/2 grid w-[300px] max-w-[80%] overflow-hidden rounded-[28px] bg-[#0d1117] text-white shadow-[0_50px_90px_-40px_rgba(10,20,40,0.6)] md:w-(--largura-card)"
+                    class="slide-edital absolute top-1/2 left-1/2 grid w-[300px] max-w-[80%] md:w-(--largura-card)"
                     :data-posicao="visivel(i) ? posicao(i) : 'fora'"
                     :inert="!visivel(i)"
                     :aria-hidden="principais.has(i) ? undefined : 'true'"
