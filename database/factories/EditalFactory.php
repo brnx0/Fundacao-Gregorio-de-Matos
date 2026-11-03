@@ -18,7 +18,7 @@ class EditalFactory extends Factory
         return [
             'titulo' => $titulo,
             'slug' => Str::slug($titulo).'-'.fake()->unique()->numberBetween(1, 999999),
-            'resumo' => fake()->sentence(12),
+            'resumo' => fake()->text(Edital::TAMANHO_DO_RESUMO),
             'categoria' => fake()->randomElement(['Fomento', 'Audiovisual', 'Rede municipal']),
             'inscricoes_inicio' => now()->subDays(5)->toDateString(),
             'inscricoes_fim' => now()->addDays(20)->toDateString(),

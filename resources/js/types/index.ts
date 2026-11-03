@@ -703,7 +703,7 @@ export interface ResultadoDaHomologacao {
     parecer: string | null;
 }
 
-/** Linha de Minhas inscrições (InscricaoController@index). */
+/** Linha da tela Inscrições do portal (InscricaoController@index). */
 export interface MinhaInscricao {
     id: number;
     numero: string | null;
@@ -718,7 +718,7 @@ export interface MinhaInscricao {
     finalizadaEm: string | null;
 }
 
-/** Minhas inscrições, das mais novas para as mais antigas (InscricaoController@index). */
+/** Inscrições do proponente, das mais novas para as mais antigas (InscricaoController@index). */
 export interface PortalMinhasInscricoesProps {
     inscricoes: MinhaInscricao[];
 }

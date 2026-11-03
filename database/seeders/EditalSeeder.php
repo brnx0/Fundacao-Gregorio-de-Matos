@@ -18,7 +18,7 @@ class EditalSeeder extends Seeder
             [
                 'titulo' => 'PNAB Salvador — Ciclo II',
                 'slug' => 'pnab-salvador-ciclo-ii',
-                'resumo' => 'Fomento a projetos culturais de Salvador com recursos da Política Nacional Aldir Blanc.',
+                'resumo' => 'Fomento a projetos culturais com a Política Nacional Aldir Blanc.',
                 'categoria' => 'Fomento',
                 'inscricoes_inicio' => $hoje->copy()->subDays(10)->toDateString(),
                 'inscricoes_fim' => $hoje->copy()->addDays(20)->toDateString(),
@@ -42,7 +42,7 @@ class EditalSeeder extends Seeder
             [
                 'titulo' => 'Lei Paulo Gustavo',
                 'slug' => 'lei-paulo-gustavo',
-                'resumo' => 'Fomento ao setor cultural com recursos da Lei Complementar nº 195/2022.',
+                'resumo' => 'Fomento ao setor cultural com recursos da Lei Complementar 195/2022.',
                 'categoria' => 'Fomento',
                 'inscricoes_inicio' => $hoje->copy()->subDays(90)->toDateString(),
                 'inscricoes_fim' => $hoje->copy()->subDays(30)->toDateString(),

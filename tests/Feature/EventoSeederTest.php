@@ -11,7 +11,7 @@ class EventoSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_marca_o_pin_so_dos_eventos_com_local_definido(): void
+    public function test_marca_o_pin_de_todos_os_eventos(): void
     {
         $this->seed(EventoSeeder::class);
 
@@ -20,8 +20,8 @@ class EventoSeederTest extends TestCase
         $this->assertSame(-38.5137469, $capoeira->longitude);
         $this->assertSame('Ladeira da Barroquinha, Centro Histórico, Salvador/BA', $capoeira->endereco);
 
-        // "Salvador/BA" não é um ponto: sem pin, para não marcar o lugar errado.
-        $this->assertFalse(Evento::where('slug', 'curto-circuito-das-artes')->sole()->temLocalizacao());
+        // Nenhum evento sem mapa: o slug de um evento novo precisa de entrada nas localizações.
+        $this->assertSame([], Evento::withTrashed()->get()->reject->temLocalizacao()->pluck('slug')->all());
     }
 
     public function test_nao_sobrescreve_o_pin_nem_o_endereco_marcados_na_retaguarda(): void

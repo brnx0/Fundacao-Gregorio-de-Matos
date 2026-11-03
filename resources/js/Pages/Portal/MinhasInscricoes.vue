@@ -24,13 +24,13 @@ const classeTermo = 'text-[0.75rem] font-semibold tracking-[0.16em] text-tinta-s
 
 <template>
     <div>
-        <Head title="Minhas inscrições" />
+        <Head title="Inscrições" />
 
         <FaixaPortal aria-labelledby="minhas-inscricoes-titulo">
             <div class="flex flex-col gap-3">
                 <p class="text-[0.75rem] font-semibold tracking-[0.24em] text-white/75 uppercase">Portal do proponente</p>
                 <h1 id="minhas-inscricoes-titulo" class="font-barlow text-[2.6rem] leading-[0.95] font-extrabold tracking-[0.01em] break-words uppercase md:text-[3.5rem]">
-                    Minhas inscrições
+                    Inscrições
                 </h1>
                 <p class="max-w-2xl text-base leading-[1.7] text-white/85 md:text-[1.0625rem]">
                     As inscrições que você fez nos editais, das mais novas para as mais antigas, com o resultado da homologação.

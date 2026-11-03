@@ -71,6 +71,9 @@
     --color-situacao-aberto: #1f9d57;
     --color-situacao-em-breve: #d48a12;
     --color-situacao-encerrado: #8a93a3;
+    /* Card da vitrine de editais: o azul-marinho do fundo e o amarelo da categoria, das datas e do download. */
+    --color-home-marinho: #07142c;
+    --color-home-amarelo: #f2b632;
 
     /* Ícone do questionário na lista de editais: cinza sem categoria, âmbar sem perguntas, verde com perguntas
        (≥ 3:1 sobre o cartão). */
@@ -914,7 +917,7 @@ html.alto-contraste .home-escuro {
 }
 
 html.alto-contraste .home-curva,
-html.alto-contraste .slide-edital {
+html.alto-contraste .cartao-vitrine {
     border: 1px solid var(--color-hairline);
 }
 
@@ -943,6 +946,12 @@ html.alto-contraste .botao-claro {
     background-color: var(--color-acao);
     color: var(--color-sobre-acao);
     box-shadow: none;
+}
+
+/* O círculo amarelo do "Baixar edital" sumiria no botão amarelo: fica preto, com a seta amarela. */
+html.alto-contraste .cartao-vitrine-icone {
+    background-color: var(--color-sobre-acao);
+    color: var(--color-acao);
 }
 
 html.alto-contraste .iris {

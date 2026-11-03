@@ -17,9 +17,11 @@ const descricao = defineModel<string>({ required: true });
 
 const somenteLeitura = inject(SOMENTE_LEITURA, false);
 
-// O card mostra só as primeiras linhas; o mesmo tamanho que a IA recebe como meta (RedatorDaDescricao::TAMANHO_IDEAL).
-const TAMANHO_IDEAL = 300;
+// O que cabe inteiro nos cards; o servidor recusa mais que isso (Edital::TAMANHO_DO_RESUMO). Texto mais longo só chega
+// pela IA ou de antes do limite, e aí a equipe precisa encurtar.
+const TAMANHO_MAXIMO = 70;
 const tamanho = computed<number>(() => descricao.value.trim().length);
+const passouDoLimite = computed<boolean>(() => tamanho.value > TAMANHO_MAXIMO);
 
 // Caminho da rota retaguarda.editais.descricao-ia (o front não tem helper de rotas nomeadas).
 const URL_DESCRICAO = '/retaguarda/editais/descricao-ia';
@@ -75,7 +77,9 @@ const ajustar = async (): Promise<void> => {
             anterior.value = descricao.value;
             descricao.value = nova;
             emit('limparErro');
-            aviso.value = { mensagem: 'Descrição ajustada pela IA. Revise e salve o edital para gravá-la.', erro: false };
+            aviso.value = passouDoLimite.value
+                ? { mensagem: `A IA passou de ${TAMANHO_MAXIMO} caracteres. Encurte o texto antes de salvar o edital.`, erro: true }
+                : { mensagem: 'Descrição ajustada pela IA. Revise e salve o edital para gravá-la.', erro: false };
         }
     } catch {
         aviso.value = { mensagem: 'Sem conexão com o servidor. Verifique a internet e tente de novo.', erro: true };
@@ -105,7 +109,7 @@ const classeBotaoIa =
         id="resumo"
         rotulo="Descrição do card"
         :obrigatorio="obrigatorio"
-        ajuda="Aparece embaixo do título nos cards do portal (as primeiras linhas) e inteira no topo da página do edital. Obrigatória para publicar."
+        ajuda="Uma frase curta, que aparece embaixo do título nos cards do portal e no topo da página do edital. Obrigatória para publicar."
         :erro="erro"
     >
         <template v-if="!somenteLeitura" #acao>
@@ -121,14 +125,15 @@ const classeBotaoIa =
         </template>
 
         <template #default="{ descricao: idsDaDescricao, invalido }">
-            <!-- Cresce com o texto (sem rolagem interna) entre cinco e doze linhas. -->
+            <!-- Cresce com o texto (sem rolagem interna) a partir de duas linhas; só passa disso o texto acima do limite. -->
             <textarea
                 id="resumo"
                 v-model="descricao"
                 :required="obrigatorio"
+                :maxlength="TAMANHO_MAXIMO"
                 :disabled="ajustando"
                 :class="classeTexto"
-                class="min-h-[9.5rem] max-h-[22rem] field-sizing-content resize-y"
+                class="min-h-[5rem] max-h-[22rem] field-sizing-content resize-y"
                 :aria-invalid="invalido || undefined"
                 :aria-describedby="[idsDaDescricao, 'resumo-tamanho'].filter(Boolean).join(' ')"
                 @input="aoDigitar"
@@ -142,8 +147,8 @@ const classeBotaoIa =
                     <template v-if="aviso">{{ aviso.mensagem }}</template>
                     <button v-if="anterior !== null && !somenteLeitura" type="button" class="ml-1 font-semibold text-acao underline" @click="desfazer">Desfazer</button>
                 </p>
-                <p id="resumo-tamanho" class="shrink-0 text-[0.8125rem] tabular-nums" :class="tamanho > TAMANHO_IDEAL ? 'font-semibold text-aviso-texto' : 'text-tinta-suave'">
-                    {{ tamanho }} de até {{ TAMANHO_IDEAL }} caracteres<span v-if="tamanho > TAMANHO_IDEAL"> (o card corta o resto)</span>
+                <p id="resumo-tamanho" class="shrink-0 text-[0.8125rem] tabular-nums" :class="passouDoLimite ? 'font-semibold text-invalido-texto' : 'text-tinta-suave'">
+                    {{ tamanho }} de até {{ TAMANHO_MAXIMO }} caracteres<span v-if="passouDoLimite"> (encurte para salvar)</span>
                 </p>
             </div>
         </template>

@@ -493,6 +493,20 @@ class EditalEstruturaSalvarTest extends TestCase
         $this->assertTrue($edital->publicado);
     }
 
+    public function test_descricao_do_card_aceita_ate_o_que_cabe_nos_cards(): void
+    {
+        $rascunho = Edital::factory()->rascunho()->create(['resumo' => 'Antiga.']);
+        $limite = Edital::TAMANHO_DO_RESUMO;
+
+        $this->put("/retaguarda/editais/{$rascunho->slug}", ['resumo' => str_repeat('ã', $limite + 1)])
+            ->assertSessionHasErrors(['resumo' => "Use no máximo {$limite} caracteres."]);
+        $this->assertSame('Antiga.', $rascunho->refresh()->resumo);
+
+        // Conta caracteres, não bytes: acentuado no limite passa.
+        $this->put("/retaguarda/editais/{$rascunho->slug}", ['resumo' => str_repeat('ã', $limite)])->assertSessionHasNoErrors();
+        $this->assertSame(str_repeat('ã', $limite), $rascunho->refresh()->resumo);
+    }
+
     public function test_texto_acentuado_que_cabe_em_caracteres_mas_nao_em_bytes_e_recusado(): void
     {
         // 600 caracteres e 1200 bytes: passa no max:1000, estouraria o VARCHAR2(1000) em bytes.

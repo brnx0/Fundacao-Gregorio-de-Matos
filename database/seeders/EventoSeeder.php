@@ -43,13 +43,20 @@ class EventoSeeder extends Seeder
             $evento('Esqueça um Livro', 'Ação de leitura em pontos de ônibus e praças.', $proxima('08-09'), 'Salvador/BA', publicado: false),
         ];
 
-        // Pin do mapa dos locais com ponto definido (coordenadas do OpenStreetMap). Eventos em "Salvador/BA",
-        // em vários lugares ou em local que o mapa não conhece ficam sem pin, para não marcar o lugar errado.
+        // Pin do mapa de cada evento (coordenadas do OpenStreetMap). Evento em "Salvador/BA" ou em vários lugares
+        // ganha um ponto de referência; o Subúrbio 360 não está no mapa e fica no centro do bairro (Coutos).
         $localizacoes = [
             'vii-conferencia-municipal-de-cultura' => ['Praça Castro Alves, s/n, Centro, Salvador/BA', -12.9770006, -38.5147733],
             'capoeira-viva' => ['Ladeira da Barroquinha, Centro Histórico, Salvador/BA', -12.9773792, -38.5137469],
             'jornada-do-patrimonio-cultural' => ['Largo do Pelourinho, Centro Histórico, Salvador/BA', -12.9714690, -38.5083536],
             'dois-de-julho' => ['Saída no Largo da Lapinha, Salvador/BA', -12.9554615, -38.4999956],
+            'sacola-literaria' => ['Biblioteca Municipal Edgard Santos, Av. Porto dos Mastros, Ribeira, Salvador/BA', -12.9182087, -38.4994341],
+            'curto-circuito-das-artes' => ['Largo Tereza Batista, Pelourinho, Salvador/BA', -12.9732034, -38.5088593],
+            'kae-ere-ler-crianca' => ['Coutos, Subúrbio Ferroviário, Salvador/BA', -12.8502501, -38.4684780],
+            'mostra-escolas-criativas' => ['Casa do Benin, Pelourinho, Salvador/BA', -12.9706212, -38.5079576],
+            'circuito-reconectar' => ['Parque da Cidade, Pituba, Salvador/BA', -12.9999617, -38.4720876],
+            'festival-boca-de-brasa' => ['Mercado Municipal de Cajazeiras, Av. Engenheiro Raymundo Carlos Nery, Cajazeiras X, Salvador/BA', -12.8962455, -38.4091768],
+            'esqueca-um-livro' => ['Praça da Piedade, Centro, Salvador/BA', -12.9831366, -38.5150430],
         ];
 
         foreach ($eventos as $dados) {
