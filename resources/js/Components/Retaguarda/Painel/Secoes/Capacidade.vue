@@ -36,7 +36,7 @@ const eventosPorMes = computed(() => props.dados.eventos.porMes.map((mes) => ({ 
                     </div>
                 </dl>
                 <p class="text-[0.75rem] text-tinta-suave">"Querem avaliar" e "Já avaliaram" vêm do cadastro das pessoas do portal: é o banco para chamar novos avaliadores.</p>
-                <Colunas :itens="dados.avaliadores.idades" legenda="Avaliadores ativos por faixa etária" />
+                <Colunas class="mt-auto" :itens="dados.avaliadores.idades" legenda="Avaliadores ativos por faixa etária" />
             </QuadroPainel>
 
             <QuadroPainel titulo="Eventos" descricao="Publicados no portal; por mês, de seis meses atrás a cinco meses à frente">
@@ -50,7 +50,7 @@ const eventosPorMes = computed(() => props.dados.eventos.porMes.map((mes) => ({ 
                         <dd class="text-[1.375rem] leading-tight font-bold text-home-tinta">{{ numero(item.valor) }}</dd>
                     </div>
                 </dl>
-                <Colunas :itens="eventosPorMes" legenda="Eventos publicados por mês" :destacar-maior="false" />
+                <Colunas class="mt-auto" :itens="eventosPorMes" legenda="Eventos publicados por mês" :destacar-maior="false" />
             </QuadroPainel>
         </div>
     </SecaoPainel>
