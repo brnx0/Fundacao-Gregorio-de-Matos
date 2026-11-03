@@ -55,7 +55,7 @@ class SalvarEditalRequest extends FormRequest
             'com_listas' => ['boolean'],
 
             'titulo' => ['required_if_accepted:publicado', 'nullable', 'string', 'max:255', new TamanhoEmBytes(255)],
-            'resumo' => ['required_if_accepted:publicado', 'nullable', 'string'],
+            'resumo' => ['required_if_accepted:publicado', 'nullable', 'string', 'max:'.Edital::TAMANHO_DO_RESUMO],
             'categoria' => ['required_if_accepted:publicado', 'nullable', 'string', 'max:255'],
             'numero' => ['nullable', 'string', 'max:30', new TamanhoEmBytes(30)],
             'tipo' => ['nullable', Rule::enum(TipoEdital::class)],

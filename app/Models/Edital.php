@@ -56,6 +56,12 @@ class Edital extends Model
     /** A imagem aparece em todas as vitrines do portal: sem ela o edital não é publicado. */
     public const string PENDENCIA_IMAGEM = 'Envie a imagem da vitrine.';
 
+    /**
+     * Limite da descrição do card (resumo): o que cabe inteiro nas três linhas do card da lista de editais e nas duas
+     * do card da vitrine da página inicial no computador. No carrossel do celular, o card corta a partir de ~55.
+     */
+    public const int TAMANHO_DO_RESUMO = 70;
+
     /** Parâmetros da lista da retaguarda na aba Publicados; sem eles, a lista abre em Não publicados. */
     public const array ABA_PUBLICADOS = ['publicado' => 'sim'];
 

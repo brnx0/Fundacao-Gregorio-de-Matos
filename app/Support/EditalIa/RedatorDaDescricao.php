@@ -12,8 +12,8 @@ use App\Support\FalhaNaIa;
  */
 class RedatorDaDescricao
 {
-    /** O card mostra só as primeiras linhas; a IA mira neste tamanho. */
-    public const int TAMANHO_IDEAL = 300;
+    /** A IA mira abaixo do limite do campo (Edital::TAMANHO_DO_RESUMO): ela costuma passar um pouco do pedido. */
+    public const int TAMANHO_IDEAL = 60;
 
     /** Corte de segurança, caso a IA passe muito do pedido. */
     public const int TAMANHO_MAXIMO = 600;
@@ -34,7 +34,7 @@ class RedatorDaDescricao
         Ajuste o texto atual da descrição (ou escreva um, se não houver) a partir dos dados do edital abaixo.
 
         Regras:
-        - Escreva em português, em 2 ou 3 frases e no máximo %d caracteres.
+        - Escreva em português, em uma frase curta de no máximo %d caracteres, contando os espaços.
         - Comece pelo que o edital oferece ou seleciona e diga a quem se destina, numa linguagem clara, direta e convidativa para artistas e agentes culturais.
         - Não repita o título nem o número do edital, e não use listas, emojis ou aspas.
         - Não invente valores, datas, prazos, vagas ou exigências que o texto atual e os dados não tragam.
